@@ -1,0 +1,99 @@
+/// put module documentation here
+
+module org.yeb.mvc.formSpec;
+
+import org.springframework.mock.web:MockServletContext, MockHttpServletRequest, MockHttpServletResponse, MockFilterChain;
+
+load org.yeb.yebspec;
+load org.yeb.std;
+load org.yeb.validation;
+load org.yeb.mvc.handler;
+load org.yeb.mvc.form;
+
+specificationsFor "org.yeb.mvc.form" \(
+
+    describe "createForm with fields" \(
+
+        should "have the field prefix" \(
+            form = createForm "fp-";
+            assertEquals "fp-" form.fieldPrefix;
+        );
+        should "have empty errors etc" \(
+            form = createForm "fp-";
+            assertEmpty form.fields;
+            assertEmpty form.errors;
+            assertEmpty form.formErrors;
+            assertFalse form.formErrors?;
+        );
+
+    );
+
+    specification "general field" \(
+        shouldWF n fn = should n \(
+            form = createForm "fp-";
+            f = createField 2 10 form "f1" (strToNum |>> valiNum 0 15) string;
+            fn {form, f};
+        );
+
+        shouldWF "be added to form" do {form}:
+            assertEquals 1 (length form.fields);
+        done;
+
+        shouldWF "have prefixed name and right name" do {f}:
+            assertEquals "fp-f1" f.name;
+            assertEquals "f1" f.unprefixedName;
+        done;
+
+        shouldWF "be empty initially" do {f}:
+            assertEmpty f.values;
+            assertEmpty f.displayStrings;
+            assertEmpty f.errors;
+        done;
+
+        shouldWF "set values and update display strings" do {f}:
+            vs = [2,3,4];
+            f.values := vs;
+            assertEquals (map string vs) f.displayStrings;
+            assertEquals vs f.values;
+
+        done;
+
+        describe "read value" \(
+            shouldWF "take right value" do {form,f}:
+
+                form.read (mockCtxt [Params ["fp-f1":["5","10"]]]);
+                assertEmpty f.errors;
+                assertEquals f.values [5,10];
+                assertEquals f.displayStrings ["5","10"];
+            done;
+
+            shouldWF "have errors if wrong value" do {form,f}:
+                form.read (mockCtxt [Params ["fp-f1":["false","5","10"]]]);
+                assertEquals ["false","5","10"] f.displayStrings;
+                assertNotEmpty f.errors;
+                assertEmpty f.values;
+            done;
+
+            shouldWF "have errros if too few args" do {form,f} :
+                form.read (mockCtxt [Param ["fp-f1":"5"]]);
+                assertEquals ["5"] f.displayStrings;
+                assertNotEmpty f.errors;
+                assertEmpty f.values;
+            done;
+
+            shouldWF "have errros if too many args" do {form,f} :
+                args = [1..100];
+                form.read (mockCtxt [Params ["fp-f1":map string args]]);
+                assertNotEmpty f.errors;
+                assertEmpty f.values;
+                assertEquals (map string args) f.displayStrings;
+            done;
+            
+        );
+
+    );
+
+
+
+)
+

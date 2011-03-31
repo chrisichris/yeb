@@ -1,0 +1,14 @@
+/// put module documentation here
+
+module org.yeb.mvc.viewSpec;
+
+load org.yeb.yebspec;
+load org.yeb.std;
+load org.yeb.mvc.handler;
+load org.yeb.mvc.view;
+
+specificationsFor "org.yeb.mvc.view" \(
+
+
+)
+

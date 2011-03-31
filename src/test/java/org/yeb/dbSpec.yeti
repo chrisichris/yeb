@@ -1,0 +1,406 @@
+/// put module documentation here
+
+module org.yeb.dbSpec;
+
+import java.lang:Thread;
+import java.sql.Connection;
+import org.springframework.jdbc.datasource.embedded:EmbeddedDatabaseBuilder;
+import org.mockito:Mockito;
+
+load org.yeb.yebspec;
+load org.yeb.db;
+load org.yeb.std;
+
+withDS code = (
+    builder = new EmbeddedDatabaseBuilder();
+    ds = builder#addScript("test-schema.sql")#build();
+    d = defineDataSource "hsql-test" ds;
+    try code d finally ds#shutdown() yrt;
+);
+
+
+
+specificationsFor "org.yeb.db"\(
+
+    describe "fresh defined datasource" \(
+
+        should "define a datasource for our test-schema" \(
+            withDS do ds: assertDefined ds done;
+        );
+
+        should "have a datasource with everything defined" \(
+            withDS do ds:
+                assertDefined ds.dataSource;
+                assertDefined ds.logger;
+                //assertDefined ds.connectionAdapter;
+                //assertDefined ds.statementAdapter;
+                assertDefined ds.handleWarnings;
+            done;
+        );
+
+        should "have no connection" \(
+            withDS do ds:
+                assertNone (someConnection ds);
+                assertFalse (connection? ds);
+                assertExceptionIs (new Exception("")) \(connection ds);
+            done;
+        );
+
+        should "have no transaction" \(
+            withDS do ds:
+                assertFalse (rollbackOnly? ds);
+                assertFalse (transaction? ds);
+                assertFailWith \(rollbackOnly ds);
+                tryRollbackOnly ds;
+            done;
+        );
+
+
+    );
+
+    describe "withConnection" \(
+
+        should "have a connection" \(
+           withDS do ds:
+             withConnection ds \(
+                assertSome (someConnection ds);
+                assertTrue (connection? ds);
+                assertDefined (connection ds);
+             );
+           done;
+        );
+
+        should "have no connection afterwards" \(
+           withDS do ds:
+                assertNone (someConnection ds);
+                assertFalse (connection? ds);
+                assertExceptionIs (new Exception("")) \(connection ds);
+                withConnection ds \(
+                    assertSome (someConnection ds);
+                );
+                assertNone (someConnection ds);
+                assertFalse (connection? ds);
+                assertExceptionIs (new Exception("")) \(connection ds);
+           done;
+        );
+
+        should "close the connection afterwards" \(
+           withDS do ds:
+                con = withConnection ds \(
+                    c = connection ds;
+                    assertFalse c#isClosed();
+                    c;
+                );
+                assertTrue con#isClosed();
+           done;
+        );
+
+        should "not open a new connection when one is alread open" \(
+           withDS do ds:
+                withConnection ds \(
+                    c = connection ds;
+                    c2 = withConnection ds \(connection ds);
+                    assertSame c c2;
+                );
+           done;
+        );
+    );
+
+    describe "withTransaction" \(
+
+        should "have a transaction and close it" \(
+           withDS do ds:
+             withConnection ds \(
+                assertFalse (transaction? ds);
+                withTransaction ds \(
+                    assertTrue (transaction? ds);
+                );
+                assertFalse (transaction? ds);
+             );
+           done;
+        );
+
+        should "use same connection as parent" \(
+           withDS do ds:
+             withConnection ds \(
+                c = connection ds;
+                withTransaction ds \(
+                    assertSame c (connection ds);
+                );
+             );
+           done;
+        );
+
+        should "open connection when none is open" \(
+            withDS do ds:
+                assertFalse (connection? ds);
+                withTransaction ds \(
+                    assertTrue (connection? ds);
+                );
+            done;
+        );
+
+        should "reuse connection in nested transaction" \(
+            withDS do ds:
+                assertFalse (connection? ds);
+                withTransaction ds \(
+                    c = connection ds;
+                    withTransaction ds \(
+                        assertSame c (connection ds);
+                    );
+                );
+            done;
+        );
+
+        should "use same transaction in nested transaction" \(
+            withDS do ds: withConnection ds \(
+                c = connection ds;
+                c#setAutoCommit(true);
+                assertFalse (transaction? ds);
+
+                withTransaction ds \( 
+                    assertSame c (connection ds);
+                    assertFalse c#getAutoCommit();
+                    assertTrue (transaction? ds);
+
+                    withTransaction ds \(
+                        assertSame c (connection ds);
+                        assertFalse c#getAutoCommit();
+                        assertTrue (transaction? ds);
+                    );
+                    assertTrue (transaction? ds);
+                    assertFalse c#getAutoCommit();
+                );
+                assertTrue c#getAutoCommit();
+                assertFalse (transaction? ds);
+            ) done;
+        );
+
+        should "commit just once" \( 
+            withDS do ds:
+                //we fake now a bit a mock connection in
+                cm = Mockito#mock(loadClass "java.sql.Connection") unsafely_as ~java.sql.Connection;
+                ds.connectionTL.value := Some cm;
+                assertSame cm (connection ds);
+
+                withTransaction ds \(
+                    assertSame cm (connection ds);
+
+                    //assert that there is no interaction with connection in sub trans
+                    cm2 = Mockito#mock(loadClass "java.sql.Connection") unsafely_as ~java.sql.Connection;
+                    ds.connectionTL.value := Some cm2;
+
+                    withTransaction ds \(
+                        assertSame cm2 (connection ds);
+                    );
+                    //nothing must have happened
+                    Mockito#verifyZeroInteractions([cm2~]);
+                    //reset the conncetion
+                    ds.connectionTL.value := Some cm;
+                    assertSame cm (connection ds);
+                );
+                assertSame cm (connection ds);
+
+                ( Mockito#verify(cm,Mockito#times(1)) unsafely_as ~Connection)#commit();
+                ( Mockito#verify(cm,Mockito#never()) unsafely_as ~Connection)#rollback();
+            done;
+        );
+
+        should "rollback just once" \(
+            withDS do ds:
+                //we fake now a bit a mock connection in
+                cm = Mockito#mock(loadClass "java.sql.Connection") unsafely_as ~Connection;
+                ds.connectionTL.value := Some cm;
+                assertSame cm (connection ds);
+
+                withTransaction ds \(
+                    assertSame cm (connection ds);
+
+                    //assert that there is no interaction with connection in sub trans
+                    cm2 = Mockito#mock(loadClass "java.sql.Connection") unsafely_as ~Connection;
+                    ds.connectionTL.value := Some cm2;
+
+                    withTransaction ds \(
+                        assertSame cm2 (connection ds);
+                        rollbackOnly ds;
+                    );
+                    //nothing must have happened
+                    Mockito#verifyZeroInteractions([cm2~]);
+                    //reset the conncetion
+                    ds.connectionTL.value := Some cm;
+                    assertSame cm (connection ds);
+                );
+                assertSame cm (connection ds);
+
+                ( Mockito#verify(cm,Mockito#never()) unsafely_as ~Connection)#commit();
+                ( Mockito#verify(cm,Mockito#times(1)) unsafely_as ~Connection)#rollback();
+            done;
+        );
+
+        should "rollback on Exception" \(
+            withDS do ds:
+                //we fake now a bit a mock connection in
+                cm = Mockito#mock(loadClass "java.sql.Connection") unsafely_as ~Connection;
+                ds.connectionTL.value := Some cm;
+                assertSame cm (connection ds);
+
+                cm2 = Mockito#mock(loadClass "java.sql.Connection") unsafely_as ~Connection;
+
+                assertFailWith \(
+                    withTransaction ds \(
+                        assertSame cm (connection ds);
+
+                        //assert that there is no interaction with connection in sub trans
+                        ds.connectionTL.value := Some cm2;
+                        try
+                            withTransaction ds \(
+                                assertSame cm2 (connection ds);
+                                failWith "just to trigger rollback";
+                            );
+                        finally
+                            //reset the conncetion
+                            ds.connectionTL.value := Some cm;
+                        yrt;
+                    );
+                );
+                //nothing must have happened to inner connection
+                Mockito#verifyZeroInteractions([cm2~]);
+
+                //connection must be reset
+                assertSame cm (connection ds);
+
+                ( Mockito#verify(cm,Mockito#never()) unsafely_as ~Connection)#commit();
+                ( Mockito#verify(cm,Mockito#times(1)) unsafely_as ~Connection)#rollback();
+            done;
+        );
+
+    );
+
+    describe "select a list" \(
+        should "normal select by name" \(
+            withDS do ds:
+                sqlList ds "select USER_ID, USER_NAME from users" [] {user_id=1,user_name="name"};
+            done;
+        );
+        should "normal select by number" \(
+            withDS do ds:
+                sqlList ds "select USER_ID, USER_NAME from users" [] {_1=1,_2="name"};
+            done;
+        );
+        should "normal select by name with as" \(
+            withDS do ds:
+                sqlList ds "select USER_ID as id , USER_NAME as name from users" [] {id=1,name="name"};
+            done;
+        );
+        should "fail when name does not macht" \(
+            withDS do ds:
+                assertException \(
+                    _ = sqlList ds "select USER_ID as id , USER_NAME as name from users" [] {id=1,wrong_name="name"};
+                );
+            done;
+        );
+
+        should "select with camel case" \(
+            withDS do ds:
+                _ = sqlList ds "select USER_ID , USER_NAME from users" [] {userId=1,userName="name"};
+            done;
+        );
+
+        should "select one user" \(
+            withDS do ds:
+                ls = sqlList ds "select USER_ID , USER_NAME from users WHERE USER_ID = ? AND USER_NAME = ? "
+                        [1~,"admin"~] {userId=1,userName="name"};
+                assertEquals 1 (length ls);
+            done;
+
+        );
+
+        should "select one user in list with just struct" \(
+            withDS do ds:
+                ls = sqlSelectList ds {userName="name", password="pwd"} "FROM users WHERE USER_ID = ?" [1~] ;
+                assertEquals 1 (length ls);
+                u = head ls;
+                assertEquals u.userName "admin";
+                assertEquals u.password "password";
+            done;
+        );
+
+        should "select one user in Some with just struct" \(
+            withDS do ds:
+                o = sqlSelectSome ds {userName="name", password="pwd"} "FROM users WHERE USER_ID = ?" [1~] ;
+                case o of
+                    None _ : assertFalse true;
+                    Some u : (
+                        assertEquals u.userName "admin";
+                        assertEquals u.password "password";
+                    );
+                esac;
+            done;
+        );
+
+        should "get one user in Some with just struct" \(
+            withDS do ds:
+                o = sqlGet ds "users" {userId = 1,userName="name", password="pwd"} ;
+                case o of
+                    None _ : assertFalse true;
+                    Some u : (
+                        assertEquals u.userName "admin";
+                        assertEquals u.password "password";
+                    );
+                esac;
+            done;
+        );
+    );
+
+    describe "insert/update" \(
+        should "insert one db value" \(
+            withDS do ds:
+                u = {userId = 4, userName="chrisi", password="foo"};
+                _ = sqlInsert ds "users" u;
+                r = sqlSome ds "select USER_ID , USER_NAME, PASSWORD from users WHERE USER_ID = ? "
+                        [4~] {userId=1,userName="name",password="x"};
+                assertSomeEquals u r;
+            done;
+        );
+
+        should "update one db value where" \(
+            withDS do ds:
+                u = {password="foo"};
+                _ = sqlUpdateWhere ds "users" u "WHERE USER_ID=?" [1~];
+                r = sqlSome ds "select PASSWORD from users WHERE USER_ID = ? "
+                        [1~] {password="x"};
+                assertSomeEquals u r;
+            done;
+        );
+
+        should "update one db value with struct" \(
+            withDS do ds:
+                u = {userId=1,password="foo"};
+                _ = sqlUpdateStruct ds "users" u;
+                r = sqlSome ds "select USER_ID, PASSWORD from users WHERE USER_ID = ? "
+                        [1~] {password="x"};
+                assertSomeEquals u r;
+            done;
+        );
+    );
+
+    describe "camelCaseToUnderline" \(
+        should "make normal camel case to underline" \(
+            assertEquals "some_foo_customer" YebUtils#camelCaseToUnderline("someFooCustomer");
+        );
+
+        should "underline first character if uppercase" \(
+            assertEquals "_some_foo_customer" YebUtils#camelCaseToUnderline("SomeFooCustomer");
+        );
+
+        should "underline muitiple uppercase also at end but not in between" \(
+            assertEquals "java_sql_exception" YebUtils#camelCaseToUnderline("javaSQLException");
+        );
+
+        should "not touch normal underline" \(
+            assertEquals "java_sql_exception" YebUtils#camelCaseToUnderline("java_sql_exception");
+        );
+
+    );
+)
+

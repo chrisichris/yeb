@@ -1,0 +1,173 @@
+/*
+ * Copyright 2011 Christian Essl
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions
+ * and limitations under the License.
+ */
+
+module org.yeb.validation;
+
+import java.lang:String,IllegalArgumentException;
+import java.util.regex:Pattern;
+import yeti.lang: Fun;
+import java.text:NumberFormat, DecimalFormat, DateFormat, SimpleDateFormat;
+import java.util: Locale, Date, List,ArrayList, Collections;
+import java.net: URLEncoder, URLDecoder;
+
+load org.yeb.std; 
+
+
+valiCheck fun value =
+    if fun value then
+        value;
+    else
+        throw new ValidationException(message "wrong_value" "wrong vaue %1$s" [obj value], value);
+    fi;
+
+valiMsg fun value = 
+    case fun value of
+        None _ : value;
+        Some msg : (
+            mg is ~Message = msg;
+            throw new ValidationException(mg,value));
+    esac;
+
+valiListLength min max listIn is number -> number -> list<'a> -> list<'a>= (
+    l = length listIn;
+    if l < min then
+        throw new ValidationException(message "listtooshort" "list length must be minimal %1$s but is %2$s" [obj length, obj min], listIn);
+    elif (max > -1) and (l > max) then
+        throw new ValidationException(message "listtoolong" "list length must be maximal %1$s but is %2$s" [obj length, obj min], listIn);
+    else
+        listIn
+    fi
+);
+
+
+
+valiList vali listIn  = 
+    filter (maybeValid \false \true vali) listIn;
+
+
+valiString min max str = (
+    l = strLength str;
+    if l < min then
+        throw new ValidationException(message "stringtooshort" "string length must be minimal %1$s but is %2$s" [obj l, obj min], str);
+    elif l > max then
+        throw new ValidationException(message "stringtoolong" "list length must be maximal %1$s but is %2$s" [obj l, obj max], str);
+    else
+        str
+    fi);
+
+valiRegex regexPattern str =
+    if str =~ regexPattern then
+      str
+    else
+        throw new ValidationException(message "stringpattern" "string %1$s does not match pattern %2$s" [obj str, obj regexPattern], str );
+    fi;
+
+
+valiNum min max num =
+    if num < min then
+        throw new ValidationException(message "numtoolow" "number must be minimal %1$s but is %2$s" [obj min, obj num],  num );
+    elif (max > -1) and (num > max) then
+        throw new ValidationException(message "numtoohigh" "number must be maximal %1$s but is %2$s" [obj max, obj num], num);
+    else 
+        num
+    fi;
+
+strToNum str =
+    try
+        number str
+    catch java.lang.Exception ex:
+        throw new ValidationException(message "nonum" "%1$s is nonumber" [obj str], str);
+    yrt;
+
+numberFormat formatOpt =
+    case formatOpt of
+        Format f: f;
+        Pattern s: (
+             f=NumberFormat#getInstance();
+             if f instanceof DecimalFormat then
+                df = (f unsafely_as ~DecimalFormat);
+                df#applyPattern(s);
+             fi;
+             f);
+        PatternLoc {pattern,loc}: (
+             f=NumberFormat#getInstance(loc);
+             if f instanceof DecimalFormat then
+                df = (f unsafely_as ~DecimalFormat);
+                df#applyPattern(pattern);
+             fi;
+             f);
+        None (): NumberFormat#getInstance();
+    esac;
+
+strFormatedToNum formatOpt str is 'a -> string -> number=
+    try
+        format = numberFormat formatOpt;
+        format#parse(str)#doubleValue()
+    catch Exception e:
+        throw new ValidationException(message "nonum" "%1$s is no number" [obj str], str );
+    yrt;
+
+numToFormatedStr formatOpt num =
+    (numberFormat formatOpt)#format(num);
+
+strNumberToDate str =
+      try
+          new Date(number str)
+      catch java.lang.Exception ex:
+          throw new ValidationException(message "nonum" "%1$s is no number" [obj str], str);
+      yrt;
+
+dateToNumberStr date is ~Date -> string = string date#getTime();
+
+dateFormat formatOpt = 
+     case formatOpt of
+        Format f: f;
+        Pattern s: (new SimpleDateFormat(s)) as ~DateFormat; 
+        PatternLoc {pattern,loc}:
+           (new SimpleDateFormat(pattern as ~java.lang.String,(loc as ~Locale))) as ~DateFormat;
+        None _ : DateFormat#getDateInstance();
+     esac;
+     
+strFormatedToDate formatOpt str =
+    try
+         (dateFormat formatOpt)#parse(str); 
+    catch Exception e:
+          throw new ValidationException(message "nodate" "%1$s is no date" [obj str], str);
+    yrt;
+
+dateToFormatedStr formatOpt date = 
+    (dateFormat formatOpt)#format(date);
+
+
+
+strToBoolean str is string -> boolean=
+    if str == "true" then true else false fi;
+
+
+{
+
+
+valiListLength, valiList,
+
+valiString,valiRegex, valiNum,
+
+valiCheck, valiMsg,
+
+strToNum, numberFormat, strFormatedToNum,numToFormatedStr,
+strNumberToDate, dateToNumberStr, dateFormat, strFormatedToDate, dateToFormatedStr,
+strToBoolean
+
+}

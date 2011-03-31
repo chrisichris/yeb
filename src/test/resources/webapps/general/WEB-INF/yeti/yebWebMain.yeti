@@ -1,0 +1,12 @@
+/// put module documentation here
+
+module yebWebMain;
+
+load org.yeb.mvc.handler;
+config = load org.yeb.mvc.config;
+
+{
+    init _ = (config.staticPrefix := "initTest"),
+    destroy _ = (),
+    handler = \(config.staticPrefix := "called"; skipResult)
+}

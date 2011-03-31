@@ -1,0 +1,76 @@
+/// put module documentation here
+
+module org.yeb.jsonSpec;
+
+load org.yeb.yebspec;
+
+load org.yeb.json;
+
+specificationsFor "org.yeb.json"\(
+
+    describe "make a json string" \(
+        should "transfer a struct to json string and return the value again" \(
+            customer = {name="John", age=3, items=[1,2,3]};
+            str = toJSONString customer;
+            wr = jsonMap (stringParser str);
+            assertEquals (jsStr "name" wr) "John";
+            assertEquals (jsNum "age" wr) 3;
+            //foo;
+            r = jsList unpeekNum "items" wr;
+            //head r;
+            assertEquals r [1,2,3];
+        )
+    );
+
+    describe "to yeti conversation" \(
+        customer = {name="John",
+                    age=23,
+                    price=3.2,
+                    male=true,
+                    items = [1 .. 20],
+                    names = ["chris":1,"paul":2,"elis":3],
+                    father={name="Paul",age=40},
+                    children= map do c : {name="child\(c)",age=c} done [1 .. 5],
+                   };
+        str = toJSONString customer;
+        jmap = jsonMap (stringParser str);
+
+        should "unpeek a string" \(
+            assertEquals "John" (jsStr "name" jmap);
+        );
+
+        should "unpeek a int" \(
+            assertEquals 23 (jsNum "age" jmap);
+        );
+
+        should "unpeek a double" \(
+            assertEquals 3.2 (jsNum "price" jmap);
+        );
+
+        should "unpeek a boolean" \(
+            assertEquals true (jsBool "male" jmap);
+        ); 
+
+
+        should "unpeek a struct" \(
+            r = (jsStru do m2: {name=jsStr "name" m2, age=jsNum "age" m2} done "father" jmap);
+            assertEquals {name="Paul",age=40} r;
+        );
+
+        should "unpeek a list" \(
+            assertEquals [1 .. 20] (jsList unpeekNum "items" jmap);
+        );
+
+        should "unpeek a hash" \(
+            assertEquals ["chris":1,"paul":2,"elis":3] (jsHash unpeekStr unpeekNum "names" jmap);
+        );
+
+        should "unpeek a list of structs"  \(
+            mapF m2 = {name = jsStr "name" m2, age=jsNum "age" m2};
+            uL = unpeekList (unpeekStru mapF);
+            jsTake uL "children" jmap;
+        ); 
+    );
+
+)
+

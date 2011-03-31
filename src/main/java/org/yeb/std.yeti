@@ -1,0 +1,279 @@
+/*
+ * Copyright 2011 Christian Essl
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions
+ * and limitations under the License.
+ */
+
+module org.yeb.std;
+
+import org.yeb.TMap;
+import org.slf4j: Logger, LoggerFactory;
+import java.util: Iterator,List,ListIterator;
+import java.io: File;
+import java.lang: Thread, ClassLoader, StringBuilder;
+import yeti.lang.Struct;
+
+
+
+message key defaultFormat values is string -> string -> list<~Object> -> ~Message =
+    new Message(key, defaultFormat, array values);
+
+plainMessage text = message "" text [];
+
+
+maybeValid notValidF validF validator value =
+    try
+        r = validator value;
+        validF r;
+    catch MessageException ex:
+        notValidF ex;
+    yrt;
+
+
+
+stringWriter () = (
+    stB = new StringBuilder();
+    {
+        write str = (stB#append("\(str)");()),
+        text () = string stB#toString(),
+    }
+);
+
+objectMaybeNum o is ~Object -> ( None () | Some number ) = (
+   import java.lang: Double, Float,Number;
+   import java.math: BigInteger, BigDecimal;
+   import yeti.lang:Num,BigNum,IntNum,FloatNum;
+   o2 = if (o instanceof Double) or
+             (o instanceof Float) or
+             (o instanceof BigDecimal)
+             then
+                nu = o unsafely_as ~Number;
+                new FloatNum(nu#doubleValue());
+        elif o instanceof BigInteger then
+            nu = o unsafely_as ~BigInteger;
+            new BigNum(nu);
+        elif o instanceof Number then
+            nu = o unsafely_as ~Number;
+            new IntNum(nu#longValue());
+        else o
+        fi;
+   if o2 instanceof Num then Some (o2 unsafely_as number) else none fi;
+);
+
+withThreadLocal threadLocal newValue ac = (
+    oldV = threadLocal.value;
+    threadLocal.value := newValue;
+    try
+        ac ();
+    finally
+        threadLocal.value := oldV;
+    yrt
+);
+
+
+
+toCallable f = (
+    class RunCallable extends java.lang.Runnable, java.util.concurrent.Callable
+        void run()
+            x = f ();
+            (),
+        Object call()
+            r = f();
+            r unsafely_as ~Object,
+    end;
+    new RunCallable();
+); 
+
+getLogger name is string -> ~Logger = LoggerFactory#getLogger(name);
+
+
+andThenEither f g is ('a-> (Left 'm | Right 'b)) -> ('b-> (Left 'm | Right 'c)) ->  ('a-> (Left 'm | Right 'c)) =
+    do a:
+        case f a of
+          Left m: Left m;
+          Right b:
+            g b;
+        esac
+    done;
+
+
+maybeHead noHead headF li =
+    if empty? li then noHead else headF (head li) fi;
+
+maybeAt noValue valueF k hs =
+    if k in hs then valueF (hs.[k]) else noValue fi;
+
+listStarts? start l =
+    if empty? start then
+        true
+    elif empty? l then
+        false
+    elif (head start) != (head l) then
+        false
+    else
+        listStarts? (tail start) (tail l)
+    fi;
+
+maybeRight leftF rightF leftOrRight =
+    case leftOrRight of
+      Left v: leftF v;
+      Right x: rightF x;
+    esac;
+
+lazyMaybe default fun opt =
+    case opt of
+        None _: default ();
+        Some v: fun v;
+    esac;
+
+some v is 'a -> (Some 'a | None () )= Some v;
+
+loadClass name =
+    Thread#currentThread()#getContextClassLoader()#loadClass(name);
+
+
+require cond msg =
+  if not cond then
+    throw new java.lang.IllegalArgumentException("\(msg)");
+  fi;
+
+ensure cond msg =
+  if not cond then
+    throw new java.lang.IllegalStateException("\(msg)");
+  fi;
+
+
+//+++++++++++++++++++++++table things ++++++++++++++++++++++++++++++++
+
+typedef tableType<k,v> = {
+   .add is k -> v -> tableType,
+   .remove is k -> tableType,
+   .valAt is k -> (None() | Some(v)),
+   .count is number,
+   .seq is () -> list<{key is k, value is v}>,
+   .getDefault is 'k -> 'v -> 'v,
+}
+
+addAll table ha is tableType<'k,'v> -> hash<'k,'v> -> tableType<'k,'v>= (
+    var t = table;
+    forHash ha do k v: t := (t.add k v) done;
+    t
+);
+
+
+create hash is hash<'k, 'v> -> tableType<'k,'v> = (
+
+    newTable pm is ~TMap -> tableType<'k,'v>  = (
+        {
+          add k v is 'k -> 'v -> tableType<'k,'v> = newTable (pm#update(k,v)),
+
+          remove k is 'k -> tableType<'k,'v> = newTable (pm#remove(k)),
+
+          valAt k is 'k -> (None() | Some 'v) = (
+            v = pm#get(k, TMap#NULL_VALUE);
+            if same? v TMap#NULL_VALUE then None() else Some (v unsafely_as 'v)  fi
+          ),
+
+          getDefault key defaultV is 'k -> 'v -> 'v = (
+            vr = pm#get(key,defaultV);
+            vr unsafely_as 'v
+          ),
+
+
+          count is number= pm#size(),
+
+          seq ()  = (
+            r = pm#keyValueList();
+            r unsafely_as list<{key is 'k ,value is 'v}>;
+          ),
+        } //unsafely_as tableType<'k,'v>
+    );
+    t = newTable TMap#EMPTY;
+    if empty? hash then
+        t;
+    else 
+       addAll t hash
+    fi
+);
+
+
+
+
+{
+    ($) x y = x y,
+    (|>) x y = y x, // (|> F# style) pipeForward
+    (|>>) f g = composeToRight f g,
+
+    (~) x is 'a -> ~Object = x as ~Object,
+    (~-) x is ~Object -> 'a = x unsafely_as 'a,
+    (~*) x is 'a -> 'b = x unsafely_as 'b,
+
+    message,
+    plainMessage,
+    maybeValid,
+
+    getLogger,
+    composeToRight x y a = y (x a),
+    andThenEither,
+    maybeHead,
+    maybeAt,
+    maybeRight,
+    lazyMaybe,
+
+    some,
+
+    withThreadLocal,
+
+    loadClass,
+
+    require,
+    ensure,
+    listStarts?,
+    toCallable,
+
+    objectMaybeNum,
+    obj a = a as ~Object,
+
+    stringWriter,
+
+    randomList () = (
+        import java.util.Random;
+        ran = new Random();
+        f () = ran#nextFloat()  :. f;
+        f();
+    ),
+
+    forEach fun ls = for ls fun,
+
+
+    tableCreate = create,
+    tableAddAll = addAll,
+    tableRemoveAll table keys =
+        fold do t k: tableRemove t k done table keys,
+
+    tableAdd table k v is tableType<'k,'v> -> 'k -> 'v -> tableType<'k,'v>=
+        table.add k v,
+
+    tableRemove table k is tableType<'k,'v> -> 'k -> tableType<'k,'v> =
+        table.remove k,
+
+    tableAt table k is tableType<'k,'v> -> 'k -> (None() | Some('v)) =
+        table.valAt k,
+
+    tableLength table is tableType<'k,'v> -> number =
+        table.count,
+
+    tableKeyValues table is tableType<'k,'v> -> list<{key is 'k, value is 'v}> =
+        table.seq(),
+
+}

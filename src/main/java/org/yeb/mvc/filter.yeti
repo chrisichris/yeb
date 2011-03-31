@@ -1,0 +1,196 @@
+/*
+ * Copyright 2011 Christian Essl
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions
+ * and limitations under the License.
+ */
+
+module org.yeb.mvc.filter;
+
+import javax.servlet: ServletContext, Filter, FilterConfig, FilterChain, ServletRequest, ServletResponse, ServletException;
+import javax.servlet.http: HttpServletRequest, HttpServletResponse;
+import yeti.lang: Fun, Struct;
+import java.util.concurrent.ConcurrentHashMap;
+import java.io.File;
+import java.lang: Thread, System,ClassLoader,ClassNotFoundException;
+import org.yeticl: FileSourceReader, YetiClassLoader, YetiShellUtils;
+
+load org.yeb.std;
+
+//compile = load yeti.lang.compiler.yeb;
+
+log = getLogger "org.yeb.filter";
+
+mvc = load org.yeb.mvc.handler;
+configModule = load org.yeb.mvc.config;
+
+
+//helper to invoke with classloader
+typedef resultType = {status is number};
+
+typedef ctxtType = {servlet is {req is ~HttpServletRequest, res is ~HttpServletResponse, sctxt is ~ServletContext}};
+typedef handlerType = ctxtType -> resultType;
+
+
+typedef mainWebModuleType = {   init is ~FilterConfig -> (),
+                                destroy is () -> (),
+                                handler is handlerType,
+                            };
+
+
+findLastModifiedFile lastModified file is number -> ~File -> number = (
+   lm = file#lastModified();
+   if lm > lastModified then
+     lm
+   else
+     if file#isDirectory() then
+       fold findLastModifiedFile lastModified (array file#listFiles());
+     else
+       lastModified
+     fi
+   fi
+);
+
+withClassLoader cl f is ~ClassLoader -> (() -> 'a) -> 'a= (
+    oldCl = Thread#currentThread()#getContextClassLoader();
+    try
+        Thread#currentThread()#setContextClassLoader(cl);
+        f ();
+    finally
+        Thread#currentThread()#setContextClassLoader(oldCl);
+    yrt;
+);
+
+
+
+
+class YebFilterImpl extends javax.servlet.Filter
+
+    pathHelper = new org.springframework.web.util.UrlPathHelper(),
+    var yebDir = "src/main/yeti",
+
+    loadMutex = new Object(),
+    var filterConfig = () as ~FilterConfig,
+    var servletContext = () as ~ServletContext,
+
+    var mainWebModule is mainWebModuleType = { init _ = (), destroy _ = (), handler = \(mvc.goonResult)},
+    var mainWebModuleModified is number = -1,
+    var mainWebHandler is handlerType = \(mvc.goonResult),
+    var mainWebModuleClassLoader is ~ClassLoader = Thread#currentThread()#getContextClassLoader(),
+
+    loadWebModule cl is ~ClassLoader -> 'a = (
+        oldCl = mainWebModuleClassLoader;
+        mainWebModuleClassLoader := cl;
+
+        withClassLoader oldCl mainWebModule.destroy;
+        log#info("yebWebMain module destroyed");
+
+        log#info("loading yebWebMain module with classLoader \(cl)");
+        mainWebModule := (YetiShellUtils#moduleLoad(cl, "yebWebMain")) unsafely_as mainWebModuleType;
+
+        withClassLoader mainWebModuleClassLoader \(
+            mainWebModule.init filterConfig;
+            log#info("new mainModule initialized");
+            mainWebHandler := mainWebModule.handler;
+        );
+    ),
+
+    loadWebModuleFromSource _ =
+        synchronized loadMutex \(
+            //check the last modified.
+            clo = (
+                nmf = findLastModifiedFile mainWebModuleModified (new File(yebDir));
+                if nmf > mainWebModuleModified then
+                    mainWebModuleModified := nmf;
+                    fileSourceReader = new FileSourceReader(array [string yebDir]);
+                    log#debug("Reloading yeti-code in \(yebDir) directory");
+                    ycl = new YetiClassLoader(Thread#currentThread()#getContextClassLoader(), fileSourceReader);
+                    Some (ycl as ~ClassLoader);
+                else none
+                fi);
+
+
+            case clo of
+                Some cl: loadWebModule cl;
+                None _: ();
+            esac;
+            ()
+        ),
+
+
+   void init(FilterConfig fc)
+     filterConfig := fc;
+
+     if defined? fc#getInitParameter("yebDir") then
+        yebDir := string fc#getInitParameter("yebDir");
+     fi;
+     servletContext := fc#getServletContext();
+
+     if configModule.production? then
+        loadWebModule Thread#currentThread()#getContextClassLoader();
+     else
+        loadWebModuleFromSource ();
+     fi
+   ,
+
+
+   void destroy()
+        withClassLoader mainWebModuleClassLoader mainWebModule.destroy;
+        log#info("mainmodule destroyed");
+   ,
+
+    void doFilter(ServletRequest sreq, ServletResponse sres, FilterChain filterChain)
+        if (sreq instanceof HttpServletRequest) and (sres instanceof HttpServletResponse) then
+            req = sreq unsafely_as ~HttpServletRequest;
+            res = sres unsafely_as ~HttpServletResponse;
+
+            if not configModule.production? then
+                //relaod the mainmodule if necessery (this method checks for last modified
+                loadWebModuleFromSource ();
+            fi;
+
+            var cl = mainWebModuleClassLoader;
+            var handler = mainWebHandler;
+            if not configModule.production? then
+                synchronized loadMutex \(
+                    cl := mainWebModuleClassLoader;
+                    handler := mainWebHandler;
+                );
+            fi;
+
+            //invoke the mainhandler here but with the main class loader
+            //lookup the subhandlers
+            status = withClassLoader mainWebModuleClassLoader \(
+
+                pathInfo = (
+                      p = pathHelper#getPathWithinApplication(req);
+                      if strStarts? p "/" then strRight p 1 else p fi
+                );
+                ctxt = mvc.rootCtxt pathInfo servletContext req res;
+
+                log#debug("handling context for path: {}",pathInfo);
+                r = handler ctxt;
+                log#debug("handled context with status: {} for path: {}",r.status,pathInfo);
+                r.status
+            );
+            //depending on the result do further filter or skip
+            if status < 0 then
+                filterChain#doFilter(req,res);
+            else () fi;
+        else
+            filterChain#doFilter(sreq,sres)
+        fi;
+   
+
+end;
+
+1

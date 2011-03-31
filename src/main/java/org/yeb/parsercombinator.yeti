@@ -1,0 +1,200 @@
+/*
+ * Copyright 2011 Christian Essl
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions
+ * and limitations under the License.
+ */
+
+module org.yeb.parsercombinator;
+
+import java.util.regex.Pattern;
+
+load org.yeb.std;
+
+typedef parserResultType<t,v> = Left {msgs is list<~Message>, rest is list<t>} | Right {value is v, rest is list<t>};
+
+typedef parserType<t,v> = list<t> -> parserResultType<t,v>;
+
+typedef lazyParserType<t,v> = () -> parserType<t,v>;
+
+rightP value _ rest is 'b -> lazyParserType<'a,'b> =
+    Right {value, rest};
+
+leftP msgs _ rest is list<~Message> -> lazyParserType<'a,'b> =
+    Left{msgs,rest};
+
+elem f is ('a -> (Left list<~Message> | Right 'b) ) -> lazyParserType<'a,'b> = (
+    fun tokens =
+        if empty? tokens then
+            leftP [message "no-token" "No tokens left" []] () tokens;
+        else
+            case f (head tokens) of
+                Left l: leftP l () (tail tokens);
+                Right r: rightP r () (tail tokens);
+            esac;
+        fi;
+   \(fun);
+);
+
+(*&) p1f p2f _ tokens is lazyParserType<'a,'b> -> lazyParserType<'a,'c> -> lazyParserType <'a ,{fst is 'b, snd is 'c }> = (
+        r = (p1f ()) tokens;
+        case r of
+            Left x : Left x;
+            Right rr1: (
+                r2 = (p2f ()) rr1.rest;
+                case r2 of
+                    Left x : Left x;
+                    Right rr2:
+                        Right {value = {fst = rr1.value,snd = rr2.value},rest = rr2.rest};
+                        //rightP rr1.value rr2.rest;
+                esac;
+            );
+        esac;
+);
+
+(*|) p1f p2f _ tokens is lazyParserType<'a,'b> -> lazyParserType<'a,'b> -> lazyParserType <'a ,'b> = (
+    r = (p1f ()) tokens;
+    case r of
+        Left _ : (p2f ()) tokens;
+        Right _: r;
+    esac;
+);
+
+(*>) par f _ tokens is lazyParserType<'a,'b> -> ('b -> 'c) -> lazyParserType<'a,'c> = (
+    r = (par ()) tokens;
+    case r of
+        Left x : Left x;
+        Right {value,rest} : (
+            nr = f value;
+            Right {value = nr, rest});
+    esac;
+);
+
+(*&-) p1f p2f is lazyParserType<'a,'b> -> lazyParserType<'a,'c> -> lazyParserType <'a ,'b> =
+    (p1f *& p2f) *> do {fst,snd}:fst done;
+
+(-*&) p1f p2f is lazyParserType<'a,'b> -> lazyParserType<'a,'c> -> lazyParserType <'a ,'c> =
+    (p1f *& p2f) *> do {fst,snd}:snd done;
+
+rep min max p _ tokens is number -> number -> lazyParserType<'a,'b> -> lazyParserType<'a,list<'b>> = (
+    pf = p ();
+    rf res =
+        if empty? res.rest then
+            res
+        else
+            r = pf res.rest;
+            case r of
+                Left _ : res;
+                Right {value, rest}:
+                    rf {value = value :: res.value,rest};
+            esac;
+        fi;
+    rn = rf {value = [], rest = tokens};
+    l = length rn.value;
+    if l < min then
+        leftP [message "to_few_tokens" "to few tokens min [%1$s] actual: [%2$s]" [obj min, obj l] ] () tokens;
+    elif (max > -1) and (l > max) then
+        leftP [message "to_many_tokens" "to many tokens max [%1$s] actual: [%2$s]" [obj max, obj l] ] () tokens;
+    else
+        Right rn;
+    fi
+);
+
+zeroOrMore p = rep 0 (-1) p;
+oneOrMore p = rep 1 (-1) p;
+/*
+//mor elegant but not tail-recusive
+zeroOrMore p is lazyParserType<'a,'b> -> lazyParserType<'a,list<'b>> = (
+    j = (p *& (rep p)) *> do {fst,snd}: fst::snd done;
+    j *| (rightP []);
+);
+*/
+
+repsep p psep is lazyParserType<'a,'b> -> lazyParserType<'a,'c> -> lazyParserType<'a,list<'b>> = 
+    (p *& zeroOrMore (psep -*& p)) *> do {fst,snd}: fst :: snd done;
+
+opt p  is lazyParserType<'a,'b> -> lazyParserType<'a, (None () | Some 'b)> =
+    (p *> Some) *| (rightP none);
+
+(*~) regex is string -> lazyParserType<string,string> = (
+    pat = Pattern#compile(regex);
+    fun = elem do el:
+            eli is string = el;
+            if pat#matcher(eli~*)#matches() then
+                Right el
+            else
+                Left [message "no_regex" "pattern %1$s does not match intput %2$s" [obj regex, obj eli]];
+            fi
+        done;
+    fun;
+);
+
+(*~~) regex is string -> lazyParserType<string,string> = (
+    pattern = Pattern#compile(regex);
+    fun tokis = (
+        tokens is list<string> = tokis;
+        if empty? tokens then
+            leftP [message "no_token_left" "no token left" []] () tokens;
+        else
+            token = head tokens;
+            matcher = pattern#matcher(token unsafely_as ~java.lang.CharSequence);
+            if matcher#lookingAt() then
+                value = strLeft token (matcher#end());
+                if (strLength value) == (strLength token) then
+                    rightP value () (tail tokens);
+                else
+                    res = strRight token (matcher#end());
+                    rightP value () (res :: (tail tokens));
+                fi
+            else
+                leftP [message "no_regex" "token [%1$s] did not match regex: %2$s" [obj token, obj regex]] () tokens;
+            fi
+       fi;
+    );
+    \(fun);
+);
+
+
+
+__test_calc _ = {
+    numF _ = (('\d'*~~) *> Num) (),
+    //numF2 _ = (numF *> do s: s done) (),
+
+    addF _ = ((expF *&- ('+'*~~)) *> Add) (),
+    multiF _ = ((expF *&- ('*'*~~)) *> Multi) (),
+    expF _ = (addF *| multiF *| numF) (),
+    expsF _ = zeroOrMore expF (),
+
+};
+
+{
+
+    rightP,
+    leftP,
+    elem,
+    (*&),
+    (*|),
+    (*>),
+    (*&-),
+    (-*&),
+    rep,
+    zeroOrMore,
+    oneOrMore,
+    opt,
+    repsep,
+    (*~),
+    (*~~)
+
+    __tests _ = {
+        __test_calc,
+    }
+}

@@ -1,0 +1,194 @@
+/// put module documentation here
+
+module org.yeb.mvc.handlerSpec;
+
+import org.springframework.mock.web:MockServletContext, MockHttpServletRequest, MockHttpServletResponse, MockFilterChain;
+
+load org.yeb.std;
+load org.yeb.yebspec;
+
+load org.yeb.mvc.handler;
+
+load org.yeb.validation;
+
+specificationsFor "org.yeb.mvc.handler" \(
+
+    specification "of parameter access with thread local request" \(
+        ct = mockCtxt [Param ["foo":"2","str":"pstr"], Params ["faa":["1","2"], "mix":["name","2"]]];
+            describe "reqParams" \(
+                should "return a list with all" \(
+                    assertEquals ["1","2"] (params ct "faa");
+                );
+                should "return a list with one for one" \(
+                    assertEquals ["2"] (params ct "foo");
+                );
+                should "return a empty list with none" \(
+                    assertEquals [] (params ct "no-param");
+                );
+            );
+
+            describe "reqParam" \(
+                should "fail if no request" \(
+                    assertException \(param ct "no-param");
+                );
+                should "give one param" \(
+                    assertEquals "2" (param ct "foo");
+                );
+
+                should "give one param if many" \(
+                    assertEquals "1" (param ct "faa");
+                );
+
+            );
+    );
+
+    specification "of smale handleradapters" \(
+        describe "goon handler sould return gootnResult" \(
+                assertEquals goonResult (goonHandler (mockCtxt []));
+        );
+        describe "id handler should return same handerl" \(
+            assertSame goonHandler (idHandler goonHandler);
+        );
+        describe "if handler" \(
+            should "not execute subhandler if condidtion false" \(
+                var executed = false;
+                h = ifHandler \false
+                        \(executed := true; skipResult);
+                assertSame goonResult (h (mockCtxt []));
+                assertFalse executed;
+            );
+            should "execute subhandler if condition true" \(
+                var executed = false;
+                h = ifHandler \true  \(executed := true; skipResult);
+                assertSame skipResult (h (mockCtxt []));
+                assertTrue executed;
+            );
+        );
+        describe "toHandler" \(
+            should "set have the called context as thread local" \(
+                var called = false;
+                ctx = mockCtxt [];
+                handler = toHandler do c:
+                    called := true;
+                    assertSame ctx.req (request c);
+                    assertSame ctx.res (response c);
+                    assertSame ctx c;
+                done;
+                r = handler ctx;
+                assertTrue called;
+            );
+            should "return handledResult if no explicit return" \(
+                r = (toHandler \()) (mockCtxt []);
+                assertEquals r handledResult;
+            );
+            should "return result of handler which is seth on resultTH" \(
+                res = {status = 3};
+                r = (toHandler \(resultTH.value := res)) (mockCtxt []);
+                assertSame r res;
+            );
+
+        );
+
+        describe "runHandler" \(
+            var c = array [false,false,false,false];
+            resetC _ = c := array [false,false,false,false];
+            handlers = array [ \( c.[0] := true; goonResult),
+                            \( c.[1] := true; goonResult),
+                            \( c.[2] := true; goonResult),
+                            \( c.[3] := true; goonResult)];
+
+            should "continues run if goon" \(
+                r = runHandlers (list handlers) (mockCtxt []);
+                assertEquals goonResult r;
+                assertEquals [true,true,true,true] (list c);
+            );
+            should "continue until handled" \(
+                resetC ();
+                handlers.[2] := \(c.[2] := true; handledResult);
+                r = runHandlers (list handlers) (mockCtxt []);
+                assertEquals handledResult r;
+                assertEquals [true,true,true,false] (list c);
+            );
+
+            should "continue until skip" \(
+                resetC ();
+                handlers.[2] := \(c.[2] := true; skipResult);
+                r = runHandlers (list handlers) (mockCtxt []);
+                assertEquals skipResult r;
+                assertEquals [true,true,true,false] (list c);
+            );
+        );
+
+        describe "regexHandler" \(
+            should "match a regex and put parameters in request" \(
+                var p1 = -1;
+                var p2 = "";
+                rh = regexHandler '(\d+)/(.+)' (toHandler do c:
+                    p1 := param c "_1" |> strToNum;
+                    p2 := param c "_2";
+                done);
+                r = rh (mockCtxt [Get "23/foo"]);
+                assertEquals handledResult r;
+                assertEquals 23 p1;
+                assertEquals p2 "foo";
+
+            );
+
+            should "not call handler and return goonResult if no match" \(
+                var called = false;
+                rh = regexHandler 'index' (toHandler \(called := true));
+                assertEquals goonResult (rh (mockCtxt [Get "/"]));
+                assertFalse called;
+            );
+
+            should "take method seperated with :: " \(
+                var called = false;
+                rh = regexHandler 'post::index' (toHandler \(called := true));
+
+                assertEquals goonResult (rh (mockCtxt [Get "index"]));
+                assertFalse called;
+
+                assertEquals handledResult (rh (mockCtxt [Post "index"]));
+                assertTrue called;
+
+            );
+
+            should "take any method if no method given" \(
+                var called = false;
+                rh = regexHandler 'index' (toHandler \(called := true));
+
+                assertEquals handledResult (rh (mockCtxt [Get "index"]));
+                assertTrue called;
+
+                called := false;
+                assertEquals handledResult (rh (mockCtxt [Post "index"]));
+                assertTrue called;
+
+            );
+
+           
+        );
+        describe "subRegexHandler" \(
+            should "set as servletPath the unmatched part" \(
+                var sp = "";
+                var pi = "";
+                rh = subRegexHandler 'index/' (toHandler do c:
+                    sp := (request c)#getServletPath();
+                    pi := (request c)#getPathInfo();
+                done);
+
+                _ = rh (mockCtxt [Get "index/foo"]);
+                assertEquals sp "index/";
+                assertEquals pi "foo";
+
+                _ = rh (mockCtxt [Get "index/"]);
+                assertEquals sp "index/";
+                assertEquals pi "";
+            );
+        );
+     );
+
+
+
+)
+

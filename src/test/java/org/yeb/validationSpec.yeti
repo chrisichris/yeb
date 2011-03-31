@@ -1,0 +1,125 @@
+/// put module documentation here
+
+module org.yeb.validationSpec;
+
+load org.yeb.yebspec;
+
+load org.yeb.validation;
+load org.yeb.std;
+
+specificationsFor "org.yeb.validation"\(
+
+    describe "maybeValid" \(
+        should "execute not valid if not valid" \(
+            var f = false;
+            maybeValid \(f := true) \(f:=false) (valiString 100 120) "";
+            assertTrue f;
+        );
+        should "execute valid if valid" \(
+            var f = false;
+            maybeValid \(f := false) \(f:=true) (valiString 1 10 ) "a";
+            assertTrue f;
+        );
+    );
+
+    describe "defaultVali" \(
+        should "return defaultValue if wrong" \(
+            assertEquals "here" (maybeValid \"here" id (valiCheck \false) "foo");
+        );
+        should "return invalue when right" \(
+            assertEquals "here" (maybeValid \"foo" id (valiCheck \true) "here");
+        );
+    );
+
+    describe "validators" \(
+       checkRW validator rightInput wrongInput = (
+           assertEquals rightInput (validator rightInput);
+           try
+              _ = validator wrongInput;
+              fail ()
+           catch ValidationException ex:
+           yrt;
+       );
+
+       should "valiCheck" \(
+           assertEquals 1 (valiCheck (== 1) 1);
+           try
+              _ = valiCheck ( != 1) 1;
+              fail ()
+           catch ValidationException ex:
+           yrt;
+        );
+
+        should "valiMsg" \(
+           assertEquals 1 (valiMsg do x: if x == 1 then none else Some (message "" "" []) fi done 1);
+           try
+              _ = valiMsg do x: if x == 1 then Some (message "" "" []) else none fi done 1;
+              fail ()
+           catch ValidationException ex:
+           yrt;
+        );
+
+
+        should "valiListLength" \(
+            checkRW (valiListLength 10 20) [1..15] [1..5];
+            checkRW (valiListLength 10 20) [1..15] [1..25];
+        );
+
+        should "valiList" \(
+            assertEquals [10..20] (valiList (valiNum 10 20) [0..100]);
+        );
+
+        should "valiString" \(
+            checkRW (valiString 2 5) "hier" "n";
+            checkRW (valiString 2 5) "hier" "much too long";
+        );
+
+        should "valiRegex" \(
+            checkRW (valiRegex '\d+') "1234" "x";
+            checkRW (valiRegex '\d+') "1234" "";
+        );
+
+        should "valiNum" \(
+            checkRW (valiNum 2 5) 3 0;
+            checkRW (valiNum 2 5) 3 7;
+        );
+
+    );
+
+    describe "from String to value converters" \(
+        checkConv converter rightInput wrongInput rightResult= (
+           assertEquals rightResult (converter rightInput);
+           try
+              _ = converter wrongInput;
+              fail ()
+           catch ValidationException ex:
+           yrt;
+        );
+
+        should "strToNum" \(
+            checkConv strToNum "23" "sy" 23;
+        );
+
+        should "strFormatedToNum" \(
+            checkConv (strFormatedToNum none) "2.300,00" "xx" 2300;
+        );
+
+        should "strNumberToDate" \(
+            strNumberToDate "23";
+        );
+
+        should "strFormatedToDate" \(
+            strFormatedToDate none "4.4.2010";
+        );
+
+        should "strToBoolean" \(
+            assertEquals (strToBoolean "true") true;
+            assertEquals (strToBoolean "false") false;
+            assertEquals (strToBoolean "x") false;
+
+        );
+
+
+    );
+)
+

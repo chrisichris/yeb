@@ -1,0 +1,134 @@
+/*
+ * Copyright 2011 Christian Essl
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions
+ * and limitations under the License.
+ */
+
+module org.yeb.httpclient;
+
+import org.apache.commons.httpclient:MultiThreadedHttpConnectionManager,
+        HttpClient,DefaultHttpMethodRetryHandler,HttpStatus;
+import org.apache.commons.httpclient.methods:GetMethod;
+import org.apache.commons.httpclient.params.HttpMethodParams;
+
+load org.yeb.std;
+
+log = getLogger "org.yeb.httpclient.module";
+
+httpClient = try
+        cM = new MultiThreadedHttpConnectionManager();
+        new HttpClient(cM);
+    catch Exception ex:
+        log#error("Exception creating httpclient {}",ex);
+        throw ex;
+    yrt;
+
+withHttpMethod method f =
+    try
+        statusCode = httpClient#executeMethod(method);
+        f method statusCode;
+    catch Exception ex:
+        log#debug("Exception in executing method of http method {}:{}",method,ex);
+        throw ex;
+    finally
+        method#releaseConnection();
+    yrt;
+
+httpOptions = {
+    retries = -1,
+    headers is list<string> = [],
+    maxLength = -1,
+};
+
+
+httpGet  {retries, headers} url f = (
+
+    method = new GetMethod(url);
+    if retries > -1 then
+        method#getParams()#setParameter(HttpMethodParams#RETRY_HANDLER,
+                                    new DefaultHttpMethodRetryHandler(retries, false));
+    fi;
+
+    try
+        x = fold do k v: case k of
+                        Key kv: (
+                            method#addRequestHeader(kv,v);
+                            Value ());
+                        Value _: Key v;
+                     esac;
+             done
+            (Value ()) headers;
+
+        statusCode = httpClient#executeMethod(method);
+        /*
+        if log#isTraceEnabled then
+            str = "Request for url [\(url)]:
+request-headers:\n\(strJoin "\n" (mapHash do k v = "\(k)=\(v)" done headers))
+response-statuscode:\(statusCode)
+response-charset: \(method#getResponseCharSet())
+response-content-length: \(method#getResponseContentLength())
+response-headers:\n\(method#getResponseHeaders())
+method: \(method)\n";
+        fi;*/
+
+        if statusCode == HttpStatus#SC_OK then
+            r = f method;
+            Right r;
+        else
+            log#debug("Bad status code for request[{}]: {}", url, statusCode);
+            method#getResponseBody();
+            Left(Right statusCode);
+        fi;
+    catch Exception ex:
+        log#debug("Exception in execution of get {} : {}", url, ex);
+        Left (Left ex);
+    finally
+        method#releaseConnection();
+    yrt;
+);
+
+
+{
+    httpGetString options url = (
+        httpGet options url do getMethod:
+            s = if options.maxLength < 0 then
+                    getMethod#getResponseBodyAsString();
+                else
+                    getMethod#getResponseBodyAsString(options.maxLength);
+                fi;
+            if not defined? s then "" else s fi;
+        done;
+    ),
+
+    httpGetBody options url = (
+        httpGet options url do getMethod:
+                 getMethod#getResponseBodyAsStream();
+        done;
+    ),
+
+    httpGetJson options url = (
+        load org.yeb.json;
+
+        opt = httpGetString options url ;
+        maybeRight Left do str:
+                    stp = stringParser str;
+                    Right (jsonMap stp);
+                  done opt;
+    ),
+
+
+    httpClient,
+    httpGet,
+    withHttpMethod,
+    httpOptions
+}

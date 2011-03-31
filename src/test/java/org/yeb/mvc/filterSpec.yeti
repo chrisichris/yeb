@@ -1,0 +1,48 @@
+/// put module documentation here
+
+module org.yeb.mvc.filterSpec;
+
+import org.springframework.mock.web:MockServletContext, MockHttpServletRequest, MockHttpServletResponse, MockFilterChain;
+
+load org.yeb.yebspec;
+
+h = load org.yeb.mvc.handler;
+_ = load org.yeb.mvc.filter;
+
+specificationsFor "org.yeb.mvc.filter" \(
+
+    newConfig _ = (sc = new MockServletContext("webapps/general");
+                h.filterConfig sc ["yebDir":"src/test/resources/webapps/general/WEB-INF/yeti"]);
+
+    initFilter _ = (cf = newConfig (); 
+                    filter = new YebFilterImpl();
+                    filter#init(cf);
+                    filter);
+
+    should "not be in production mode" \(
+        cf = load org.yeb.mvc.config;
+        assertFalse cf.production?;
+    );
+
+
+    should "init with loading module" do ct:
+        _ = initFilter ();
+    done;
+
+    should  "call init method on yebWebMain module" \(
+        _ = initFilter();
+        cf = load org.yeb.mvc.config;
+        assertEquals "initTest" cf.staticPrefix;
+    );
+
+    should "invoke the handler method on access" \(
+        filter = initFilter ();
+        cf = load org.yeb.mvc.config;
+
+        filter#doFilter(new MockHttpServletRequest(), new MockHttpServletResponse(), new MockFilterChain());
+        assertEquals "called" cf.staticPrefix;
+
+    );
+
+)
+

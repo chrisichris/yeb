@@ -1,0 +1,14 @@
+module org.yeb.allSpecSuite;
+
+load org.yeb.yebspec;  
+
+specSuite "all specs for yeb"
+        [load org.yeb.jsonSpec,
+         load org.yeb.validationSpec,
+         load org.yeb.dbSpec,
+         load org.yeb.stdSpec,
+         load org.yeb.mvc.handlerSpec,
+         load org.yeb.mvc.filterSpec,
+         load org.yeb.mvc.formSpec,
+         load org.yeb.mvc.viewSpec
+         ]

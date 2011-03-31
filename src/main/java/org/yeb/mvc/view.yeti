@@ -1,0 +1,261 @@
+/*
+ * Copyright 2011 Christian Essl
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions
+ * and limitations under the License.
+ */
+
+module org.yeb.mvc.view;
+
+import java.lang.Character;
+import javax.servlet: ServletContext, FilterChain;
+import javax.servlet.http: HttpServletRequest, HttpServletResponse;
+import java.net: URLEncoder, URLDecoder;
+
+load org.yeb.std;
+
+//++++++++++++++++++++++++view things +++++++++++++++++
+//pathHelper = new org.springframework.web.util.UrlPathHelper();
+
+
+typedef resultType = {status is number};
+
+handler = load org.yeb.mvc.handler;
+
+HEADER_PRAGMA = "Pragma";
+HEADER_EXPIRES = "Expires";
+HEADER_CACHE_CONTROL = "Cache-Control";
+
+response = handler.response;
+request = handler.request;
+
+redirectView ctx path = (
+    (response ctx)#sendRedirect(path);
+    {status = 302}
+);
+
+
+forwardView path ctx = (
+    req = request ctx;
+    (req#getRequestDispatcher(path))#forward(req,response ctx);
+    {status = 0};
+);
+
+statusView status ctx = (
+    (response ctx)#setStatus(status);
+    {status}
+);
+
+errorView errorCode ctx = (
+    (response ctx)#sendError(errorCode);
+    {status = errorCode}
+);
+
+responseWriter ctx = (
+    resW = (response ctx)#getWriter();
+    do txt:
+        resW#print(string txt);
+    done;
+);
+
+contentType cT ctx = (
+    c = if strEnds? cT ';utf-8' then cT else cT ^ ";utf-8" fi;
+    (response ctx)#setContentType(c);
+    responseWriter ctx;
+);
+
+headers hs ctx = (
+    res = response ctx;
+    forHash hs do k v:
+        res#setHeader(k,v);
+    done;
+    ();
+);
+
+
+
+cacheForSeconds seconds mustRevalidate ctx = (
+    res = response ctx;
+    if seconds > 0 then
+        //HTTP1.0 header
+        res#setDateHeader("Expires", System#currentTimeMillis() + (seconds * 1000));
+        //HTTP1.1 header
+        hv = "max-age=\(seconds)\(if mustRevalidate then ", must revalidate" else ""fi)";
+        res#setHeader("Cache-Control",hv);
+    else
+        res#setHeader("Pragma","no-cache");
+        res#setDateHeader("Expires",1);
+        res#setHeader("Cache-Control","no-cache");
+        res#setHeader("Cache-Control","no-store");
+    fi;
+);
+
+
+
+
+htmlViewHelper () = {
+    headers = array [],
+    keywords = array [],
+    addU arr text = (
+        if ((strLength text) > 0) and (not (contains text arr)) then push arr text fi;
+        text
+    ),
+    addKeyword kw = addU keywords kw,
+    addUniqueHeader hd = addU headers hd,
+    addHeader hd =( push headers hd; hd),
+
+    styleLink url media =
+        '<link rel="stylesheet" type="text/css" ' ^ (if empty? media then "" else 'media="'^media^'"' fi) ^ 'href="'^url^'"/>',
+
+    scriptLink url =
+        '<script type="text/javascript" src="'^url^'"></script>',
+
+    script src =
+        '<script type="text/javascript">'^src^'</script>',
+
+    style styles =
+        ('<style type="text/css">/*<![CDATA[*/"'^styles^'/*]]>*/</style>'),
+
+    escape text =
+        (escapeI s =
+             "&\(Character#codePointAt(s.[0] is string, 0));";
+         strJoin '' (matchAll '[<>&"]' escapeI id "\(text)")),
+
+    (@) str = escape str,
+
+    ifIE ieMarker content =
+        ('<!--[if '^ieMarker^']>'^content^'<![endif]-->'),
+    ifIE7 content = ifIE 'lt IE 7' content,
+
+    contentType ctt = (
+        ct = if strEnds? ctt ';utf-8' then ctt else ctt ^ ";utf-8" fi;
+        '<meta http-equiv="Content-Type" content="' ^ ct ^ '"/>';),
+    title ti =
+        '<title>'^escape(ti)^'<title>',
+    shortcut sc =
+        '<link rel="shortcut icon" href="'^sc^'"/>',
+    writeKeywords kws =
+        '<meta name="keywords" content="'^ (strJoin ", " kws)^'"/>',
+    xhtmlDocType=
+        '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">',
+};
+
+//+++++++++++++++++++++++Utils ++++++++++++++++++++++++++++
+
+
+urlEncode str = URLEncoder#encode(str,"UTF-8");
+urlDecode str = URLDecoder#decode(str,"UTF-8");
+
+url strList = (
+    if empty? strList then
+        ""
+    else
+        strb = new java.lang.StringBuilder();
+        var hasQuestion = false;
+        var isName = false;
+        var isFirstName = false;
+        for strList do str:
+            if (not hasQuestion) then
+                cut = strIndexOf str "?" 0;
+                if cut == ((strLength str )- 1) then
+                    if strb#length() > 0 then
+                        strb#append("/")
+                    fi;
+                    strb#append(str);
+                    hasQuestion := true;
+                    isName := true;
+                    isFirstName := true;
+                elif cut == 0 then
+                    strb#append(str);
+                    if not (strEnds? str "=") then
+                        strb#append("=");
+                    fi;
+                    hasQuestion := true;
+                    isName := false;
+                elif cut > 0 then
+                    if strb#length() > 0 then
+                        strb#append("/")
+                    fi;
+                    strb#append(str);
+                    if not (strEnds? str "=") then
+                        strb#append("=");
+                    fi;
+                    hasQuestion := true;
+                    isName := false;
+                else
+                    if strb#length() > 0 then
+                        strb#append("/")
+                    fi;
+                    strb#append(str);();
+                fi
+            else
+                if isName then
+                    if not isFirstName then strb#append("&"); fi;
+                    strb#append(str);
+                    strb#append("=");
+                    isName := false;
+                else
+                    r = urlEncode str;
+                    strb#append(r);
+                    isName := true;
+                fi
+           fi
+       done;
+       strb#toString();
+   fi;
+);
+
+urlParam str name value = (
+    hasQuestion = (strIndexOf str "?" 0) > -1;
+    strb = new java.lang.StringBuilder(str);
+    if hasQuestion then
+        strb#append("&");
+    else
+        strb#append("?");
+    fi;
+    strb#append(name)#append("=")#append(urlEncode value);
+    string strb;
+);
+
+escape text =
+    (escapeT s =
+         "&\(Character#codePointAt(s.[0] is string, 0));";
+     strJoin '' (matchAll '[<>&"]' escapeT id "\(text)"));
+(@) text = escape text;
+
+ptag name params content is string -> hash<string,string> -> list<string> -> string = (
+    var strb = new java.lang.StringBuilder();
+    strb := strb#append("<")#append(name@);
+    forHash params do k v:
+        strb := strb#append(" ")#append(k@)#append('="')#append(v@)#append('"');
+    done;
+    if empty? content then
+        strb := strb#append("/>");
+    else
+        strb := strb#append(">")#append(strJoin "\n" content)#append("</")#append(name)#append(">");
+    fi;
+    strb#toString();
+);
+{
+redirectView, forwardView,statusView, errorView, contentType, headers, responseWriter, htmlViewHelper,
+
+cacheForSeconds,
+
+urlEncode,urlDecode, url,urlParam,
+
+escape,
+(@) text = escape text,
+
+ptag,
+
+
+}
