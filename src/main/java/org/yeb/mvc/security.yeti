@@ -18,3 +18,5 @@ module org.yeb.mvc.security;
 
 failWith "Not implemented yet";
 
+1
+

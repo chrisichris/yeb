@@ -70,8 +70,8 @@ specificationsFor "org.yeb.mvc.handler" \(
                 ctx = mockCtxt [];
                 handler = toHandler do c:
                     called := true;
-                    assertSame ctx.req (request c);
-                    assertSame ctx.res (response c);
+                    assertSame (request ctx) (request c);
+                    assertSame (response ctx) (response c);
                     assertSame ctx c;
                 done;
                 r = handler ctx;
