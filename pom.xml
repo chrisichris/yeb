@@ -8,6 +8,67 @@
     <name>yeb - a webframework for yeti</name>
     <url>http://github.com/chrisichris/${project.artifactId}</url>
 
+    <description>A simple webframework for yeti.</description>
+    <inceptionYear>2010</inceptionYear>
+
+    <organization>
+        <name>chrisichris</name>
+        <url>http://github.com/chrisichris</url>
+    </organization>
+
+    <licenses>
+        <license>
+            <name>the Apache License, ASL Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <scm>
+        <connection>scm:git:git://github.com/chrisichris/${project.artifactId}.git</connection>
+        <developerConnection>scm:git:git@github.com:chrisichris/${project.artifactId}.git</developerConnection>
+        <url>http://github.com/chrisichris/${project.artifactId}/</url>
+    </scm>
+
+    <issueManagement>
+        <system>github</system>
+        <url>http://github.com/chrisichris/${project.artifactId}/issues#issue/</url>
+    </issueManagement>
+
+    <mailingLists>
+        <mailingList>
+            <name>yeti-lang</name>
+            <archive>http://groups.google.com/group/yeti-lang</archive>
+            <post>http://groups.google.com/group/yeti-lang</post>
+        </mailingList>
+    </mailingLists>
+
+    <developers>
+        <developer>
+            <name>Chrisian Essl</name>
+            <timezone>+1</timezone>
+        </developer>
+    </developers>
+
+    <distributionManagement>
+        <repository>
+            <id>chrisis-local-releases</id>
+            <name>Maven2 local repository for git clone releases</name>
+            <url>file:///${basedir}/../../chrisis-maven-repo/releases/</url>
+        </repository>
+        <snapshotRepository>
+            <id>chrisis-local-snapshots</id>
+            <name>Maven2 local repository for git clone snapshots</name>
+            <url>file:///${basedir}/../../chrisis-maven-repo/snapshots/</url>
+            <uniqueVersion>false</uniqueVersion>
+        </snapshotRepository>
+    </distributionManagement>
+
+    <properties>
+        <encoding>UTF-8</encoding>
+    </properties>
+
+
     <repositories>
         <repository>
             <id>chrisis.snapshots</id>
@@ -122,7 +183,7 @@
             <artifactId>spring-security-web</artifactId>
             <version>3.0.5.RELEASE</version>
         </dependency>
-        
+
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
