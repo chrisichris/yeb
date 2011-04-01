@@ -8,6 +8,8 @@ It does not only contain a web-framework (org.yeb.mvc) but also modules for data
 The test-module (org.yeb.yebspec) is because of this also the most stable module and I think quite useful. You might start with this one and look at the different specs 
 in the src/test/java folder. 
 
+For a description of yebspec (testing) see <http://chrisichris.wordpress.com/2011/04/01/testing-in-yeti-using-yebspec/>
+
 ## Obtaining
 
 You can of git clone it and build it with maven.

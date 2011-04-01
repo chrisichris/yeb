@@ -45,11 +45,11 @@ assertTrue cond = if not cond then testFail "Should be true but was false" else 
 
 assertFalse cond = if cond then testFail "Should be false but was true" else () fi;
 
-assertEquals right test = (
+assertEquals right test = 
     if right != test then
-        testFail ("Should be [\(string right)] but was [\(string test)]")
+        testFail ("Should be [\(right)] but was [\(test)]")
     else () fi;
-);
+
 
 assertSame right test =
     if same? right test then
