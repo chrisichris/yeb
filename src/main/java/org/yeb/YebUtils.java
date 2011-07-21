@@ -15,8 +15,11 @@
  */
 package org.yeb;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import junit.framework.Test;
-import org.yeticl.YetiShellUtils;
+import org.yeticl.YetiCompileHelper;
+import yeti.lang.Fun;
 
 /**
  *
@@ -24,9 +27,34 @@ import org.yeticl.YetiShellUtils;
  */
 public class YebUtils {
 
+    static public Object moduleLoad(ClassLoader classLoader,String moduleName) throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, IllegalArgumentException, InvocationTargetException {
+        classLoader = classLoader == null ? Thread.currentThread().getContextClassLoader() : classLoader;
+        ClassLoader oldCl = Thread.currentThread().getContextClassLoader();
+        Thread.currentThread().setContextClassLoader(classLoader);
+        try {
+            Class cl = classLoader.loadClass(moduleName);
+            Method evalM = cl.getMethod("eval", new Class[]{});
+            return evalM.invoke(null, new Object[]{});
+        } finally {
+            Thread.currentThread().setContextClassLoader(oldCl);
+        }
+    }
+
+    static public Object moduleRun(ClassLoader classLoader,String moduleName, Object param) throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, IllegalArgumentException, InvocationTargetException {
+        ClassLoader oldCl = Thread.currentThread().getContextClassLoader();
+        if(classLoader != null)
+            Thread.currentThread().setContextClassLoader(classLoader);
+        try {
+            Fun fun = (Fun) moduleLoad(classLoader,moduleName);
+            return fun.apply(param);
+        } finally {
+            Thread.currentThread().setContextClassLoader(oldCl);
+        }
+    }
 
     public static Test createSuite(String specModuleName) {
-        Test test = (Test) YetiShellUtils.evalWithResult("m = load org.yeb.yebspec; sm = load "+specModuleName+"; m.junitTest sm");
+        YetiCompileHelper helper = new YetiCompileHelper();
+        Test test = (Test) helper.evaluate("m = load org.yeb.yebspec; sm = load "+specModuleName+"; m.junitTest sm");
         return test;
     }
 

@@ -48,7 +48,7 @@ public class YebFilter implements javax.servlet.Filter{
         //load the yeti filter implemetnation
         //to do so first load the module because this than compile the filter
         try{
-            ycl = new YetiClassLoader(null,null);
+            ycl = new YetiClassLoader(null,null,true);
             //this compiles the javaclass
             ycl.loadClass("org.yeb.mvc.filter");
             Class fc = ycl.loadClass("org.yeb.mvc.YebFilterImpl");

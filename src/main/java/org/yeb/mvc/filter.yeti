@@ -22,7 +22,8 @@ import yeti.lang: Fun, Struct;
 import java.util.concurrent.ConcurrentHashMap;
 import java.io.File;
 import java.lang: Thread, System,ClassLoader,ClassNotFoundException;
-import org.yeticl: FileSourceReader, YetiClassLoader, YetiShellUtils;
+import org.yeticl: YetiClassLoader;
+import org.yeb.YebUtils;
 
 load org.yeb.std;
 
@@ -95,7 +96,7 @@ class YebFilterImpl extends javax.servlet.Filter
         log#info("yebWebMain module destroyed");
 
         log#info("loading yebWebMain module with classLoader \(cl)");
-        mainWebModule := (YetiShellUtils#moduleLoad(cl, "yebWebMain")) unsafely_as mainWebModuleType;
+        mainWebModule := (YebUtils#moduleLoad(cl, "yebWebMain")) unsafely_as mainWebModuleType;
 
         withClassLoader mainWebModuleClassLoader \(
             mainWebModule.init filterConfig;
@@ -111,9 +112,8 @@ class YebFilterImpl extends javax.servlet.Filter
                 nmf = findLastModifiedFile mainWebModuleModified (new File(yebDir));
                 if nmf > mainWebModuleModified then
                     mainWebModuleModified := nmf;
-                    fileSourceReader = new FileSourceReader(array [string yebDir]);
                     log#debug("Reloading yeti-code in \(yebDir) directory");
-                    ycl = new YetiClassLoader(Thread#currentThread()#getContextClassLoader(), fileSourceReader);
+                    ycl = new YetiClassLoader(Thread#currentThread()#getContextClassLoader(), array [string yebDir], false);
                     Some (ycl as ~ClassLoader);
                 else none
                 fi);
