@@ -100,6 +100,11 @@ assertException code =
 assertFailWith code =
     try code (); testFail "should have a FailerException (failWith) but was none"; catch FailureException ex: () yrt;
 
+assertFailWithText text code =
+    try code(); testFail "should have a FailerExcepption (failWith) but was none";
+    catch FailureException ex: assertSame (string ex#getMessage()) text yrt;
+
+
 assertNotEquals right test =
     if right == test then
         testFail ("\(test) should not be [\(right)] but was equal")
@@ -443,7 +448,7 @@ createJUnitTest specResult prefix first is resultNode -> string -> boolean -> ~T
     assertEmpty,
     assertException,
     assertExceptionIs,
-    assertFailWith,
+    assertFailWith,assertFailWithText,
     assertEquals, assertNotEquals, assertSame, assertEqualsObj,
     assertSome, assertSomeEquals, assertNone,
     assertLeft, assertRight,  assertRightEquals, assertLeftEquals,
