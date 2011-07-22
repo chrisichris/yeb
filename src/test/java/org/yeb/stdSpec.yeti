@@ -12,4 +12,5 @@ specificationsFor "org.yeb.std"\(
             ls |> forEach do v: assertTrue (v > 0 and v < 1) done;
         );
     );
+ 
 );

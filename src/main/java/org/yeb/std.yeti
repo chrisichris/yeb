@@ -136,6 +136,12 @@ lazyMaybe default fun opt =
         Some v: fun v;
     esac;
 
+getSome' msg maybe = case maybe of
+                    Some v: v;
+                    None _: failWith msg; esac;
+
+getSome maybe = getSome' "expected some but was none";
+
 some v is 'a -> (Some 'a | None () )= Some v;
 
 loadClass name =
@@ -229,7 +235,7 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> = (
     maybeAt,
     maybeRight,
     lazyMaybe,
-
+    getSome, getSome',
     some,
 
     withThreadLocal,
