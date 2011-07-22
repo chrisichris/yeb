@@ -194,7 +194,7 @@ specificationsFor "org.yeb.db"\(
                         assertSame cm2 (connection ds);
                     );
                     //nothing must have happened
-                    Mockito#verifyZeroInteractions([cm2~]);
+                    Mockito#verifyZeroInteractions([cm2:!]);
                     //reset the conncetion
                     ds.connectionTL.value := Some cm;
                     assertSame cm (connection ds);
@@ -225,7 +225,7 @@ specificationsFor "org.yeb.db"\(
                         rollbackOnly ds;
                     );
                     //nothing must have happened
-                    Mockito#verifyZeroInteractions([cm2~]);
+                    Mockito#verifyZeroInteractions([cm2:!]);
                     //reset the conncetion
                     ds.connectionTL.value := Some cm;
                     assertSame cm (connection ds);
@@ -264,7 +264,7 @@ specificationsFor "org.yeb.db"\(
                     );
                 );
                 //nothing must have happened to inner connection
-                Mockito#verifyZeroInteractions([cm2~]);
+                Mockito#verifyZeroInteractions([cm2:!]);
 
                 //connection must be reset
                 assertSame cm (connection ds);
@@ -309,7 +309,7 @@ specificationsFor "org.yeb.db"\(
         should "select one user" \(
             withDS do ds:
                 ls = sqlListStruct ds "select USER_ID , USER_NAME from users WHERE USER_ID = ? AND USER_NAME = ? "
-                        [1~,"admin"~] {userId=1,userName="name"};
+                        [1:!,"admin":!] {userId=1,userName="name"};
                 assertEquals 1 (length ls);
             done;
 
@@ -317,7 +317,7 @@ specificationsFor "org.yeb.db"\(
 
         should "select one user in list with just struct" \(
             withDS do ds:
-                ls = sqlListEntity ds {userName="name", password="pwd"} "FROM users WHERE USER_ID = ?" [1~] ;
+                ls = sqlListEntity ds {userName="name", password="pwd"} "FROM users WHERE USER_ID = ?" [1:!] ;
                 assertEquals 1 (length ls);
                 u = head ls;
                 assertEquals u.userName "admin";
@@ -327,7 +327,7 @@ specificationsFor "org.yeb.db"\(
 
         should "select one user in Some with just struct" \(
             withDS do ds:
-                o = sqlSomeEntity ds {userName="name", password="pwd"} "FROM users WHERE USER_ID = ?" [1~] ;
+                o = sqlSomeEntity ds {userName="name", password="pwd"} "FROM users WHERE USER_ID = ?" [1:!] ;
                 case o of
                     None _ : assertFalse true;
                     Some u : (
@@ -358,7 +358,7 @@ specificationsFor "org.yeb.db"\(
                 u = {userId = 4, userName="chrisi", password="foo"};
                 _ = sqlInsertEntity ds "users" u;
                 r = sqlSomeStruct ds "select USER_ID , USER_NAME, PASSWORD from users WHERE USER_ID = ? "
-                        [4~] {userId=1,userName="name",password="x"};
+                        [4:!] {userId=1,userName="name",password="x"};
                 assertSomeEquals u r;
             done;
         );
@@ -366,9 +366,9 @@ specificationsFor "org.yeb.db"\(
         should "update one db value where" \(
             withDS do ds:
                 u = {password="foo"};
-                _ = sqlUpdateEntity ds "users" u "WHERE USER_ID=?" [1~];
+                _ = sqlUpdateEntity ds "users" u "WHERE USER_ID=?" [1:!];
                 r = sqlSomeStruct ds "select PASSWORD from users WHERE USER_ID = ? "
-                        [1~] {password="x"};
+                        [1:!] {password="x"};
                 assertSomeEquals u r;
             done;
         );
@@ -378,7 +378,7 @@ specificationsFor "org.yeb.db"\(
                 u = {userId=1,password="foo"};
                 _ = sqlUpdateById ds "users" u;
                 r = sqlSomeStruct ds "select USER_ID, PASSWORD from users WHERE USER_ID = ? "
-                        [1~] {password="x"};
+                        [1:!] {password="x"};
                 assertSomeEquals u r;
             done;
         );

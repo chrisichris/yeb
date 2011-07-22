@@ -220,9 +220,9 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> = (
     (|>) x y = y x, // (|> F# style) pipeForward
     (|>>) f g = composeToRight f g,
 
-    (~) x is 'a -> ~Object = x as ~Object,
-    (~-) x is ~Object -> 'a = x unsafely_as 'a,
-    (~*) x is 'a -> 'b = x unsafely_as 'b,
+    (:!) x is 'a -> ~Object = x as ~Object,
+    (:!!) x is ~Object -> 'a = x unsafely_as 'a,
+    (:!!!) x is 'a -> 'b = x unsafely_as 'b,
 
     message,
     plainMessage,

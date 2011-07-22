@@ -226,7 +226,7 @@ _operateStatement ds sql params statementHandler
         ps = (connection ds)#prepareStatement(esql);
         try
 
-            _ = _setStatementValue ps 1 (params~);
+            _ = _setStatementValue ps 1 (params:!);
 
             r = statementHandler esql ps;
 
@@ -244,12 +244,12 @@ _operateStatement ds sql params statementHandler
 
 _sqlUpdate ds sql params
         is dataSourceType -> string -> list<~Object>  -> 'a=
-    (ds.operateStatement~-) ds sql params
+    (ds.operateStatement:!!) ds sql params
             (_ sql ps is string -> ~PreparedStatement -> 'a = (rs is ~PreparedStatement = ps; rs#executeUpdate() ));
 
 _sqlBaseQuery ds sql params resultSetHandler
         is dataSourceType -> string -> list<~Object> -> (~ResultSet -> 'a) -> 'a=
-    (ds.operateStatement~-) ds sql params 
+    (ds.operateStatement:!!) ds sql params
             (_ sql ps is string -> ~PreparedStatement -> 'a = (rs is ~PreparedStatement = ps; resultSetHandler (rs#executeQuery()) ));
 
 
@@ -259,11 +259,11 @@ defineDataSource name dataSource is string -> ~DataSource -> dataSourceType = {
     dataSource,
     connectionTL = (m is None () | Some ~Connection = none; threadLocal m),
     transactionTL = threadLocal 0, //0 = no transation, 1 = active transaction to commit, 2 = active but rollback only
-    withConnection = _withConnection~,
-    withTransaction = _withTransaction~,
-    sqlUpdate = _sqlUpdate~,
-    sqlBaseQuery = _sqlBaseQuery~,
-    operateStatement = _operateStatement~,
+    withConnection = _withConnection:!,
+    withTransaction = _withTransaction:!,
+    sqlUpdate = _sqlUpdate:!,
+    sqlBaseQuery = _sqlBaseQuery:!,
+    operateStatement = _operateStatement:!,
     queryTimeOut = 0,
     maxRows = 0,
     handleWarnings sql statement is string -> ~Statement -> () =
@@ -279,52 +279,52 @@ withConnection ds code is withHandlerType<'a> =
     if connection? ds then
         code ();
     else
-        (ds.withConnection~-) ds code;
+        (ds.withConnection:!!) ds code;
     fi;
 
 setConnectionHandler ds adapter
         is dataSourceType -> (withHandlerType<'a> -> withHandlerType<'a>) -> dataSourceType =
-    ds with {withConnection = (adapter (ds.withConnection~-))~};
+    ds with {withConnection = (adapter (ds.withConnection:!!)):!};
 
 withTransaction ds code is withHandlerType<'a> =
     if transaction? ds then
         code ();
     elif connection? ds then
-        (ds.withTransaction~-) ds code;
+        (ds.withTransaction:!!) ds code;
     else
-        withConnection ds \((ds.withTransaction~-) ds code)
+        withConnection ds \((ds.withTransaction:!!) ds code)
     fi;
 
 setTransactionHandler ds adapter
         is dataSourceType -> (withHandlerType<'a> -> withHandlerType<'a>) -> dataSourceType =
-    ds with {withTransaction = (adapter (ds.withTransaction~-))~};
+    ds with {withTransaction = (adapter (ds.withTransaction:!!)):!};
 
 typedef updateHandlerType = dataSourceType -> string -> list<~Object> -> number;
 
 sqlUpdate ds sql params is  updateHandlerType =
     if transaction? ds then
-        (ds.sqlUpdate~-) ds sql params;
+        (ds.sqlUpdate:!!) ds sql params;
     else
-        withTransaction ds \((ds.sqlUpdate~-) ds sql params);
+        withTransaction ds \((ds.sqlUpdate:!!) ds sql params);
     fi;
 
 setUpdateHandler ds adapter
         is dataSourceType -> (updateHandlerType -> updateHandlerType) -> dataSourceType =
-    ds with {sqlUpdate = (adapter (ds.sqlUpdate~-))~};
+    ds with {sqlUpdate = (adapter (ds.sqlUpdate:!!)):!};
 
 typedef queryHandlerType<a> = dataSourceType -> string -> list<~Object> -> (~ResultSet -> a) -> a;
 
 sqlBaseQuery ds sql params resultSetHandler
         is queryHandlerType<'a> =
     if transaction? ds then
-        (ds.sqlBaseQuery~-) ds sql params resultSetHandler;
+        (ds.sqlBaseQuery:!!) ds sql params resultSetHandler;
     else
-        withTransaction ds \((ds.sqlBaseQuery~-) ds sql params resultSetHandler)
+        withTransaction ds \((ds.sqlBaseQuery:!!) ds sql params resultSetHandler)
     fi;
 
 setBaseQueryHandler ds adapter
         is dataSourceType -> (queryHandlerType<'a> -> queryHandlerType<'a>) -> dataSourceType =
-    ds with { sqlBaseQuery = (adapter (ds.sqlBaseQuery~-))~};
+    ds with { sqlBaseQuery = (adapter (ds.sqlBaseQuery:!!)):!};
 
 ///////////////////////////////////////////
 //update helpers
@@ -332,8 +332,8 @@ setBaseQueryHandler ds adapter
 sqlInsertEntity db tableName stru is dataSourceType -> string -> 'a -> number = (
     import yeti.lang: Struct;
 
-    if (stru~) instanceof Struct then
-        ist = (stru~) unsafely_as ~Struct;
+    if (stru:!) instanceof Struct then
+        ist = (stru:!) unsafely_as ~Struct;
         stb = new StringBuilder();
         stb#append("INSERT INTO \(tableName) (");
 
@@ -353,7 +353,7 @@ sqlInsertEntity db tableName stru is dataSourceType -> string -> 'a -> number = 
 
         stb#append(") VALUES (?)"); //the values list will be expanded to ? by sql update 
 
-        sqlUpdate db stb#toString() [(list values)~];
+        sqlUpdate db stb#toString() [(list values):!];
     else 
         failWith "template must be a struct"
     fi;
@@ -362,8 +362,8 @@ sqlInsertEntity db tableName stru is dataSourceType -> string -> 'a -> number = 
 sqlUpdateEntity db tableName stru whereClause whereParams is dataSourceType -> string -> 'a -> string -> list<~Object> -> number= (
     import yeti.lang: Struct;
 
-    if (stru~) instanceof Struct then
-        ist = (stru~) unsafely_as ~Struct;
+    if (stru:!) instanceof Struct then
+        ist = (stru:!) unsafely_as ~Struct;
         stb = new StringBuilder();
         stb#append("UPDATE \(tableName) SET ");
 
@@ -395,14 +395,14 @@ sqlUpdateEntity db tableName stru whereClause whereParams is dataSourceType -> s
 sqlUpdateById db tableName stru is dataSourceType -> string -> 'a -> number= (
     import yeti.lang: Struct;
 
-    if (stru~) instanceof Struct then
-        ist = (stru~) unsafely_as ~Struct;
+    if (stru:!) instanceof Struct then
+        ist = (stru:!) unsafely_as ~Struct;
         stb = new StringBuilder();
         stb#append("UPDATE \(tableName) SET ");
 
         values = array [];
         var idField is ( None () | Some string ) = none;
-        var idValue is ~Object = ()~;
+        var idValue is ~Object = ():!;
 
         var first = true;
         for [0 .. ist#count() -1] do i:
@@ -541,8 +541,8 @@ sqlSomeStruct ds sql setters template =
 
 _selectClauseFromStruct stru = (
     import yeti.lang: Struct;
-    if (stru~) instanceof Struct then
-        ist = (stru~) unsafely_as ~Struct;
+    if (stru:!) instanceof Struct then
+        ist = (stru:!) unsafely_as ~Struct;
         stb = new StringBuilder();
         stb#append("SELECT ");
 
@@ -573,11 +573,11 @@ sqlListEntity db template fromWhereClause params = (
 sqlSomeById db tableName stru is dataSourceType -> string -> 'a -> 'b= (
     import yeti.lang: Struct;
 
-    if (stru~) instanceof Struct then
-        ist = (stru~) unsafely_as ~Struct;
+    if (stru:!) instanceof Struct then
+        ist = (stru:!) unsafely_as ~Struct;
 
         var idField is ( None () | Some string ) = none;
-        var idValue is ~Object = ()~;
+        var idValue is ~Object = ():!;
         //find the id
         for [0 .. ist#count() -1] do i:
             name = string YebUtils#camelCaseToUnderline(ist#name(i));

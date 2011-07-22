@@ -129,7 +129,7 @@ opt p  is lazyParserType<'a,'b> -> lazyParserType<'a, (None () | Some 'b)> =
     pat = Pattern#compile(regex);
     fun = elem do el:
             eli is string = el;
-            if pat#matcher(eli~*)#matches() then
+            if pat#matcher(eli:!!!)#matches() then
                 Right el
             else
                 Left [message "no_regex" "pattern %1$s does not match intput %2$s" [obj regex, obj eli]];
