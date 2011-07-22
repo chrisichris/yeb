@@ -102,7 +102,7 @@ assertFailWith code =
 
 assertFailWithText text code =
     try code(); testFail "should have a FailerExcepption (failWith) but was none";
-    catch FailureException ex: assertSame (string ex#getMessage()) text yrt;
+    catch FailureException ex: assertEquals (string ex#getMessage()) text yrt;
 
 
 assertNotEquals right test =

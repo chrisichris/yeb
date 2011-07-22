@@ -12,5 +12,18 @@ specificationsFor "org.yeb.std"\(
             ls |> forEach do v: assertTrue (v > 0 and v < 1) done;
         );
     );
- 
+    describe "getSome" \(
+        should "give value of Some" \(
+            assertSame (getSome (Some 1)) 1);
+        should "fail if none" \(
+            assertFailWith \(getSome none)));
+
+    describe "getSome'" \(
+        should "give value of Some" \(
+            assertSame (getSome' "" (Some 1)) 1);
+        should "fail if none with text" \(
+            assertFailWithText "footext" \(getSome' "footext" none)));
+
+
+
 );

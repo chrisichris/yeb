@@ -140,7 +140,7 @@ getSome' msg maybe = case maybe of
                     Some v: v;
                     None _: failWith msg; esac;
 
-getSome maybe = getSome' "expected some but was none";
+getSome maybe = getSome' "expected some but was none" maybe;
 
 some v is 'a -> (Some 'a | None () )= Some v;
 
