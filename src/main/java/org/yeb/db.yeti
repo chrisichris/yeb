@@ -329,7 +329,7 @@ setBaseQueryHandler ds adapter
 ///////////////////////////////////////////
 //update helpers
 
-sqlInsert db tableName stru is dataSourceType -> string -> 'a -> number = (
+sqlInsertEntity db tableName stru is dataSourceType -> string -> 'a -> number = (
     import yeti.lang: Struct;
 
     if (stru~) instanceof Struct then
@@ -359,7 +359,7 @@ sqlInsert db tableName stru is dataSourceType -> string -> 'a -> number = (
     fi;
 );
 
-sqlUpdateWhere db tableName stru whereClause whereParams is dataSourceType -> string -> 'a -> string -> list<~Object> -> number= (
+sqlUpdateEntity db tableName stru whereClause whereParams is dataSourceType -> string -> 'a -> string -> list<~Object> -> number= (
     import yeti.lang: Struct;
 
     if (stru~) instanceof Struct then
@@ -392,7 +392,7 @@ sqlUpdateWhere db tableName stru whereClause whereParams is dataSourceType -> st
 
 );
 
-sqlUpdateStruct db tableName stru is dataSourceType -> string -> 'a -> number= (
+sqlUpdateById db tableName stru is dataSourceType -> string -> 'a -> number= (
     import yeti.lang: Struct;
 
     if (stru~) instanceof Struct then
@@ -442,6 +442,8 @@ sqlUpdateStruct db tableName stru is dataSourceType -> string -> 'a -> number= (
 //////////////////////////////////////////
 //query helpers
 
+
+
 listResult rowHandler rs is (~ResultSet -> 'a) -> ~ResultSet -> list<'a> = (
     ret = array [];
     (rs#next()) loop push ret (rowHandler rs);
@@ -452,7 +454,7 @@ someResult rowHandler rs is (~ResultSet -> 'a) -> ~ResultSet -> ( None () | Some
     if rs#next() then Some (rowHandler rs) else none fi;
 
 
-_resultSetObjectToTemplate failText template dbValue is string -> 'a -> ~Object -> 'a= (
+_resultSetValueToTemplate failText template dbValue is string -> 'a -> ~Object -> 'a= (
     import yeti.lang: Struct, GenericStruct, Num,BigNum,RatNum,IntNum,FloatNum,Tag;
     import java.lang: Number, String;
 
@@ -469,7 +471,7 @@ _resultSetObjectToTemplate failText template dbValue is string -> 'a -> ~Object 
         fi
     elif ot instanceof Tag then
         if  (string (ot unsafely_as ~Tag)#name) == "Some" then
-            r = _resultSetObjectToTemplate failText ((ot unsafely_as ~Tag)#value) dbValue;
+            r = _resultSetValueToTemplate failText ((ot unsafely_as ~Tag)#value) dbValue;
             (Some r) unsafely_as ~Object;
         else
             failWith "\(failText): template is tag but only Some | None tags are supported";
@@ -495,10 +497,10 @@ _resultSetObjectToTemplate failText template dbValue is string -> 'a -> ~Object 
     ro unsafely_as 'a;
 );
 
-singleRowHandler template rs is 'a -> ~ResultSet -> 'a = 
-    _resultSetObjectToTemplate "" template rs#getObject(1);
+singleValueRowHandler template rs is 'a -> ~ResultSet -> 'a =
+    _resultSetValueToTemplate "" template rs#getObject(1);
 
-structRowHandler template rs is 'a -> ~ResultSet -> 'a = (
+toStructRowHandler template rs is 'a -> ~ResultSet -> 'a = (
     import yeti.lang: Struct, GenericStruct, Num,BigNum,RatNum,IntNum,FloatNum;
 
     o = template unsafely_as ~Object;
@@ -516,7 +518,7 @@ structRowHandler template rs is 'a -> ~ResultSet -> 'a = (
                     uname = YebUtils#camelCaseToUnderline(name);
                     rs#getObject(uname);
                 fi;
-            mp.[name] := _resultSetObjectToTemplate name tst#get(i) dbValue;
+            mp.[name] := _resultSetValueToTemplate name tst#get(i) dbValue;
         done;
         (new GenericStruct(mp)) unsafely_as 'a
     else
@@ -525,18 +527,17 @@ structRowHandler template rs is 'a -> ~ResultSet -> 'a = (
 
 );
 
-sqlListQuery ds sql setters rowHandler=
+sqlList ds sql setters rowHandler=
     sqlBaseQuery ds sql setters (listResult rowHandler);
 
-sqlSomeQuery ds sql setters rowHandler =
+sqlSome ds sql setters rowHandler =
     sqlBaseQuery ds sql setters (someResult rowHandler);
 
+sqlListStruct ds sql setters template =
+    sqlBaseQuery ds sql setters (listResult (toStructRowHandler template));
 
-sqlList ds sql setters template =
-    sqlBaseQuery ds sql setters (listResult (structRowHandler template));
-
-sqlSome ds sql setters template =
-    sqlBaseQuery ds sql setters (someResult (structRowHandler template));
+sqlSomeStruct ds sql setters template =
+    sqlBaseQuery ds sql setters (someResult (toStructRowHandler template));
 
 _selectClauseFromStruct stru = (
     import yeti.lang: Struct;
@@ -559,17 +560,17 @@ _selectClauseFromStruct stru = (
 
 );
 
-sqlSelectSome db stru fromWhereClause params = (
-    sql = (_selectClauseFromStruct stru) ^ " " ^ fromWhereClause;
-    sqlSome db sql params stru;
+sqlSomeEntity db template fromWhereClause params = (
+    sql = (_selectClauseFromStruct template) ^ " " ^ fromWhereClause;
+    sqlSomeStruct db sql params template;
 );
 
-sqlSelectList db stru fromWhereClause params = (
-    sql = (_selectClauseFromStruct stru) ^ " " ^ fromWhereClause;
-    sqlList db sql params stru;
+sqlListEntity db template fromWhereClause params = (
+    sql = (_selectClauseFromStruct template) ^ " " ^ fromWhereClause;
+    sqlListStruct db sql params template;
 );
 
-sqlGet db tableName stru is dataSourceType -> string -> 'a -> 'b= (
+sqlSomeById db tableName stru is dataSourceType -> string -> 'a -> 'b= (
     import yeti.lang: Struct;
 
     if (stru~) instanceof Struct then
@@ -590,7 +591,7 @@ sqlGet db tableName stru is dataSourceType -> string -> 'a -> 'b= (
             None _ : failWith "the struct must contain a 'id' or '*_id' field";
             Some n : (
                 whereClause = "FROM \(tableName) WHERE \(n) = ?";
-                sqlSelectSome db stru whereClause [idValue];
+                sqlSomeEntity db stru whereClause [idValue];
             );
         esac;
     else
@@ -600,11 +601,11 @@ sqlGet db tableName stru is dataSourceType -> string -> 'a -> 'b= (
 );
 
 
-sqlListOne ds sql setters template =
-    sqlBaseQuery ds sql setters (listResult (singleRowHandler template));
+sqlListValue ds sql setters template =
+    sqlBaseQuery ds sql setters (listResult (singleValueRowHandler template));
 
-sqlSomeOne ds sql setters template =
-    sqlBaseQuery ds sql setters (someResult (singleRowHandler template));
+sqlSomeValue ds sql setters template =
+    sqlBaseQuery ds sql setters (someResult (singleValueRowHandler template));
 
 
 
@@ -644,15 +645,19 @@ rollbackOnly?, transaction?, rollbackOnly, tryRollbackOnly,
 
 defineDataSource,
 
+sqlInsertEntity,
 sqlUpdate,
-sqlInsert,
-sqlUpdateStruct,
-sqlUpdateWhere,
-sqlBaseQuery, someResult, singleRowHandler, structRowHandler,
+sqlUpdateEntity,
+sqlUpdateById,
 
-sqlListQuery, sqlSomeQuery, sqlList, sqlSome,sqlListOne,sqlSomeOne,
+sqlBaseQuery,
+sqlList, sqlSome,
+sqlListStruct, sqlSomeStruct,
+sqlSomeEntity, sqlListEntity,
+sqlListValue, sqlSomeValue,
 
-sqlSelectSome, sqlSelectList, sqlGet,
+sqlSomeById,
+
 
 nullString = new DBValue((),Types#VARCHAR),
 nullInt = new DBValue((),Types#BIGINT),
