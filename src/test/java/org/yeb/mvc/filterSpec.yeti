@@ -16,7 +16,7 @@ specificationsFor "org.yeb.mvc.filter" \(
                                    "yebMainDir":"src/test/resources/webapps/general/WEB-INF/yetim"]);
 
     initFilter _ = (cf = newConfig (); 
-                    filter = new YebFilterImpl();
+                    filter = new YebFilter();
                     filter#init(cf);
                     filter);
 
