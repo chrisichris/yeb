@@ -12,7 +12,8 @@ _ = load org.yeb.mvc.filter;
 specificationsFor "org.yeb.mvc.filter" \(
 
     newConfig _ = (sc = new MockServletContext("webapps/general");
-                h.filterConfig sc ["yebDir":"src/test/resources/webapps/general/WEB-INF/yeti"]);
+                h.filterConfig sc ["yebWebDir":"src/test/resources/webapps/general/WEB-INF/yeti",
+                                   "yebMainDir":"src/test/resources/webapps/general/WEB-INF/yetim"]);
 
     initFilter _ = (cf = newConfig (); 
                     filter = new YebFilterImpl();
@@ -24,6 +25,11 @@ specificationsFor "org.yeb.mvc.filter" \(
         assertFalse cf.production?;
     );
 
+    should "call init method on yebMain module" \(
+        _ = initFilter();
+        cf = load org.yeb.mvc.config;
+        assertEquals cf.messageBundles ["init yebMain"];
+    );
 
     should "init with loading module" do ct:
         _ = initFilter ();

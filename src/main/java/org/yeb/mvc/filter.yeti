@@ -46,6 +46,7 @@ typedef mainWebModuleType = {   init is ~FilterConfig -> (),
                                 destroy is () -> (),
                                 handler is handlerType,
                             };
+typedef mainModuleType = { init is ~FilterConfig -> (), destroy is () -> ()}
 
 
 findLastModifiedFile lastModified file is number -> ~File -> number = (
@@ -76,17 +77,40 @@ withClassLoader cl f is ~ClassLoader -> (() -> 'a) -> 'a= (
 
 class YebFilterImpl extends javax.servlet.Filter
 
+    var yebWebDir = "src/main/yeti",
+    var yebMainDir = "src/main/java",
+
     pathHelper = new org.springframework.web.util.UrlPathHelper(),
-    var yebDir = "src/main/yeti",
 
     loadMutex = new Object(),
     var filterConfig = () as ~FilterConfig,
     var servletContext = () as ~ServletContext,
 
+    var mainModule is mainModuleType= {init _ = (), destroy _ = ()},
+    var mainModuleClassLoader = () as ~ClassLoader,
+
     var mainWebModule is mainWebModuleType = { init _ = (), destroy _ = (), handler = \(mvc.goonResult)},
-    var mainWebModuleModified is number = -1,
+    var mainWebModuleModified = -1,
     var mainWebHandler is handlerType = \(mvc.goonResult),
-    var mainWebModuleClassLoader is ~ClassLoader = Thread#currentThread()#getContextClassLoader(),
+    var mainWebModuleClassLoader = () as ~ClassLoader,
+
+    loadMainModule filterConfig = (
+        srcPath = if configModule.production? or (strLength yebMainDir == 0) then [] else [yebMainDir] fi;
+        mainModuleClassLoader := new YetiClassLoader(Thread#currentThread()#getContextClassLoader(),
+                                    array srcPath, true) as ~ClassLoader;
+        mainWebModuleClassLoader := mainModuleClassLoader;
+
+        withClassLoader mainModuleClassLoader \(
+            mcl = try _ = mainModuleClassLoader#loadClass("yebMain"); Some mainModuleClassLoader catch ClassNotFoundException: none yrt;
+            case mcl of
+                None _: log#info("No yebMain module - starting without");
+                Some cL:
+                    (mmod = (YebUtils#moduleLoad(cL, "yebMain")) unsafely_as mainModuleType;
+                    log#info("Initializing yebMain module");
+                    mmod.init (filterConfig is ~FilterConfig);
+                    mainModule := mmod);
+             esac;
+        )),
 
     loadWebModule cl is ~ClassLoader -> 'a = (
         oldCl = mainWebModuleClassLoader;
@@ -95,12 +119,12 @@ class YebFilterImpl extends javax.servlet.Filter
         withClassLoader oldCl mainWebModule.destroy;
         log#info("yebWebMain module destroyed");
 
-        log#info("loading yebWebMain module with classLoader \(cl)");
-        mainWebModule := (YebUtils#moduleLoad(cl, "yebWebMain")) unsafely_as mainWebModuleType;
 
         withClassLoader mainWebModuleClassLoader \(
+            log#info("loading yebWebMain module with classLoader \(cl)");
+            mainWebModule := (YebUtils#moduleLoad(cl, "yebWebMain")) unsafely_as mainWebModuleType;
             mainWebModule.init filterConfig;
-            log#info("new mainModule initialized");
+            log#info("new yebWebMain module initialized");
             mainWebHandler := mainWebModule.handler;
         );
     ),
@@ -108,59 +132,58 @@ class YebFilterImpl extends javax.servlet.Filter
     loadWebModuleFromSource _ =
         synchronized loadMutex \(
             //check the last modified.
-            clo = (
-                nmf = findLastModifiedFile mainWebModuleModified (new File(yebDir));
-                if nmf > mainWebModuleModified then
-                    mainWebModuleModified := nmf;
-                    log#debug("Reloading yeti-code in \(yebDir) directory");
-                    ycl = new YetiClassLoader(Thread#currentThread()#getContextClassLoader(), array [string yebDir], false);
-                    Some (ycl as ~ClassLoader);
-                else none
-                fi);
-
-
-            case clo of
-                Some cl: loadWebModule cl;
-                None _: ();
-            esac;
-            ()
-        ),
+            nmf = findLastModifiedFile mainWebModuleModified (new File(yebWebDir));
+            if nmf > mainWebModuleModified then
+                mainWebModuleModified := nmf;
+                log#debug("Reloading yeti-code in directory: \(yebWebDir)");
+                ycl = new YetiClassLoader(mainModuleClassLoader, array [string yebWebDir], false);
+                loadWebModule ycl
+            fi),
 
 
    void init(FilterConfig fc)
      filterConfig := fc;
 
-     if defined? fc#getInitParameter("yebDir") then
-        yebDir := string fc#getInitParameter("yebDir");
+     if defined? fc#getInitParameter("yebMainDir") then
+        yebMainDir := strTrim (string fc#getInitParameter("yebMainDir"));
+     fi;
+
+     if defined? fc#getInitParameter("yebWebDir") then
+        yebWebDir := strTrim (string fc#getInitParameter("yebWebDir"));
      fi;
      servletContext := fc#getServletContext();
 
-     if configModule.production? then
-        loadWebModule Thread#currentThread()#getContextClassLoader();
+     loadMainModule fc;
+
+
+
+     if configModule.production? or (strLength yebWebDir == 0) then
+        loadWebModule mainModuleClassLoader;
      else
         loadWebModuleFromSource ();
-     fi
-   ,
+     fi,
 
 
    void destroy()
         withClassLoader mainWebModuleClassLoader mainWebModule.destroy;
-        log#info("mainmodule destroyed");
-   ,
+        log#info("yebWebMain destroyed");
+        withClassLoader mainModuleClassLoader mainModule.destroy;
+        log#info("yebMain destroyed"),
 
     void doFilter(ServletRequest sreq, ServletResponse sres, FilterChain filterChain)
         if (sreq instanceof HttpServletRequest) and (sres instanceof HttpServletResponse) then
             req = sreq unsafely_as ~HttpServletRequest;
             res = sres unsafely_as ~HttpServletResponse;
 
-            if not configModule.production? then
+            development = (not configModule.production?) and (strLength yebWebDir > 0);
+            if development then
                 //relaod the mainmodule if necessery (this method checks for last modified
                 loadWebModuleFromSource ();
             fi;
 
             var cl = mainWebModuleClassLoader;
             var handler = mainWebHandler;
-            if not configModule.production? then
+            if development then
                 synchronized loadMutex \(
                     cl := mainWebModuleClassLoader;
                     handler := mainWebHandler;
