@@ -218,7 +218,7 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> = (
 {
     ($) x y = x y,
     (|>) x y = y x, // (|> F# style) pipeForward
-    (|>>) f g = composeToRight f g,
+    (|>>) fn1 fn2 = composeToRight fn1 fn2,
 
     (:!) x is 'a -> ~Object = x as ~Object,
     (:!!) x is ~Object -> 'a = x unsafely_as 'a,
@@ -229,7 +229,7 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> = (
     maybeValid,
 
     getLogger,
-    composeToRight x y a = y (x a),
+    composeToRight fn1 fn2 = do a: fn2 (fn a) done,
     andThenEither,
     maybeHead,
     maybeAt,
