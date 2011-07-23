@@ -139,7 +139,7 @@ maybeRight leftF rightF leftOrRight =
       Right x: rightF x;
     esac;
 
-lazyMaybe default fun opt =
+maybe' default fun opt =
     case opt of
         None _: default ();
         Some v: fun v;
@@ -243,7 +243,7 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> = (
     maybeHead,
     maybeAt,
     maybeRight,
-    lazyMaybe,
+    maybe',
     getSome, getSome',
     some,
 
