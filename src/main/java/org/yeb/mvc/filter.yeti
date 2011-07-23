@@ -75,7 +75,7 @@ withClassLoader cl f is ~ClassLoader -> (() -> 'a) -> 'a= (
 
 
 
-class YebFilterImpl extends javax.servlet.Filter
+class YebFilter extends javax.servlet.Filter
 
     var yebWebDir = "src/main/yeti",
     var yebMainDir = "src/main/java",
