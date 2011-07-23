@@ -22,7 +22,7 @@ specificationsFor "org.yeb.mvc.filter" \(
 
     should "not be in production mode" \(
         cf = load org.yeb.mvc.config;
-        assertFalse cf.production?;
+        assertTrue cf.webDynamicReload?;
     );
 
     should "call init method on yebMain module" \(

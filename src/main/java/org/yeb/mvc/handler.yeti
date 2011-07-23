@@ -295,7 +295,7 @@ lazyHandler moduleName is string ->  ctxtHandlerType = (
         myHandler := Some h;
         h;
     );
-    if (load org.yeb.mvc.config).production? then
+    if not ((load org.yeb.mvc.config).webDynamicReload?) then
         loadHandler();
     else
         do ctxt:

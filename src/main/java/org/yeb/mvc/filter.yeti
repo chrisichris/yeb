@@ -95,7 +95,7 @@ class YebFilter extends javax.servlet.Filter
     var mainWebModuleClassLoader = () as ~ClassLoader,
 
     loadMainModule filterConfig = (
-        srcPath = if configModule.production? or (strLength yebMainDir == 0) then [] else [yebMainDir] fi;
+        srcPath = if (not configModule.webDynamicReload?) or (strLength yebMainDir == 0) then [] else [yebMainDir] fi;
         mainModuleClassLoader := new YetiClassLoader(Thread#currentThread()#getContextClassLoader(),
                                     array srcPath, true) as ~ClassLoader;
         mainWebModuleClassLoader := mainModuleClassLoader;
@@ -157,7 +157,7 @@ class YebFilter extends javax.servlet.Filter
 
 
 
-     if configModule.production? or (strLength yebWebDir == 0) then
+     if (not configModule.webDynamicReload?) or (strLength yebWebDir == 0) then
         loadWebModule mainModuleClassLoader;
      else
         loadWebModuleFromSource ();
@@ -175,7 +175,7 @@ class YebFilter extends javax.servlet.Filter
             req = sreq unsafely_as ~HttpServletRequest;
             res = sres unsafely_as ~HttpServletResponse;
 
-            development = (not configModule.production?) and (strLength yebWebDir > 0);
+            development = (configModule.webDynamicReload?) and (strLength yebWebDir > 0);
             if development then
                 //relaod the mainmodule if necessery (this method checks for last modified
                 loadWebModuleFromSource ();
