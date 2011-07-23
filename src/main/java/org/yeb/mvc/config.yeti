@@ -17,8 +17,11 @@
 
 module org.yeb.mvc.config;
 
+import java.lang.Thread;
+
 {
     var staticPrefix = "/static/",
     var messageBundles = ["yeb"],
-    var production? = not YebFilter#isDevelopment(),
+    var production? =
+        not nullptr? Thread#currentThread()#getContextClassLoader()#getResource("yebWebMain.class"),
 }
