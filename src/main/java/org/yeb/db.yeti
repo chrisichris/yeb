@@ -329,115 +329,101 @@ setBaseQueryHandler ds adapter
 ///////////////////////////////////////////
 //update helpers
 
-sqlInsertEntity db tableName stru is dataSourceType -> string -> 'a -> number = (
+sqlInsertEntity db tableName stru is dataSourceType -> string -> {} -> number = (
     import yeti.lang: Struct;
 
-    if (stru:!) instanceof Struct then
-        ist = (stru:!) unsafely_as ~Struct;
-        stb = new StringBuilder();
-        stb#append("INSERT INTO \(tableName) (");
+    ist = (stru:!) unsafely_as ~Struct;
+    stb = new StringBuilder();
+    stb#append("INSERT INTO \(tableName) (");
 
-        values = array [];
-        
+    values = array [];
 
-        for [0 .. ist#count() -1] do i:
-            
-            //add names to sql
-            name = string YebUtils#camelCaseToUnderline(ist#name(i));
-            if i > 0 then stb#append(", "); fi;
-            stb#append(name);
 
-            //collect values 
-            push values ist#get(i);
-        done;
+    for [0 .. ist#count() -1] do i:
 
-        stb#append(") VALUES (?)"); //the values list will be expanded to ? by sql update 
+        //add names to sql
+        name = string YebUtils#camelCaseToUnderline(ist#name(i));
+        if i > 0 then stb#append(", "); fi;
+        stb#append(name);
 
-        sqlUpdate db stb#toString() [(list values):!];
-    else 
-        failWith "template must be a struct"
-    fi;
+        //collect values
+        push values ist#get(i);
+    done;
+
+    stb#append(") VALUES (?)"); //the values list will be expanded to ? by sql update
+
+    sqlUpdate db stb#toString() [(list values):!];
 );
 
-sqlUpdateEntity db tableName stru whereClause whereParams is dataSourceType -> string -> 'a -> string -> list<~Object> -> number= (
+sqlUpdateEntity db tableName stru whereClause whereParams is dataSourceType -> string -> {} -> string -> list<~Object> -> number= (
     import yeti.lang: Struct;
 
-    if (stru:!) instanceof Struct then
-        ist = (stru:!) unsafely_as ~Struct;
-        stb = new StringBuilder();
-        stb#append("UPDATE \(tableName) SET ");
+    ist = (stru:!) unsafely_as ~Struct;
+    stb = new StringBuilder();
+    stb#append("UPDATE \(tableName) SET ");
 
-        values = array [];
+    values = array [];
 
-        for [0 .. ist#count() -1] do i:
+    for [0 .. ist#count() -1] do i:
 
-            //add names to sql
-            name = string YebUtils#camelCaseToUnderline(ist#name(i));
-            if i > 0 then stb#append(", "); fi;
+        //add names to sql
+        name = string YebUtils#camelCaseToUnderline(ist#name(i));
+        if i > 0 then stb#append(", "); fi;
+        stb#append(name);
+        stb#append(" = ?");
+
+        //collect values
+        push values ist#get(i);
+    done;
+
+    stb#append(" ");
+    stb#append(whereClause);
+
+    params = values ++ whereParams;
+    sqlUpdate db stb#toString() params;
+
+);
+
+sqlUpdateById db tableName stru is dataSourceType -> string -> {} -> number= (
+    import yeti.lang: Struct;
+
+    ist = (stru:!) unsafely_as ~Struct;
+    stb = new StringBuilder();
+    stb#append("UPDATE \(tableName) SET ");
+
+    values = array [];
+    var idField is ( None () | Some string ) = none;
+    var idValue is ~Object = ():!;
+
+    var first = true;
+    for [0 .. ist#count() -1] do i:
+
+        //add names to sql
+        name = string YebUtils#camelCaseToUnderline(ist#name(i));
+
+        if(name == "id") or (strEnds? name "_id") then
+            idField := Some name;
+            idValue := ist#get(i);
+        else
+            if first then first := false else stb#append(", "); fi;
             stb#append(name);
             stb#append(" = ?");
 
             //collect values
             push values ist#get(i);
-        done;
+        fi
+    done;
 
-        stb#append(" ");
-        stb#append(whereClause);
+    case idField of
+        None _ : failWith "the struct must contain a 'id' or '*_id' field";
+        Some n : (
+            stb#append(" WHERE \(n) = ?");
 
-        params = values ++ whereParams;
-        sqlUpdate db stb#toString() params;
-    else
-        failWith "template must be a struct"
-    fi;
+            push values idValue;
+            sqlUpdate db stb#toString() (list values);
 
-);
-
-sqlUpdateById db tableName stru is dataSourceType -> string -> 'a -> number= (
-    import yeti.lang: Struct;
-
-    if (stru:!) instanceof Struct then
-        ist = (stru:!) unsafely_as ~Struct;
-        stb = new StringBuilder();
-        stb#append("UPDATE \(tableName) SET ");
-
-        values = array [];
-        var idField is ( None () | Some string ) = none;
-        var idValue is ~Object = ():!;
-
-        var first = true;
-        for [0 .. ist#count() -1] do i:
-
-            //add names to sql
-            name = string YebUtils#camelCaseToUnderline(ist#name(i));
-
-            if(name == "id") or (strEnds? name "_id") then
-                idField := Some name;
-                idValue := ist#get(i);
-            else
-                if first then first := false else stb#append(", "); fi;
-                stb#append(name);
-                stb#append(" = ?");
-
-                //collect values
-                push values ist#get(i);
-            fi
-        done;
-
-        case idField of
-            None _ : failWith "the struct must contain a 'id' or '*_id' field";
-            Some n : (
-                stb#append(" WHERE \(n) = ?");
-
-                push values idValue;
-                sqlUpdate db stb#toString() (list values);
-
-            );
-        esac;
-    else
-        failWith "template must be a struct"
-    fi;
-
-);
+        );
+    esac);
 
 rspMaybeNum rs pos = objectMaybeNum (rs is ~ResultSet)#getObject(pos is number);
 rsMaybeNum rs name = objectMaybeNum (rs is ~ResultSet)#getObject(name is string);
