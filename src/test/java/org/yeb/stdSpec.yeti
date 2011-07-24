@@ -38,24 +38,24 @@ specificationsFor "org.yeb.std"\(
         );
     );
 
-    describe "valueOr" \(
+    describe "validOr" \(
         load org.yeb.validation;
         should "return the value if valid" \(
-            assertEquals "a" (valueOr "b" \("a" |> valiString 1 10 )));
+            assertEquals "a" (validOr "b" \("a" |> valiString 1 10 )));
         should "return the alternativ value if valid" \(
-            assertEquals "b" (valueOr "b" \("a" |> valiString 100 120)));
+            assertEquals "b" (validOr "b" \("a" |> valiString 100 120)));
         );
 
-    describe "valueOr'" \(
+    describe "validOr'" \(
         load org.yeb.validation;
         should "execute not valid if not valid" \(
             var f = false;
-            valueOr' \(f := true) \(f:=false) \("" |> valiString 100 120);
+            validOr' \(f := true) \(f:=false) \("" |> valiString 100 120);
             assertTrue f;
         );
         should "execute valid if valid" \(
             var f = false;
-            valueOr' \(f := false) \(f:=true) \("a" |> valiString 1 10 );
+            validOr' \(f := false) \(f:=true) \("a" |> valiString 1 10 );
             assertTrue f;
         );
     );

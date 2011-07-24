@@ -31,14 +31,14 @@ message key defaultFormat values is string -> string -> list<~Object> -> ~Messag
 plainMessage text = message "" text [];
 
 
-valueOr notValid valueFn =
+validOr notValid valueFn =
     try
         valueFn ();
     catch MessageException ex:
         notValid;
     yrt;
 
-valueOr' notValidFn validFn valueFn =
+validOr' notValidFn validFn valueFn =
     try validFn (valueFn ())
     catch MessageException ex:
         notValidFn ex;
@@ -235,7 +235,7 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> = (
 
     message,
     plainMessage,
-    valueOr, valueOr', maybeValid,
+    validOr, validOr', maybeValid,
 
     getLogger,
     composeToRight fn1 fn2 = do a: fn2 (fn1 a) done,
