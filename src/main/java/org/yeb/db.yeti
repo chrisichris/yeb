@@ -426,23 +426,23 @@ sqlUpdateById db tableName stru is dataSourceType -> string -> {} -> number= (
     esac);
 
 rspMaybeNum rs pos = objectMaybeNum (rs is ~ResultSet)#getObject(pos is number);
-rsMaybeNum rs name = objectMaybeNum (rs is ~ResultSet)#getObject(name is string);
+rsMaybeNum name rs = objectMaybeNum (rs is ~ResultSet)#getObject(name is string);
 
-rspNum rs pos = maybe 0 id (rspMaybeNum rs pos);
-rsNum rs name = maybe 0 id (rsMaybeNum rs name);
+rspNum pos rs = maybe 0 id (rspMaybeNum rs pos);
+rsNum name rs = maybe 0 id (rsMaybeNum rs name);
 
-rspMaybeStr rs pos =
+rspMaybeStr pos rs =
     (s = (rs is ~ResultSet)#getString(pos is number);
     if nullptr? s then none else Some s fi);
-rsMaybeStr rs name =
+rsMaybeStr name rs =
     (s = (rs is ~ResultSet)#getString(name is number);
     if nullptr? s then none else Some s fi);
 
-rspStr rs pos = maybe "" id (rspMaybeStr rs pos);
-rsStr rs pos = maybe "" id (rsMaybeStr rs pos);
+rspStr pos rs = maybe "" id (rspMaybeStr rs pos);
+rsStr name rs = maybe "" id (rsMaybeStr rs name);
 
-rspBool rs pos = (rs is ~ResultSet)#getBoolean(pos is number);
-rsBool rs name = (rs is ~ResultSet)#getBoolean(name is string);
+rspBool pos rs = (rs is ~ResultSet)#getBoolean(pos is number);
+rsBool name rs = (rs is ~ResultSet)#getBoolean(name is string);
 
 //////////////////////////////////////////
 //query helpers
