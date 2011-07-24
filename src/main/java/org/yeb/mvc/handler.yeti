@@ -40,9 +40,9 @@ load org.yeb.validation;
 
 typedef resultType = {status is number};
 
-typedef ctxtType = {servlet is {req is ~HttpServletRequest, res is ~HttpServletResponse, sctxt is ~ServletContext}};
+//typedef ctxtType = {servlet is {req is ~HttpServletRequest, res is ~HttpServletResponse, sctxt is ~ServletContext}};
 typedef handlerType<a> = a -> resultType;
-typedef ctxtHandlerType = handlerType<ctxtType>
+//typedef ctxtHandlerType = handlerType<ctxtType>
 typedef handlerAdapterType<a> = handlerType<a> -> handlerType<a>;
 
 
@@ -56,7 +56,7 @@ skipResult = {status = skipStatusCode};
 handledResult = {status = handledStatusCode};
 
 
-makeCtxt sctxt req res is ~ServletContext -> ~HttpServletRequest -> ~HttpServletResponse -> ctxtType=
+makeNewCtxt sctxt req res is ~ServletContext -> ~HttpServletRequest -> ~HttpServletResponse -> 'a=
     {servlet = {sctxt,req,res}};
 
 
@@ -135,10 +135,10 @@ flashGetAndKeep ctx key  is 'b -> string -> (None () | Some 'a) = (
     r;
 );
 
-rootCtxt pathInfo sctxt req res is string -> ~ServletContext -> ~HttpServletRequest -> ~HttpServletResponse -> ctxtType = (
+rootCtxt pathInfo sctxt req res is string -> ~ServletContext -> ~HttpServletRequest -> ~HttpServletResponse -> 'a = (
     serlvetPath = "";
     reqn = new YebHttpServletRequestWrapper(() as ~Locale, "",pathInfo,() as ~java.util.Map, req);
-    makeCtxt sctxt reqn res;
+    makeNewCtxt sctxt reqn res;
 );
 
 
@@ -206,8 +206,7 @@ _regexHandler addLast? methodRegex handler is boolean -> string -> handlerAdapte
     regex = if methodCut == -1 then methodRegex else strRight methodRegex (methodCut +2) fi;
     pattern = Pattern#compile(regex);
 
-    do octxtIn:
-        octxt is ctxtType = octxtIn;
+    do octxt:
         oreq = request octxt;
         if method? and (method != (strUpper oreq#getMethod() )) then
             goonResult
@@ -235,7 +234,7 @@ _regexHandler addLast? methodRegex handler is boolean -> string -> handlerAdapte
                     newServletPath = (oreq#getServletPath()) ^ (oreq#getPathInfo());
                     nreq#setServletPath(newServletPath);
                 fi;
-                nctxt = makeCtxt (servletContext octxt) nreq (response octxt);
+                nctxt = octxt with {servlet = octxt.servlet with {req = (nreq as ~HttpServletRequest)}};//makeCtxt (servletContext octxt) nreq (response octxt);
                 handler nctxt
             else
                 goonResult
@@ -250,7 +249,7 @@ subRegexHandler regex = _regexHandler true regex;
 
 
 
-ifHandler condition handler ctxt is (ctxtType -> boolean) -> handlerAdapterType<'a>=
+ifHandler condition handler ctxt =
     if condition ctxt then
        handler ctxt
     else
@@ -285,12 +284,12 @@ runHandlers handlers ctxt is list<handlerType<'a>> -> 'a -> resultType =
         fi
     fi;
 
-lazyHandler moduleName is string ->  ctxtHandlerType = (
-    var myHandler is (Some ctxtHandlerType | None () ) = none;
+lazyHandler moduleName  is string -> handlerType<'b> =(
+    var myHandler is (Some handlerType<'b> | None () ) = none;
     loadHandler () = (
         cl = Thread#currentThread()#getContextClassLoader()#loadClass(moduleName);
         mod = cl#getMethod("eval",() as ~Class[])#invoke(() as ~Object, () as ~Object[]);
-        jmod = mod unsafely_as {handler is ctxtHandlerType};
+        jmod = mod unsafely_as {handler is handlerType<'b>};
         h = jmod.handler;
         myHandler := Some h;
         h;
@@ -334,13 +333,12 @@ localHandler locales handler is list<~Locale> -> handlerAdapterType<'a> = (
     else
         lh = hash locales;
         defaultL = head locales;
-        do ctxtIn:
-            ctxt is ctxtType = ctxtIn;
+        do ctxt:
             nctxt = if (request ctxt)#getLocale() in lh then ctxt
                     else
                         nreq = new YebHttpServletRequestWrapper(false, (request ctxt));
                         nreq#setLocale(defaultL);
-                        makeCtxt (servletContext ctxt) nreq (response ctxt)
+                        ctxt with {servlet = ctxt.servlet with {req = (nreq as ~HttpServletRequest)}};//makeCtxt (servletContext ctxt) nreq (response ctxt)
                     fi;
             handler nctxt;
         done;
@@ -412,7 +410,7 @@ initializedFilterHandler filter handler ctxt is ~Filter -> handlerAdapterType<'a
                     if (same? req (request ctxt)) and (same? res (response ctxt)) then
                         handler ctxt
                     else
-                        handler (makeCtxt (servletContext ctxt) req res)
+                        handler (ctxt with {servlet = ctxt.servlet with {req,res}}) //makeCtxt (servletContext ctxt) req res
                     fi
                 else
                     failWith "Filter did not transfer HttpServletRequest or HttpServletResponse";
@@ -465,7 +463,8 @@ filterHandler sctxt filter params is 'b -> ~Filter -> hash<string,string> -> han
 {
 handledStatusCode, goonStatusCode,skipStatusCode,goonResult,skipResult,handledResult,
 
-makeCtxt, rootCtxt,mockCtxt,
+//makeNewCtxt,
+rootCtxt,mockCtxt,
 
 
 request,response,locale, servletContext,

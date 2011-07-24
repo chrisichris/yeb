@@ -15,31 +15,42 @@ specificationsFor "org.yeb.mvc.handler" \(
 
     specification "of parameter access with thread local request" \(
         ct = mockCtxt [Param ["foo":"2","str":"pstr"], Params ["faa":["1","2"], "mix":["name","2"]]];
-            describe "reqParams" \(
-                should "return a list with all" \(
-                    assertEquals ["1","2"] (params ct "faa");
-                );
-                should "return a list with one for one" \(
-                    assertEquals ["2"] (params ct "foo");
-                );
-                should "return a empty list with none" \(
-                    assertEquals [] (params ct "no-param");
-                );
+        describe "reqParams" \(
+            should "return a list with all" \(
+                assertEquals ["1","2"] (params ct "faa");
+            );
+            should "return a list with one for one" \(
+                assertEquals ["2"] (params ct "foo");
+            );
+            should "return a empty list with none" \(
+                assertEquals [] (params ct "no-param");
+            );
+        );
+
+        describe "reqParam" \(
+            should "fail if no request" \(
+                assertException \(param ct "no-param");
+            );
+            should "give one param" \(
+                assertEquals "2" (param ct "foo");
             );
 
-            describe "reqParam" \(
-                should "fail if no request" \(
-                    assertException \(param ct "no-param");
-                );
-                should "give one param" \(
-                    assertEquals "2" (param ct "foo");
-                );
-
-                should "give one param if many" \(
-                    assertEquals "1" (param ct "faa");
-                );
-
+            should "give one param if many" \(
+                assertEquals "1" (param ct "faa");
             );
+
+        );
+    );
+
+    specification "of a handler which takes more than the context" \(
+        ct = mockCtxt [Param ["foo":"2","str":"pstr"], Params ["faa":["1","2"], "mix":["name","2"]]];
+        describe "handler with user" \(
+            should "get the right user" \(
+                ha ctxt = (_ = ctxt.user;skipResult);
+                rh = regexHandler "/foo" ha;
+                rh (ct with {user = "foo"});
+            );
+        );
     );
 
     specification "of smale handleradapters" \(
@@ -119,6 +130,8 @@ specificationsFor "org.yeb.mvc.handler" \(
             );
         );
 
+
+
         describe "regexHandler" \(
             should "match a regex and put parameters in request" \(
                 var p1 = -1;
@@ -168,6 +181,7 @@ specificationsFor "org.yeb.mvc.handler" \(
 
            
         );
+
         describe "subRegexHandler" \(
             should "set as servletPath the unmatched part" \(
                 var sp = "";
