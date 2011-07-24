@@ -53,6 +53,57 @@ specificationsFor "org.yeb.mvc.handler" \(
         );
     );
 
+    specification "of url pattern to regex in YebUtils.patternToRegex" \(
+        describe "no pattern" \(
+            should "return exactly same string" \(
+                assertEquals '\Qsome/pattern/here\E' (urlPatternToRegex "some/pattern/here"));
+            should "does not escape regex" \(
+                assertEquals '\Qsome.do\E' (urlPatternToRegex "some.do"));
+        );
+
+        describe "in curly patterns" \(
+            should "{*} pattern lead to all regex" \(
+                assertEquals "\\Qsome/pattern/\\E(.*)" (urlPatternToRegex "some/pattern/{*}"));
+            should "{} pattern lead to + regex" \(
+                assertEquals  "\\Qsome/\\E([^/]+)\\Q/pattern/\\E" (urlPatternToRegex "some/{}/pattern/"));
+            should "{d} pattern lead to number regex" \(
+                assertEquals "\\Qsome/\\E([\\d^/]+)\\Q/pattern/\\E"  (urlPatternToRegex "some/{d}/pattern/"));
+            should "{w} pattern lead to word regex" \(
+                assertEquals "\\Qsome/\\E([\\w^/]+)\\Q/pattern/\\E" (urlPatternToRegex "some/{w}/pattern/"));
+        );
+
+        describe "corner brackets " \(
+            should "to normal regex" \(
+                assertEquals "\\Qsome/\\E(fooregex)\\Q/pattern\\E" (urlPatternToRegex "some/<fooregex>/pattern"));
+            should "not to regex if not closed" \(
+                assertException \(urlPatternToRegex "some/<fooregex/pattern"));
+            should "escape full string" \(
+                assertEquals "(.mehr)" (urlPatternToRegex "<.mehr>"));
+        );
+        describe "corner cases" \(
+            should "add single {" \(
+                assertException \(urlPatternToRegex "some/{/hier"));
+            should "add single {{" \(
+                assertException \(urlPatternToRegex "some/{{}/hier"));
+            should "add work last <" \(
+                assertException \(urlPatternToRegex "some/<"));
+        );
+        describe "combined" \(
+            should "regexes" \(
+                assertEquals "\\Qsome/./\\E([^/]+)\\Q/\\E([\\d^/]+)\\Q/\\E(reg)\\Q/\\E(.*)"
+                    (urlPatternToRegex "some/./{}/{d}/<reg>/{*}"));
+        );
+
+        describe "splitoff until ::" \(
+            should "split off and put together" \(
+                assertEquals "get::\\Qsome\\E" (urlPatternToRegex "get::some"));
+            should "split off and make pattern" \(
+                assertEquals "get::\\Qsome/\\E(.*)" (urlPatternToRegex "get::some/{*}"));
+            should "split off and make single pattern" \(
+                assertEquals "get::(.*)" (urlPatternToRegex "get::{*}"));
+        );
+    );
+
     specification "of smale handleradapters" \(
         describe "goon handler sould return gootnResult" \(
                 assertEquals goonResult (goonHandler (mockCtxt []));

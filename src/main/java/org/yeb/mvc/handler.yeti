@@ -34,7 +34,7 @@ import org.springframework.mock.web: MockFilterConfig, MockServletContext, MockH
 import org.springframework.web.util.WebUtils;
 
 import yeti.lang: Fun, Struct;
-import org.yeb:ValidationException;
+import org.yeb:ValidationException, YebUtils;
 load org.yeb.std;
 load org.yeb.validation;
 
@@ -197,6 +197,7 @@ idHandler handler is handlerAdapterType<'a> = handler;
 
 goonHandler ctxt is handlerType<'a> = goonResult;
 
+urlPatternToRegex pat = YebUtils#patternToRegex((pat is string));
 
 _regexHandler addLast? methodRegex handler is boolean -> string -> handlerAdapterType<'a> = (
     methodCut = strIndexOf methodRegex "::" 0;
@@ -316,6 +317,9 @@ handlersFact oldVhs = (
         r regex handler = add $ (regexHandler regex) handler,
         rsub regex handler = add $ (subRegexHandler regex) handler,
         rlazy regex moduleName = add $ (subRegexHandler regex) (lazyHandler moduleName),
+        p regex handler = add $ (regexHandler (urlPatternToRegex regex)) handler,
+        psub regex handler = add $ (subRegexHandler (urlPatternToRegex regex)) handler,
+        plazy regex moduleName = add $ (subRegexHandler (urlPatternToRegex regex)) (lazyHandler moduleName),
 
         get handler () =
             runHandlers ((reverse vhs) ++ oldVhs),
@@ -474,6 +478,8 @@ params,param,
 flashKey, flashGet, flashPut,flashGetAndKeep,
 
 resultTH,
+
+urlPatternToRegex,
 
 idHandler, goonHandler, ifHandler,regexHandler,subRegexHandler,toHandler,runHandlers,
 sessionHandler,
