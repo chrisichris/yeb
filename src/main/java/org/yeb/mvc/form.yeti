@@ -35,7 +35,7 @@ typedef optionType<a> = None () | Some a;
 
 typedef valiType<a, b> = a -> b;
 
-typedef ctxtType = {servlet is {req is ~HttpServletRequest}};
+typedef ctxtType = {req is ~HttpServletRequest};
 
 typedef fieldType<a> = {
     name is string,

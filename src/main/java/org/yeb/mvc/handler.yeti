@@ -57,14 +57,14 @@ handledResult = {status = handledStatusCode};
 
 
 makeNewCtxt sctxt req res is ~ServletContext -> ~HttpServletRequest -> ~HttpServletResponse -> 'a=
-    {servlet = {sctxt,req,res}};
+    {sctxt,req,res};
 
 
 resultTH = threadLocal handledResult;
 
-request c = (r is ~HttpServletRequest = c.servlet.req; r);
-response c = (r is ~HttpServletResponse = c.servlet.res; r);
-servletContext c = (r is ~ServletContext = c.servlet.sctxt; r);
+request c = (r is ~HttpServletRequest = c.req; r);
+response c = (r is ~HttpServletResponse = c.res; r);
+servletContext c = (r is ~ServletContext = c.sctxt; r);
 locale c = (request c)#getLocale();
 
 /*
@@ -234,7 +234,7 @@ _regexHandler addLast? methodRegex handler is boolean -> string -> handlerAdapte
                     newServletPath = (oreq#getServletPath()) ^ (oreq#getPathInfo());
                     nreq#setServletPath(newServletPath);
                 fi;
-                nctxt = octxt with {servlet = octxt.servlet with {req = (nreq as ~HttpServletRequest)}};//makeCtxt (servletContext octxt) nreq (response octxt);
+                nctxt = octxt with {req = (nreq as ~HttpServletRequest)};//makeCtxt (servletContext octxt) nreq (response octxt);
                 handler nctxt
             else
                 goonResult
@@ -338,7 +338,7 @@ localHandler locales handler is list<~Locale> -> handlerAdapterType<'a> = (
                     else
                         nreq = new YebHttpServletRequestWrapper(false, (request ctxt));
                         nreq#setLocale(defaultL);
-                        ctxt with {servlet = ctxt.servlet with {req = (nreq as ~HttpServletRequest)}};//makeCtxt (servletContext ctxt) nreq (response ctxt)
+                        ctxt with {req = (nreq as ~HttpServletRequest)};//makeCtxt (servletContext ctxt) nreq (response ctxt)
                     fi;
             handler nctxt;
         done;
@@ -410,7 +410,7 @@ initializedFilterHandler filter handler ctxt is ~Filter -> handlerAdapterType<'a
                     if (same? req (request ctxt)) and (same? res (response ctxt)) then
                         handler ctxt
                     else
-                        handler (ctxt with {servlet = ctxt.servlet with {req,res}}) //makeCtxt (servletContext ctxt) req res
+                        handler (ctxt with {req,res}) //makeCtxt (servletContext ctxt) req res
                     fi
                 else
                     failWith "Filter did not transfer HttpServletRequest or HttpServletResponse";

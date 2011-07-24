@@ -38,7 +38,7 @@ configModule = load org.yeb.mvc.config;
 //helper to invoke with classloader
 typedef resultType = {status is number};
 
-typedef ctxtType = {servlet is {req is ~HttpServletRequest, res is ~HttpServletResponse, sctxt is ~ServletContext}};
+typedef ctxtType = {req is ~HttpServletRequest, res is ~HttpServletResponse, sctxt is ~ServletContext};
 typedef handlerType = ctxtType -> resultType;
 
 
