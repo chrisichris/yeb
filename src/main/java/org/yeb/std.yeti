@@ -20,7 +20,7 @@ import org.yeb.TMap;
 import org.slf4j: Logger, LoggerFactory;
 import java.util: Iterator,List,ListIterator;
 import java.io: File;
-import java.lang: Thread, ClassLoader, StringBuilder;
+import java.lang: Thread, ClassLoader, StringBuilder, Throwable;
 import yeti.lang.Struct;
 
 
@@ -161,6 +161,32 @@ ensure cond msg =
     throw new java.lang.IllegalStateException("\(msg)");
   fi;
 
+findCodeForException linesSourround sourceDirs ex =
+    (prov = (load org.yeticl.yeticlassloadermodule).sourceReader sourceDirs false
+                                Thread#currentThread()#getContextClassLoader();
+
+    (|>) x y = y x; // (|> F# style) pipeForward
+    exStack = (rf exp exls = if nullptr? (exp is ~Throwable) then exls else rf exp#getCause() (exp :: exls) fi;
+               reverse (rf ex []));
+    exStack|>map do ex:
+            stels = wrapArray (ex is ~Throwable)#getStackTrace()
+                    |>map do ste:
+                        arg = {var name = string (ste is ~java.lang.StackTraceElement)#getFileName(), fullpath = false};
+                        code = prov arg;
+                        {fileName = arg.name,code,lineNumber = ste#getLineNumber()} done
+                    |>filter do {code}: code != undef_str done
+                    |>map do {fileName,code,lineNumber}:
+                            fromLineNumber = (max 0 (lineNumber -linesSourround)) + 1;
+                            toLineNumber = lineNumber + linesSourround;
+                            lines = list (strSplit '\n' code)
+                                |> drop (fromLineNumber - 1)
+                                |> take (2 *linesSourround);
+                            {fileName,lines,lineNumber,fromLineNumber,toLineNumber};
+                        done;
+            {exception = ex, codeLines= stels}
+        done) ;
+
+
 
 //+++++++++++++++++++++++table things ++++++++++++++++++++++++++++++++
 
@@ -231,6 +257,8 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> = (
     plainMessage,
     validOr, validOr', maybeValid,
 
+    getEx () = try failWith "hier"; throw new java.lang.RuntimeException(""); catch Exception ex: ex yrt,
+
     getLogger,
     composeToRight fn1 fn2 = do a: fn2 (fn1 a) done,
     andThenEither,
@@ -263,6 +291,7 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> = (
 
     forEach fun ls = for ls fun,
 
+    findCodeForException,
 
     tableCreate = create,
     tableAddAll = addAll,
