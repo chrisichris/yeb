@@ -66,6 +66,17 @@ valiNum min max num =
         num
     fi;
 
+valiEmail max input =
+    string try ESAPI#validator()#getValidInput("",input is string, "Email", max, false)
+    catch org.owasp.esapi.errors.ValidationException ex: throw (esapiToValiEx ex input) yrt;
+
+valiIPAddress max input =
+    string try ESAPI#validator()#getValidInput("",input is string, "IPAddress", max, false)
+    catch org.owasp.esapi.errors.ValidationException ex: throw (esapiToValiEx ex input) yrt;
+
+valiURL max input =
+    string try ESAPI#validator()#getValidInput("",input is string, "URL", max, false)
+    catch org.owasp.esapi.errors.ValidationException ex: throw (esapiToValiEx ex input) yrt;
 
 valiList vali listIn  = 
     filter (maybeValid \false \true vali) listIn;
@@ -187,7 +198,7 @@ valiCreditCard str =
 
 {
 
-valiCreditCard,
+valiCreditCard, valiEmail, valiIPAddress, valiURL,
 
 valiListLength, valiList,
 
