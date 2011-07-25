@@ -22,6 +22,8 @@ import javax.servlet.http: HttpServletRequest, HttpServletResponse;
 import java.net: URLEncoder, URLDecoder;
 
 load org.yeb.std;
+load org.yeb.mvc.webutils;
+
 
 //++++++++++++++++++++++++view things +++++++++++++++++
 //pathHelper = new org.springframework.web.util.UrlPathHelper();

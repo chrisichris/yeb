@@ -22,6 +22,8 @@ import org.yeb.Message;
 import javax.servlet.http:HttpServletRequest;
 
 load org.yeb.std;
+load org.yeb.mvc.webutils;
+
 
 handlerModule = load org.yeb.mvc.handler;
 

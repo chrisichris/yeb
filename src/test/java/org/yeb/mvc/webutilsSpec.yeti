@@ -1,0 +1,48 @@
+/// put module documentation here
+
+module org.yeb.mvc.webutilsSpec;
+
+import org.springframework.mock.web:MockServletContext, MockHttpServletRequest, MockHttpServletResponse, MockFilterChain;
+
+load org.yeb.std;
+load org.yeb.yebspec;
+
+load org.yeb.mvc.webutils;
+load org.yeb.mvc.handler;
+load org.yeb.validation;
+
+specificationsFor "org.yeb.mvc.handler" \(
+
+    specification "of parameter access with thread local request" \(
+        ct = mockCtxt [Param ["foo":"2","str":"pstr"], Params ["faa":["1","2"], "mix":["name","2"]]];
+        describe "reqParams" \(
+            should "return a list with all" \(
+                assertEquals ["1","2"] (params ct "faa");
+            );
+            should "return a list with one for one" \(
+                assertEquals ["2"] (params ct "foo");
+            );
+            should "return a empty list with none" \(
+                assertEquals [] (params ct "no-param");
+            );
+        );
+
+        describe "reqParam" \(
+            should "fail if no request" \(
+                assertException \(param ct "no-param");
+            );
+            should "give one param" \(
+                assertEquals "2" (param ct "foo");
+            );
+
+            should "give one param if many" \(
+                assertEquals "1" (param ct "faa");
+            );
+
+        );
+    );
+
+
+
+)
+

@@ -150,6 +150,21 @@ some v is 'a -> (Some 'a | None () )= Some v;
 loadClass name =
     Thread#currentThread()#getContextClassLoader()#loadClass(name);
 
+wrapMap keyFn valueFn jmap = (
+    import java.util.Map;
+    it = (jmap is ~Map)#keySet()#iterator();
+    ret = [:];
+    (it#hasNext()) loop (
+        key = it#next();
+        ret.[keyFn key] := valueFn jmap#get(key));
+     ret);
+
+wrapList mapF jlist = (
+    it = (jlist is ~java.util.List)#iterator();
+    ret = array [];
+    (it#hasNext()) loop (
+        push ret (mapF it#next()));
+    ret);
 
 require cond msg =
   if not cond then
@@ -257,8 +272,6 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> = (
     plainMessage,
     validOr, validOr', maybeValid,
 
-    getEx () = try failWith "hier"; throw new java.lang.RuntimeException(""); catch Exception ex: ex yrt,
-
     getLogger,
     composeToRight fn1 fn2 = do a: fn2 (fn1 a) done,
     andThenEither,
@@ -267,6 +280,8 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> = (
     maybe',
     getSome, getSome',
     some,
+
+    wrapMap, wrapList,
 
     withThreadLocal,
 

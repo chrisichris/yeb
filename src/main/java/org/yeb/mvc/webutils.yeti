@@ -1,0 +1,83 @@
+/*
+ * Copyright 2011 Christian Essl
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions
+ * and limitations under the License.
+ */
+
+module org.yeb.mvc.webutils;
+
+import javax.servlet.http:HttpServletRequest, HttpServletResponse, ServletContext,Cookie;
+import org.owasp.esapi:ESAPI,HTTPUtilitiess;
+
+load org.yeb.std;
+
+request c = (r is ~HttpServletRequest = c.req; r);
+response c = (r is ~HttpServletResponse = c.res; r);
+servletContext c = (r is ~ServletContext = c.sctxt; r);
+locale c = (request c)#getLocale();
+
+
+
+params ctx name = (
+  ps = (request ctx)#getParameterValues(name);
+  if defined? ps then
+    map' string (wrapArray ps);
+  else
+    []
+  fi
+);
+
+
+param ctx name = (
+    par = (request ctx)#getParameter(name);
+    if defined? par then
+        string par;
+    else
+        throw new org.yeb.ValidationException(message "noparam" "No request-parameter for name %1$s" [obj name], "" as ~Object );
+    fi;
+);
+
+isAjax ctxt = (request ctxt)#getHeader("X-Requested-With") == "XMLHttpRequest";
+
+
+{
+    request,response,servletContext,locale, params,param,isAjax,
+
+    cookie name value = new Cookie(name is string,value is string),
+    var httpUtilities = ESAPI#httpUtilities(),
+
+    addCookie ctxt cookie = httpUtilities#addCookie(response ctxt, cookie),
+    addHeader ctxt name value = httpUtilities#addHeader(response ctxt, name is string, value is string),
+    assertSecureChannel ctxt = httpUtilities#assertSecureChannel(request ctxt),
+    changeSessionIdentifier ctxt = httpUtilities#changeSessionIdentifier(request ctxt),
+    decryptHiddenField encrypted = string (httpUtilities#decryptHiddenField(encrypted is string)),
+    decryptQueryString encrypted =
+        wrapMap string string httpUtilities#decryptQueryString(encrypted),
+    decryptStateFromCookie ctxt =
+        wrapMap string string httpUtilities#decryptStateFromCookie(request ctxt),
+    encryptHiddenField value = string (httpUtilities#encryptHiddenField(value is string)),
+    encryptQueryString value = string (httpUtilities#encryptQueryString(value is string)),
+    encryptStateInCookie ctxt values =
+        httpUtilities#encryptStateInCookie(response ctxt, values is hash<string,string>),
+    getCookie ctxt name = string (httpUtilities#getCookie(request ctxt,name)),
+    getFileUploads ctxt destDir extensions =
+        wrapList do fl: (fl unsafely_as ~java.io.File) done
+                httpUtilities#getFileUploads(request ctxt, new java.io.File(destDir is string), extensions is list<string>),
+    getHeader ctxt name = string (httpUtilities#getHeader(request ctxt,name is string)),
+    killAllCookies ctxt = httpUtilities#killAllCookies(request ctxt,response ctxt),
+    killCookie ctxt name = httpUtilities#killCookie(request ctxt,response ctxt,name is string),
+    setHeader ctxt name value = httpUtilities#setHeader(response ctxt,name is string, value is string),
+    setNoCacheHeaders ctxt = httpUtilities#setNoCacheHeaders(response ctxt),
+
+
+}

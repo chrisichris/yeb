@@ -36,6 +36,7 @@ import org.springframework.web.util.WebUtils;
 import yeti.lang: Fun, Struct;
 import org.yeb:ValidationException, YebUtils;
 load org.yeb.std;
+load org.yeb.mvc.webutils;
 load org.yeb.validation;
 
 typedef resultType = {status is number};
@@ -62,41 +63,6 @@ makeNewCtxt sctxt req res is ~ServletContext -> ~HttpServletRequest -> ~HttpServ
 
 resultTH = threadLocal handledResult;
 
-request c = (r is ~HttpServletRequest = c.req; r);
-response c = (r is ~HttpServletResponse = c.res; r);
-servletContext c = (r is ~ServletContext = c.sctxt; r);
-locale c = (request c)#getLocale();
-
-/*
-class HttpHandlerException(int statusCode, String statusMsg) extends java.lang.RuntimeException()
-    int getCode()
-        statusCode,
-    String getMessage()
-        statusMsg,
-end;
-*/
-
-
-params ctx name = (
-  ps = (request ctx)#getParameterValues(name);
-  if defined? ps then
-    map' string (wrapArray ps);
-  else
-    []
-  fi
-);
-
-
-param ctx name = (
-    par = (request ctx)#getParameter(name);
-    if defined? par then
-        string par;
-    else
-        throw new ValidationException(message "noparam" "No request-parameter for name %1$s" [obj name], "" as ~Object );
-    fi;
-);
-
-isAjax ctxt = (request ctxt)#getHeader("X-Requested-With") == "XMLHttpRequest";
 
 flashKey = "org.yeb.session.flash";
 
