@@ -144,21 +144,11 @@ assertNone opt =
         Some v : testFail "expected None was Some \(v)";
     esac;
 
-assertLeft fun leftOrRight  =
-    std.maybeRight do l: fun l; () done do r: testFail "expected Left but was \(leftOrRight)" done leftOrRight;
-
-assertRight fun leftOrRight =
-    case leftOrRight of
-        Left lv: testFail "expected Right but was Left \(lv)";
-        Right r: (fun r;());
-    esac;
-
-assertRightEquals value leftOrRight =
-    assertRight do rv: assertEquals value rv done leftOrRight;
-
-assertLeftEquals value leftOrRight =
-    assertLeft do rv: assertEquals value rv done leftOrRight;
-
+assertNoneEquals v opt =
+        case opt of
+            None x: assertEquals v x;
+            Some _ : testFail "expected none value";
+        esac;
 ///////////////////////////////////
 //generators
 
@@ -451,7 +441,6 @@ createJUnitTest specResult prefix first is resultNode -> string -> boolean -> ~T
     assertFailWith,assertFailWithText,
     assertEquals, assertNotEquals, assertSame, assertEqualsObj,
     assertSome, assertSomeEquals, assertNone,
-    assertLeft, assertRight,  assertRightEquals, assertLeftEquals,
     assertContains,assertContainsAll,assertEqualElements,
 
     //bulk check

@@ -83,15 +83,15 @@ method: \(method)\n";
 
         if statusCode == HttpStatus#SC_OK then
             r = f method;
-            Right r;
+            Some r;
         else
             log#debug("Bad status code for request[{}]: {}", url, statusCode);
             method#getResponseBody();
-            Left(Right statusCode);
+            None(Some statusCode);
         fi;
     catch Exception ex:
         log#debug("Exception in execution of get {} : {}", url, ex);
-        Left (Left ex);
+        None (None ex);
     finally
         method#releaseConnection();
     yrt;
@@ -120,7 +120,7 @@ method: \(method)\n";
         load org.yeb.json;
 
         opt = httpGetString options url ;
-        maybeRight Left do str:
+        maybe' None do str:
                     stp = stringParser str;
                     Right (jsonMap stp);
                   done opt;

@@ -133,15 +133,9 @@ listStarts? start l =
         listStarts? (tail start) (tail l)
     fi;
 
-maybeRight leftF rightF leftOrRight =
-    case leftOrRight of
-      Left v: leftF v;
-      Right x: rightF x;
-    esac;
-
 maybe' default fun opt =
     case opt of
-        None _: default ();
+        None x: default x;
         Some v: fun v;
     esac;
 
@@ -242,7 +236,6 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> = (
     andThenEither,
     maybeHead,
     maybeAt,
-    maybeRight,
     maybe',
     getSome, getSome',
     some,
