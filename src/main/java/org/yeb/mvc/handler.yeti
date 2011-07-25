@@ -96,6 +96,8 @@ param ctx name = (
     fi;
 );
 
+isAjax ctxt = (request ctxt)#getHeader("X-Requested-With") == "XMLHttpRequest";
+
 flashKey = "org.yeb.session.flash";
 
 flashGetStruct ctx is 'a -> {var oldMap is ~java.util.HashMap, var newMap is ~java.util.HashMap} = (
@@ -473,7 +475,7 @@ rootCtxt,mockCtxt,
 
 request,response,locale, servletContext,
 
-params,param,
+params,param,isAjax,
 
 flashKey, flashGet, flashPut,flashGetAndKeep,
 
