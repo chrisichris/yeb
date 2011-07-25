@@ -31,7 +31,7 @@ specificationsFor "org.yeb.mvc.form" \(
     specification "general field" \(
         shouldWF n fn = should n \(
             form = createForm "fp-";
-            f = createField 2 10 form "f1" (strToNum |>> valiNum 0 15) string;
+            f = createField 2 10 form "f1" (strToNum 0 10000) string;
             fn {form, f};
         );
 
