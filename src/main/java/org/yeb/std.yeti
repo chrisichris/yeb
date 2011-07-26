@@ -152,11 +152,11 @@ loadClass name =
 
 wrapMap keyFn valueFn jmap = (
     import java.util.Map;
-    it = (jmap is ~Map)#keySet()#iterator();
+    it = (jmap is ~Map)#entrySet()#iterator();
     ret = [:];
     (it#hasNext()) loop (
-        key = it#next();
-        ret.[keyFn key] := valueFn jmap#get(key));
+        entry = it#next() unsafely_as ~java.util.Map$Entry;
+        ret.[keyFn entry#getKey()] := valueFn entry#getValue());
      ret);
 
 wrapList mapF jlist = (
