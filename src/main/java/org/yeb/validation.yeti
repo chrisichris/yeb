@@ -24,6 +24,7 @@ import java.util: Locale, Date, List,ArrayList, Collections;
 import java.net: URLEncoder, URLDecoder;
 
 import org.owasp.esapi:ESAPI;
+import org.owasp.validator.html:AntiSamy,Policy;
 
 load org.yeb.std; 
 
@@ -65,6 +66,17 @@ valiNum min max num =
     else
         num
     fi;
+
+valiHtml policy input =
+    (pol = Policy#getInstance(policy is string);
+    aS = new AntiSamy();
+    string aS#scan(input,pol,AntiSamy#SAX)#getCleanHTML() );
+
+
+valiSafeHtml max input =
+    string try ESAPI#validator()#getValidSafeHTML("",input is string, max, false)
+    catch org.owasp.esapi.errors.ValidationException ex: throw (esapiToValiEx ex input) yrt;
+
 
 valiEmail max input =
     string try ESAPI#validator()#getValidInput("",input is string, "Email", max, false)
@@ -197,7 +209,7 @@ valiCreditCard str =
     catch org.owasp.esapi.errors.ValidationException ex: throw (esapiToValiEx ex str) yrt;
 
 {
-
+valiHtml, valiSafeHtml,
 valiCreditCard, valiEmail, valiIPAddress, valiURL,
 
 valiListLength, valiList,
