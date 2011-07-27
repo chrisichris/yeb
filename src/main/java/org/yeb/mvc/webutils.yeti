@@ -65,7 +65,17 @@ isAjax ctxt = (request ctxt)#getHeader("X-Requested-With") == "XMLHttpRequest";
     request,response,servletContext,locale, 
     params, param, maybeParam, isAjax,
 
-    cookie name value = new Cookie(name is string,value is string),
+    newCookie name value opts =
+        (cookie = new Cookie(name is string,value is string);
+         for opts do opt: case opt of
+            Comment c: cookie#setComment(c is string);
+            Domain d: cookie#setDomain(d is string);
+            MaxAge n: cookie#setMaxAge(n is number);
+            Path p: cookie#setPath(p is string);
+            Secure s: cookie#setSecure(s is boolean);
+            Version v: cookie#setVersion(v is number);
+         esac done);
+
     var httpUtilities = ESAPI#httpUtilities(),
 
     addCookie ctxt cookie = httpUtilities#addCookie(response ctxt, cookie),
