@@ -28,10 +28,10 @@ locale c = (request c)#getLocale();
 
 
 
-params ctx name = (
+params min max ctx name = (
   ps = (request ctx)#getParameterValues(name);
   if defined? ps then
-    map' string (wrapArray ps);
+    map' string (wrapArray ps) |> (load org.yeb.validation).valiListLength min max;
   else
     []
   fi
@@ -47,11 +47,23 @@ param ctx name = (
     fi;
 );
 
+
+maybeParam ctxt name vali =
+    (par = (request ctxt)#getParameter(name);
+    if defined? par then
+        Some (vali (string par));
+    else
+        none
+    fi);
+
+
+
 isAjax ctxt = (request ctxt)#getHeader("X-Requested-With") == "XMLHttpRequest";
 
 
 {
-    request,response,servletContext,locale, params,param,isAjax,
+    request,response,servletContext,locale, 
+    params, param, maybeParam, isAjax,
 
     cookie name value = new Cookie(name is string,value is string),
     var httpUtilities = ESAPI#httpUtilities(),

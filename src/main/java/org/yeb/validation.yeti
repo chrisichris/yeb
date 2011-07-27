@@ -51,7 +51,7 @@ valiListLength min max listIn is number -> number -> list<'a> -> list<'a>= (
     l = length listIn;
     if l < min then
         throw new ValidationException(message "listtooshort" "list length must be minimal %1$s but is %2$s" [obj length, obj min], listIn);
-    elif (max > -1) and (l > max) then
+    elif (max > 0) and (l > max) then
         throw new ValidationException(message "listtoolong" "list length must be maximal %1$s but is %2$s" [obj length, obj min], listIn);
     else
         listIn
