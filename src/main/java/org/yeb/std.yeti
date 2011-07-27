@@ -50,6 +50,7 @@ maybeValid notValidFn validFn validateFn value =
         notValidFn ex;
     yrt;
 
+
 stringWriter () = (
     stB = new StringBuilder();
     {
@@ -133,11 +134,21 @@ listStarts? start l =
         listStarts? (tail start) (tail l)
     fi;
 
-maybe' default fun opt =
+
+maybeDefined' defaultFn valueFn x =
+    if defined? x then valueFn x else defaultFn ();
+
+maybeDefined defaultValue valueFn x =
+    if defined? x then valueFn x else defaultValue;
+
+
+maybe' defaultFn fn opt =
     case opt of
-        None x: default x;
-        Some v: fun v;
+        None x: defaultFn x;
+        Some v: fn v;
     esac;
+
+
 
 getSome' msg maybe = case maybe of
                     Some v: v;
@@ -277,6 +288,8 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> = (
     andThenEither,
     maybeHead,
     maybeAt,
+    maybeDefined,
+    maybeDefined',
     maybe',
     getSome, getSome',
     some,
