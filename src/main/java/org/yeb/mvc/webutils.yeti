@@ -76,30 +76,36 @@ isAjax ctxt = (request ctxt)#getHeader("X-Requested-With") == "XMLHttpRequest";
             Version v: cookie#setVersion(v is number);
          esac done);
 
-    var httpUtilities = ESAPI#httpUtilities(),
 
-    addCookie cookie ctxt = httpUtilities#addCookie(response ctxt, cookie),
-    addHeader name value ctxt = httpUtilities#addHeader(response ctxt, name is string, value is string),
-    assertSecureChannel ctxt = httpUtilities#assertSecureChannel(request ctxt),
-    changeSessionIdentifier ctxt = httpUtilities#changeSessionIdentifier(request ctxt),
-    decryptHiddenField encrypted = string (httpUtilities#decryptHiddenField(encrypted is string)),
+    addCookie cookie ctxt = ESAPI#httpUtilities()addCookie(response ctxt, cookie),
+    addHeader name value ctxt = ESAPI#httpUtilities()addHeader(response ctxt, name is string, value is string),
+    assertSecureChannel ctxt = ESAPI#httpUtilities()assertSecureChannel(request ctxt),
+    changeSessionIdentifier ctxt = ESAPI#httpUtilities()changeSessionIdentifier(request ctxt),
+    decryptHiddenField encrypted = string (ESAPI#httpUtilities()decryptHiddenField(encrypted is string)),
     decryptQueryString encrypted =
-        wrapMap string string httpUtilities#decryptQueryString(encrypted),
+        wrapMap string string ESAPI#httpUtilities()decryptQueryString(encrypted),
     decryptStateFromCookie ctxt =
-        wrapMap string string httpUtilities#decryptStateFromCookie(request ctxt),
-    encryptHiddenField value = string (httpUtilities#encryptHiddenField(value is string)),
-    encryptQueryString value = string (httpUtilities#encryptQueryString(value is string)),
+        wrapMap string string ESAPI#httpUtilities()decryptStateFromCookie(request ctxt),
+    encryptHiddenField value = string (ESAPI#httpUtilities()encryptHiddenField(value is string)),
+    encryptQueryString value = string (ESAPI#httpUtilities()encryptQueryString(value is string)),
     encryptStateInCookie values ctxt =
-        httpUtilities#encryptStateInCookie(response ctxt, values is hash<string,string>),
-    getCookie name ctxt = string (httpUtilities#getCookie(request ctxt,name)),
+        ESAPI#httpUtilities()encryptStateInCookie(response ctxt, values is hash<string,string>),
+    getCookie name ctxt = string (ESAPI#httpUtilities()getCookie(request ctxt,name)),
     getFileUploads destDir extensions ctxt =
         wrapList do fl: (fl unsafely_as ~java.io.File) done
-                httpUtilities#getFileUploads(request ctxt, new java.io.File(destDir is string), extensions is list<string>),
-    getHeader name ctxt = string (httpUtilities#getHeader(request ctxt,name is string)),
-    killAllCookies ctxt = httpUtilities#killAllCookies(request ctxt,response ctxt),
-    killCookie name ctxt = httpUtilities#killCookie(request ctxt,response ctxt,name is string),
-    setHeader name value ctxt = httpUtilities#setHeader(response ctxt,name is string, value is string),
-    setNoCacheHeaders ctxt = httpUtilities#setNoCacheHeaders(response ctxt),
+                ESAPI#httpUtilities()getFileUploads(request ctxt, new java.io.File(destDir is string), extensions is list<string>),
+    getHeader name ctxt = string (ESAPI#httpUtilities()getHeader(request ctxt,name is string)),
+    killAllCookies ctxt = ESAPI#httpUtilities()killAllCookies(request ctxt,response ctxt),
+    killCookie name ctxt = ESAPI#httpUtilities()killCookie(request ctxt,response ctxt,name is string),
+    setHeader name value ctxt = ESAPI#httpUtilities()setHeader(response ctxt,name is string, value is string),
+    setNoCacheHeaders ctxt = ESAPI#httpUtilities()setNoCacheHeaders(response ctxt),
+
+    encodeForBase64 bytes wrap = string ESAPI#encoder()#encodeForBase64(bytes,wrap);
+    encodeForCSS str = ESAPI#encoder()#encodeForCSS(str is string);
+    encodeForHTML str = ESAPI#encoder()#encodeForHTML(str is string);
+    encodeForHTMAttribute str = ESAPI#encoder()#encodeForHTMLAttribute(str is string);
+    encodeForURL str = ESAPI#encoder()#encodeForURL(str is string);
+    encodeForXML str = ESAPI#encoder()#encodeForXML(str is string);
 
 
 }
