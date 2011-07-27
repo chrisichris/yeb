@@ -78,8 +78,8 @@ isAjax ctxt = (request ctxt)#getHeader("X-Requested-With") == "XMLHttpRequest";
 
     var httpUtilities = ESAPI#httpUtilities(),
 
-    addCookie ctxt cookie = httpUtilities#addCookie(response ctxt, cookie),
-    addHeader ctxt name value = httpUtilities#addHeader(response ctxt, name is string, value is string),
+    addCookie cookie ctxt = httpUtilities#addCookie(response ctxt, cookie),
+    addHeader name value ctxt = httpUtilities#addHeader(response ctxt, name is string, value is string),
     assertSecureChannel ctxt = httpUtilities#assertSecureChannel(request ctxt),
     changeSessionIdentifier ctxt = httpUtilities#changeSessionIdentifier(request ctxt),
     decryptHiddenField encrypted = string (httpUtilities#decryptHiddenField(encrypted is string)),
@@ -89,16 +89,16 @@ isAjax ctxt = (request ctxt)#getHeader("X-Requested-With") == "XMLHttpRequest";
         wrapMap string string httpUtilities#decryptStateFromCookie(request ctxt),
     encryptHiddenField value = string (httpUtilities#encryptHiddenField(value is string)),
     encryptQueryString value = string (httpUtilities#encryptQueryString(value is string)),
-    encryptStateInCookie ctxt values =
+    encryptStateInCookie values ctxt =
         httpUtilities#encryptStateInCookie(response ctxt, values is hash<string,string>),
-    getCookie ctxt name = string (httpUtilities#getCookie(request ctxt,name)),
-    getFileUploads ctxt destDir extensions =
+    getCookie name ctxt = string (httpUtilities#getCookie(request ctxt,name)),
+    getFileUploads destDir extensions ctxt =
         wrapList do fl: (fl unsafely_as ~java.io.File) done
                 httpUtilities#getFileUploads(request ctxt, new java.io.File(destDir is string), extensions is list<string>),
-    getHeader ctxt name = string (httpUtilities#getHeader(request ctxt,name is string)),
+    getHeader name ctxt = string (httpUtilities#getHeader(request ctxt,name is string)),
     killAllCookies ctxt = httpUtilities#killAllCookies(request ctxt,response ctxt),
-    killCookie ctxt name = httpUtilities#killCookie(request ctxt,response ctxt,name is string),
-    setHeader ctxt name value = httpUtilities#setHeader(response ctxt,name is string, value is string),
+    killCookie name ctxt = httpUtilities#killCookie(request ctxt,response ctxt,name is string),
+    setHeader name value ctxt = httpUtilities#setHeader(response ctxt,name is string, value is string),
     setNoCacheHeaders ctxt = httpUtilities#setNoCacheHeaders(response ctxt),
 
 
