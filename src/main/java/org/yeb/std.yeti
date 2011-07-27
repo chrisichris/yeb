@@ -136,10 +136,10 @@ listStarts? start l =
 
 
 maybeDefined' defaultFn valueFn x =
-    if defined? x then valueFn x else defaultFn ();
+    if defined? x then valueFn x else defaultFn () fi;
 
 maybeDefined defaultValue valueFn x =
-    if defined? x then valueFn x else defaultValue;
+    if defined? x then valueFn x else defaultValue fi;
 
 
 maybe' defaultFn fn opt =

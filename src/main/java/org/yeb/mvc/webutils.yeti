@@ -16,7 +16,7 @@
 
 module org.yeb.mvc.webutils;
 
-import javax.servlet.http:HttpServletRequest, HttpServletResponse, ServletContext,Cookie;
+import javax.servlet.http:HttpServletRequest, HttpServletResponse, Cookie, HttpSession;
 import org.owasp.esapi:ESAPI,HTTPUtilitiess;
 
 load org.yeb.std;
@@ -62,7 +62,10 @@ isAjax ctxt = (request ctxt)#getHeader("X-Requested-With") == "XMLHttpRequest";
 
 
 {
-    request,response,servletContext,locale, 
+    request,response,servletContext,locale,
+    session ctxt = ((request ctxt)#getSession(true)) is ~HttpSession,
+    maybeSession ctxt = maybeDefined none Some ((request ctxt)#getSession(false) is ~HttpSession),
+
     params, param, maybeParam, isAjax,
 
     newCookie name value opts =
@@ -74,38 +77,48 @@ isAjax ctxt = (request ctxt)#getHeader("X-Requested-With") == "XMLHttpRequest";
             Path p: cookie#setPath(p is string);
             Secure s: cookie#setSecure(s is boolean);
             Version v: cookie#setVersion(v is number);
-         esac done);
+         esac done;
+         cookie),
 
 
-    addCookie cookie ctxt = ESAPI#httpUtilities()addCookie(response ctxt, cookie),
-    addHeader name value ctxt = ESAPI#httpUtilities()addHeader(response ctxt, name is string, value is string),
-    assertSecureChannel ctxt = ESAPI#httpUtilities()assertSecureChannel(request ctxt),
-    changeSessionIdentifier ctxt = ESAPI#httpUtilities()changeSessionIdentifier(request ctxt),
-    decryptHiddenField encrypted = string (ESAPI#httpUtilities()decryptHiddenField(encrypted is string)),
+    addCookie cookie ctxt = ESAPI#httpUtilities()#addCookie(response ctxt, cookie),
+    addHeader name value ctxt = ESAPI#httpUtilities()#addHeader(response ctxt, name is string, value is string),
+    assertSecureChannel ctxt = ESAPI#httpUtilities()#assertSecureChannel(request ctxt),
+    changeSessionIdentifier ctxt = ESAPI#httpUtilities()#changeSessionIdentifier(request ctxt),
+    decryptHiddenField encrypted = string (ESAPI#httpUtilities()#decryptHiddenField(encrypted is string)),
     decryptQueryString encrypted =
-        wrapMap string string ESAPI#httpUtilities()decryptQueryString(encrypted),
+        wrapMap string string ESAPI#httpUtilities()#decryptQueryString(encrypted),
     decryptStateFromCookie ctxt =
-        wrapMap string string ESAPI#httpUtilities()decryptStateFromCookie(request ctxt),
-    encryptHiddenField value = string (ESAPI#httpUtilities()encryptHiddenField(value is string)),
-    encryptQueryString value = string (ESAPI#httpUtilities()encryptQueryString(value is string)),
+        wrapMap string string ESAPI#httpUtilities()#decryptStateFromCookie(request ctxt),
+    encryptHiddenField value = string (ESAPI#httpUtilities()#encryptHiddenField(value is string)),
+    encryptQueryString value = string (ESAPI#httpUtilities()#encryptQueryString(value is string)),
     encryptStateInCookie values ctxt =
-        ESAPI#httpUtilities()encryptStateInCookie(response ctxt, values is hash<string,string>),
-    getCookie name ctxt = string (ESAPI#httpUtilities()getCookie(request ctxt,name)),
+        ESAPI#httpUtilities()#encryptStateInCookie(response ctxt, values is hash<string,string>),
+
+    getCookie name ctxt = (
+        str = ESAPI#httpUtilities()#getCookie(request ctxt,name);
+        if defined? str then Some (string str) else none fi),
+
     getFileUploads destDir extensions ctxt =
         wrapList do fl: (fl unsafely_as ~java.io.File) done
-                ESAPI#httpUtilities()getFileUploads(request ctxt, new java.io.File(destDir is string), extensions is list<string>),
-    getHeader name ctxt = string (ESAPI#httpUtilities()getHeader(request ctxt,name is string)),
-    killAllCookies ctxt = ESAPI#httpUtilities()killAllCookies(request ctxt,response ctxt),
-    killCookie name ctxt = ESAPI#httpUtilities()killCookie(request ctxt,response ctxt,name is string),
-    setHeader name value ctxt = ESAPI#httpUtilities()setHeader(response ctxt,name is string, value is string),
-    setNoCacheHeaders ctxt = ESAPI#httpUtilities()setNoCacheHeaders(response ctxt),
+                ESAPI#httpUtilities()#getFileUploads(request ctxt, new java.io.File(destDir is string), extensions is list<string>),
+    
+    getHeader name ctxt =
+        (str = ESAPI#httpUtilities()#getHeader(request ctxt,name is string);
+        if defined? str then Some (string str) else none fi),
 
-    encodeForBase64 bytes wrap = string ESAPI#encoder()#encodeForBase64(bytes,wrap);
-    encodeForCSS str = ESAPI#encoder()#encodeForCSS(str is string);
-    encodeForHTML str = ESAPI#encoder()#encodeForHTML(str is string);
-    encodeForHTMAttribute str = ESAPI#encoder()#encodeForHTMLAttribute(str is string);
-    encodeForURL str = ESAPI#encoder()#encodeForURL(str is string);
-    encodeForXML str = ESAPI#encoder()#encodeForXML(str is string);
+    killAllCookies ctxt = ESAPI#httpUtilities()#killAllCookies(request ctxt,response ctxt),
+    killCookie name ctxt = ESAPI#httpUtilities()#killCookie(request ctxt,response ctxt,name is string),
+    setHeader name value ctxt = ESAPI#httpUtilities()#setHeader(response ctxt,name is string, value is string),
+    setNoCacheHeaders ctxt = ESAPI#httpUtilities()#setNoCacheHeaders(response ctxt),
+
+    encodeForBase64 bytes wrap = string ESAPI#encoder()#encodeForBase64(bytes is ~byte[],wrap is boolean),
+    decodeFromBase64 str = ESAPI#encoder()#decodeFromBase64(str is string),
+    encodeForCSS str = ESAPI#encoder()#encodeForCSS(str is string),
+    encodeForHTML str = ESAPI#encoder()#encodeForHTML(str is string),
+    encodeForHTMAttribute str = ESAPI#encoder()#encodeForHTMLAttribute(str is string),
+    encodeForURL str = ESAPI#encoder()#encodeForURL(str is string),
+    encodeForXML str = ESAPI#encoder()#encodeForXML(str is string),
 
 
 }

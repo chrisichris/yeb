@@ -1,0 +1,188 @@
+/// put module documentation here
+
+
+module org.yeb.mvc.authentication;
+
+import javax.servlet.http:HttpSession;
+import org.owasp.esapi:ESAPI;
+
+load org.yeb.std;
+load org.yeb.mvc.webutils;
+
+typedef principalType ={
+    name is string,
+    email is string,
+    roles is list<string>,
+    loggedInBy is string,
+    locked is boolean
+}
+
+var anonymousUser = {
+    name = "anonymouse",
+    email ="anonymouse@anonymouse.com",
+    roles =[],
+    locked = true,
+    loggedInBy = "anonymous"};
+
+_currentUser = threadLocal anonymousUser;
+getCurrentUser () = _currentUser.value;
+
+clearUser () = _currentUser.value := anonymousUser;
+
+withUser user fn = withThreadLocal _currentUser user fn;
+
+userSessionKey = "org.yeb.mvc.authentication.user";
+
+storeInSession user ctxt  =
+    if user == anonymousUser then
+        maybeSession ctxt |>maybe ()
+          do sess: (sess is ~HttpSession)#removeAttribute(userSessionKey) done;
+    else
+        (session ctxt)#setAttribute(userSessionKey, user);
+    fi;
+
+sessionAuthenticator nextAuthenticator ctxt =
+        maybeSession ctxt
+            |>maybe' (nextAuthenticator ctxt)
+                do sess:
+                   (sess is ~HttpSession)#getAttribute("org.yeb.mvc.authentication.user")
+                       |> maybeDefined' (nextAuthenticator ctxt) do u: Some ((u:!) unsafely_as principalType) done
+                done;
+
+
+var rememberMeCookieName = "yeb-mec";
+
+storeRememberMe user password maxAge opts ctxt =
+    (killCookie rememberMeCookieName ctxt;
+
+    if user != anonymousUser then
+        clearToken = "\(user.name is string)|\(password is string)";
+        expiry = ESAPI#encryptor()#getRelativeTimeStamp(maxAge * 1000);
+        cryptToken = string (ESAPI#encryptor()#seal(clearToken, expiry));
+        cookie = newCookie rememberMeCookieName cryptToken (opts ++ [MaxAge maxAge]);
+        (response ctxt)#addCookie(cookie);
+    fi);
+
+rememberMeAuthenticator userService nextAuthenticator ctxt =
+    getCookie rememberMeCookieName ctxt |>maybe' \(nextAuthenticator ctxt)
+        do token:
+            try
+                data = strSplit '\|' (ESAPI#encryptor()#unseal(token is string));
+                if length data != 2 then
+                    killCookie rememberMeCookieName ctxt;
+                    failWith ("not handled");
+                else
+                    username = data.[0];
+                    password = data.[1];
+                    u = userService username password;
+                    if u == anonymousUser then
+                        killCookie rememberMeCookieName ctxt;
+                        failWith ("not handled");
+                    else 
+                        Some (u with {loggedInBy = "cookie"});
+                    fi;
+                fi
+            catch Exception ex:
+                killCookie rememberMeCookieName ctxt;
+                nextAuthenticator ctxt;
+            yrt;
+        done;
+
+
+formAuthenticator loginHandler nextAuthenticator ctxt =
+        maybeParam ctxt "login_form" id |> maybe' \(nextAuthenticator ctxt)
+            do value:
+                if value == "true" then
+                    loginHandler ctxt
+                else
+                    nextAuthenticator ctxt;
+                fi;
+            done;
+
+basicInitPage realm ctxt =
+    ((response ctxt)#sendError(401,"Unauthorized");
+    setHeader "WWW-Authenticate" "Basic realm=\"\(realm)\"" ctxt;
+    setHeader "Content-Type" "text/html; charset=UTF-8" ctxt;
+    (response ctxt)#getWriter()#println("""<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+ "http://www.w3.org/TR/1999/REC-html401-19991224/loose.dtd">
+<HTML>
+  <HEAD>
+    <TITLE>Error</TITLE>
+    <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">
+  </HEAD>
+  <BODY><H1>401 Unauthorized.</H1></BODY>
+</HTML>""");
+    {status = 401};
+);
+
+basicAuthenticator userService opts nextAuthenticator ctxt =
+    (var credentialsCharSet = "UTF-8";
+    var send401IfNotValid = false;
+    for opts do o: case o of
+        CharSet x: credentialsCharSet := x;
+        S401 v : send401IfNotValid := v;
+    esac done;
+    header = (request ctxt)#getHeader("Authorization");
+    if defined? header and strStarts? header "Basic " then
+        decoded = string (new String (decodeFromBase64 (strRight header 6),credentialsCharSet));
+        delim = strIndexOf decoded ':' 0;
+        if delim != -1 then
+            username = strLeft decoded delim;
+            pwd = strRight decoded (delim + 1);
+            u = userService username pwd;
+            if u == anonymousUser then
+                if send401IfNotValid then None (basicInitPage ctxt)
+                else nextAuthenticator ctxt fi;
+            else
+                Some (u with {loggedInBy = "basicAuthentictation"})
+            fi;
+        else
+                if send401IfNotValid then None (basicInitPage ctxt)
+                else nextAuthenticator ctxt fi;
+        fi
+    else nextAuthenticator ctxt fi);
+
+
+anonymousAuthenticator ctxt = anonymousUser;
+
+
+
+logoutFunctions = array [storeInSession anonymousUser, storeRememberMe  anonymousUser "" 2000 []];
+
+logout ctxt = (clearUser(); for logoutFunctions do fn: fn ctxt done);
+
+accessDenied msg = throw new AccessDeniedException(msg);
+
+isAccessibleByUser role user = contains role user.roles;
+isAccessible role = isAccessibleByUser role (_currentUser.value);
+checkAccess role =
+    if not isAccessible role then
+        accessDenied "not suitable for role";
+    else () fi;
+
+
+securityHandlerAdapter authenticator loginPageHandler restrictedPageHandler handler ctxt =
+    case authenticator ctxt of
+        None {result}: {result is number};
+        Some user: withUser user
+            \try
+                handler ctxt;
+            catch AccessDeniedException ex:
+                if _currentUser.value == anonymousUser then
+                    loginPageHandler ctxt;
+                else
+                    restrictedPageHandler ctxt;
+                fi;
+            yrt;
+     esac;
+
+
+{
+anonymousUser,
+
+clearUser, withUser, storeInSession,
+sessionAuthenticator, storeRememberMe, rememberMeCookieName,
+rememberMeAuthenticator, formAuthenticator, basicInitPage, basicAuthenticator,
+anonymousAuthenticator, logoutFunctions, logout, accessDenied, isAccessibleByUser,
+isAccessible, checkAccess, securityHandlerAdapter
+}
