@@ -116,7 +116,7 @@ htmlViewHelper () = {
     addHeader hd =( push headers hd; hd),
 
     styleLink url media =
-        '<link rel="stylesheet" type="text/css" ' ^ (if empty? media then "" else 'media="'^media^'"' fi) ^ 'href="'^url^'"/>',
+        '<link rel="stylesheet" type="text/css" ' ^ (if (strLength media) < 1 then "" else 'media="'^media^'"' fi) ^ 'href="'^url^'"/>',
 
     scriptLink url =
         '<script type="text/javascript" src="'^url^'"></script>',
