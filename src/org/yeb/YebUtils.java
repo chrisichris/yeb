@@ -18,7 +18,6 @@ package org.yeb;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.regex.Pattern;
-import junit.framework.Test;
 
 import org.yeticl.YetiCompileHelper;
 import yeti.lang.Fun;
@@ -54,11 +53,6 @@ public class YebUtils {
         }
     }
 
-    public static Test createSuite(String specModuleName) {
-        YetiCompileHelper helper = new YetiCompileHelper();
-        Test test = (Test) helper.evaluate("m = load org.yeb.yebspec; sm = load "+specModuleName+"; m.junitTest sm");
-        return test;
-    }
 
     public static String camelCaseToUnderline(String name) {
         final int length = name.length();
