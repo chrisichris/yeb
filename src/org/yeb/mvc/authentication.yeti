@@ -180,7 +180,7 @@ securityHandlerAdapter authenticator loginPageHandler restrictedPageHandler hand
 {
 anonymousUser,
 
-clearUser, withUser, storeInSession,
+clearUser, withUser, storeInSession, getCurrentUser,
 sessionAuthenticator, storeRememberMe, rememberMeCookieName,
 rememberMeAuthenticator, formAuthenticator, basicInitPage, basicAuthenticator,
 anonymousAuthenticator, logoutFunctions, logout, accessDenied, isAccessibleByUser,

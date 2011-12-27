@@ -60,7 +60,7 @@ httpGet  {retries, headers} url f = (
     fi;
 
     try
-        x = fold do k v: case k of
+        _ = fold do k v: case k of
                         Key kv: (
                             method#addRequestHeader(kv,v);
                             Value ());

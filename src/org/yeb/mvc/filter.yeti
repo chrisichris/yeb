@@ -73,20 +73,21 @@ withClassLoader cl f is ~ClassLoader -> (() -> 'a) -> 'a= (
 );
 
 printError ex srcs resp =
-    (stacks = findCodeForException 5 srcs ex;
+    (//stacks = findCodeForException 5 srcs ex;
     wr = (resp is ~HttpServletResponse)#getWriter();
     wr#print("<html><head></head><body><h1>Exception: </h1>");
-    printCode {ex, codeLines} = (
-        wr#print("<h2>caused by Exception: \(ex)</h2>");
-        if not empty? codeLines then
-            {fileName,lines,lineNumber, fromLineNumber,toLineNumber} = head codeLines;
-            wr#print("<h4>in source-file [\(fileName)] at line [\(lineNumber)]</h4>:");
-            var i = fromLineNumber;
-            for lines do line:
-                    wr#print("\(i): \(line)<br>");
-                    i := i +1; done;
-        fi);
-    ex#printStackTrace(wr));
+    // printCode {ex, codeLines} = (
+        // wr#print("<h2>caused by Exception: \(ex)</h2>");
+        // if not empty? codeLines then
+            // {fileName,lines,lineNumber, fromLineNumber,toLineNumber} = head codeLines;
+            // wr#print("<h4>in source-file [\(fileName)] at line [\(lineNumber)]</h4>:");
+            // var i = fromLineNumber;
+            // for lines do line:
+                    // wr#print("\(i): \(line)<br>");
+                    // i := i +1; done;
+        // fi);
+    //for stacks printCode;    
+    (ex is ~Exception)#printStackTrace(wr));
 
 
 

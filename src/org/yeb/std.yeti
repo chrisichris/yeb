@@ -95,7 +95,7 @@ withThreadLocal threadLocal newValue ac = (
 toCallable f = (
     class RunCallable extends java.lang.Runnable, java.util.concurrent.Callable
         void run()
-            x = f ();
+            _ = f ();
             (),
         Object call()
             r = f();

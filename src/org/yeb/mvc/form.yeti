@@ -27,7 +27,6 @@ load org.yeb.mvc.webutils;
 
 handlerModule = load org.yeb.mvc.handler;
 
-vM = load org.yeb.validation;
  
 
 //++++++++++++++++++++++++view things +++++++++++++++++

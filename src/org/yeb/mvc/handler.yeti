@@ -104,7 +104,7 @@ flashGetAndKeep ctx key  is 'b -> string -> (None () | Some 'a) = (
 );
 
 rootCtxt pathInfo sctxt req res is string -> ~ServletContext -> ~HttpServletRequest -> ~HttpServletResponse -> 'a = (
-    serlvetPath = "";
+    //serlvetPath = "";
     reqn = new YebHttpServletRequestWrapper(() as ~Locale, "",pathInfo,() as ~java.util.Map, req);
     makeNewCtxt sctxt reqn res;
 );
@@ -193,7 +193,6 @@ _regexHandler addLast? methodRegex handler is boolean -> string -> handlerAdapte
                 done;
 
                 //set the new pathInfo and servletPath
-                mcg = matcher#groupCount();
                 if addLast? then
                     nsp = matcher#group();
                     nreq#setServletPath((oreq#getServletPath()) ^ nsp);

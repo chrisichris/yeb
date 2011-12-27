@@ -33,9 +33,6 @@ typedef resultType = {status is number};
 
 handler = load org.yeb.mvc.handler;
 
-HEADER_PRAGMA = "Pragma";
-HEADER_EXPIRES = "Expires";
-HEADER_CACHE_CONTROL = "Cache-Control";
 
 response = handler.response;
 request = handler.request;
@@ -248,6 +245,10 @@ ptag name params content is string -> hash<string,string> -> list<string> -> str
     strb#toString();
 );
 {
+HEADER_PRAGMA = "Pragma",
+HEADER_EXPIRES = "Expires",
+HEADER_CACHE_CONTROL = "Cache-Control",
+
 redirectView, forwardView,statusView, errorView, contentType, headers, responseWriter, htmlViewHelper,
 
 cacheForSeconds,

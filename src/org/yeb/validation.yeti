@@ -28,7 +28,7 @@ import org.owasp.validator.html:AntiSamy,Policy;
 
 load org.yeb.std; 
 
-validator () = ESAPI#validator();
+//validator () = ESAPI#validator();
 esapiToValiEx ex wrong = new ValidationException(
         message "esapi" (ex is ~org.owasp.esapi.errors.ValidationException)#getUserMessage() [],wrong);
 

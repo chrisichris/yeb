@@ -183,7 +183,7 @@ takeFromMap key unpeeker map is string -> (~Object -> 'a) ->  ~java.util.Map -> 
 
 _itToList mf ls jit is 'a -> 'd -> ~java.util.Iterator -> 'c =
     if jit#hasNext() then
-        el = mf jit#next();
+        _ = mf jit#next();
         ln = mf :: ls;
         _itToList mf ln jit;
     else
