@@ -13,8 +13,8 @@ deployRepository.url :="file:///${basedir}/../../chrisis-maven-repo/snapshots/";
 
 dependency "org.yeti" "yeti" "0.9.3" [];
 dependency "javax.servlet" "servlet-api" "2.4" [ProvidedScope ()];
-dependency "org.yeti" "yeticl" "0.1-SNAPSHOT" [];
-
+//dependency "org.yeti" "yeticl" "0.1-SNAPSHOT" [];
+dependency "jline" "jline" "0.9.94" [ProvidedScope()];
 dependency "org.owasp.esapi" "esapi" "2.0GA" [];
 dependency "commons-lang" "commons-lang" "2.0" [];
 dependency "commons-fileupload" "commons-fileupload" "1.1.1" [];

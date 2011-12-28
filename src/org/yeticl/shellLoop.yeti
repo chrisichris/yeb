@@ -1,0 +1,64 @@
+/*
+ * Copyright 2011 Christian Essl
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions
+ * and limitations under the License.
+ */
+
+module org.yeticl.shellLoop;
+
+import java.io.OutputStreamWriter;
+import jline.ConsoleReader;
+
+s = load org.yeticl.shell;
+load org.yeticl.shellenviroment;
+
+do _:
+    _ = s.refresh ();
+
+    s.cprint "\nReady to take your commands :)";
+    lineReader =
+        if useJLine then
+            cReader = new jline.ConsoleReader(System#in, new OutputStreamWriter(System#out));
+            \(string cReader#readLine("yeti>"))
+        else
+            \(print "yeti>";
+              stdin.readln ());
+        fi;
+
+
+    var continue = true;
+    var ret = "quit";
+
+    continue loop (
+
+        line = lineReader ();
+        if line == "--quit" then
+            continue := false;
+            ret := "quit";
+            s.sprint "\nQuitting shell. By By!\n";
+        elif line == "--restart" then
+            continue := false;
+            ret := "restart";
+            s.sprint "\nRestarting shell. See you soon :)\n";
+        elif line == "--help" or line == "-h" or line == "-help" then
+            s.cprint "--restart : reloads the shell\n--quit : to stop the shell\n--help : this message \n-yeti expr : execute yeti expr in shell\n-s : shell commands struct \nyeti expr : execute yeti expr in repl";
+        elif strStarts? line "-" then
+            nline = strRight line 1;
+            s.sprint "\nshell:";
+            s.cprint (shellEnviroment nline).str;
+        else
+            s.cprint (s.replEnviroment line).str;
+        fi;
+    );
+    ret
+done

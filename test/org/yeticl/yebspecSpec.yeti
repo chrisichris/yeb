@@ -1,0 +1,18 @@
+/// put module documentation here
+module org.yeticl.yebspecSpec;
+
+load org.yeb.yebspec;
+
+specificationsFor "yebspec itself" do ct:
+    describe ct "a specifications simple test" do ct:
+        should ct "be ok if nothing wrong" do ct:
+            ()
+        done;
+
+        should ct "be wrong if context fail" do ct:
+            assertFail ();
+        done;
+
+    done
+
+done

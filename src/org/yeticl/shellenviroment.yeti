@@ -1,0 +1,62 @@
+/*
+ * Copyright 2011 Christian Essl
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions
+ * and limitations under the License.
+ */
+
+module org.yeticl.shellenviroment;
+
+import java.lang: Thread, ClassLoader;
+
+yclm = load org.yeticl.yeticlassloadermodule;
+eval = load yeti.lang.compiler.eval;
+
+withClassLoader ncl fn is ~ClassLoader -> 'a -> 'b =
+    (oc = Thread#currentThread()#getContextClassLoader();
+    Thread#currentThread()#setContextClassLoader(ncl);
+    try fn () finally Thread#currentThread()#setContextClassLoader(oc) yrt);
+
+
+
+
+{
+var shellEnviroment = eval.evaluateYetiCode [][],
+var shellSourceDirs = [],
+var shellClassLoader = () as ~ClassLoader,
+var useJLine = try Thread#currentThread()#getContextClassLoader()#loadClass("jline.ConsoleReader"); true
+                catch Exception: false yrt,
+
+
+shellEvaluateLoop parentClassLoader sourceDirs commands is ~ClassLoader -> list<string> -> list<string> -> string =
+    (str = withClassLoader parentClassLoader \(
+        se = eval.evaluateYetiCode [SourceReader (yclm.sourceReader sourceDirs true parentClassLoader)] [Bind ()];
+        shellEnviroment := do code: withClassLoader parentClassLoader \(se code) done;
+        shellSourceDirs := sourceDirs;
+        shellClassLoader := parentClassLoader;
+
+        _ = shellEnviroment "s = load org.yeticl.shell";
+        println "----------------------------------------";
+        println "Welcome to yeti-shell, enter -h for help";
+        println "----------------------------------------";
+        for commands do cmd:
+                println "init-command: \(cmd)";
+                println (shellEnviroment cmd).str;
+            done;
+
+        ret = shellEnviroment "(load org.yeticl.shellLoop) ()";
+        ret.str);
+
+    if strStarts? str '"restart"' then
+        shellEvaluateLoop parentClassLoader sourceDirs commands
+    else "quitted" fi),
+}

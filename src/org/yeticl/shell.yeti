@@ -1,0 +1,194 @@
+/*
+ * Copyright 2011 Christian Essl
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions
+ * and limitations under the License.
+ */
+
+module org.yeticl.shell;
+
+import java.lang: System, Thread;
+import java.io: OutputStreamWriter,File;
+import java.util:Timer,TimerTask;
+
+yclm = load org.yeticl.yeticlassloadermodule;
+sem = load org.yeticl.shellenviroment;
+eval = load yeti.lang.compiler.eval;
+
+
+
+_findOneDir nameList = (
+    fold do ret na:
+            case ret of
+                [] : (
+                    fl = new File("\(na)");
+                    if fl#exists() then
+                        [fl]
+                    else [] fi;
+                );
+                _ : ret;
+            esac
+        done [] nameList;
+);
+
+
+var _sourceDirs = sem.shellSourceDirs;
+
+
+
+_output str = print str;
+cprint str = (_output (str ^ "\n"); ());
+sprint str = _output str;
+
+
+var monitors is list<{id is number, var active is boolean, name is string, monitor is () -> ()}> = [];
+var monitorId = 0;
+
+timer = new Timer();
+
+checkChanged dirs lastupdate is list<~File> -> number -> number= (
+    ff update file is number -> ~File -> number = (
+        nupdate = max file#lastModified() update;
+        if file#isDirectory() then
+            checkChanged (list (wrapArray file#listFiles())) nupdate
+        else
+            nupdate
+        fi
+    );
+    fold ff lastupdate dirs;
+);
+
+
+(
+    class MyTimerTask() extends TimerTask()
+        var dirs = map' do d: new File(string d) done _sourceDirs,
+        var lastUpdate = checkChanged dirs 0,
+        void run() (
+            dirs := map' do d: new File(string d) done (_sourceDirs);
+            nlu = checkChanged dirs lastUpdate;
+            if nlu > lastUpdate then
+                lastUpdate := nlu;
+                ae = synchronized timer \monitors;
+                if not empty? ae then
+                    for ae do a:
+                        if synchronized timer \(a.active) then
+                            _ = cprint "monitor: \(a.name)";
+                            a.monitor()
+                        fi
+                    done;
+                fi;
+            fi;
+        )
+    end;
+
+    timer#scheduleAtFixedRate(new MyTimerTask(),1000,1000);
+    ()
+);
+
+
+newEvaluator sourceFiles = (
+    ocl = Thread#currentThread()#getContextClassLoader();
+    Thread#currentThread()#setContextClassLoader(sem.shellClassLoader);
+    el = try eval.evaluateYetiCode [SourceReader (yclm.sourceReader sourceFiles true sem.shellClassLoader)] [Bind ()];
+         finally Thread#currentThread()#setContextClassLoader(ocl) yrt;
+    do code:
+        ocl = Thread#currentThread()#getContextClassLoader();
+        Thread#currentThread()#setContextClassLoader(sem.shellClassLoader);
+        try el code;
+        finally Thread#currentThread()#setContextClassLoader(ocl) yrt;
+    done;
+);
+
+
+
+{
+    cprint, sprint,
+    set sourceDirs o = _sourceDirs := o;,
+    get sourceDirs () = _sourceDirs,
+
+
+    setSourceDirsOf listOfList is list<list<string>> -> () = (
+        fls = concatMap do dirs: _findOneDir dirs done listOfList;
+        _sourceDirs := map' string fls;
+        ();
+    ),
+
+
+    addMonitor name monitor = synchronized timer \(
+        monitorId := monitorId + 1;
+        monitors := {id = monitorId, var active = true, name, monitor} :: monitors;
+        cprint "added monitor \(monitorId): \(name): \(monitor)";
+    ),
+
+    removeMonitor id = synchronized timer \(
+        monitors := filter do el: el.id != id done monitors;
+        cprint "removed monitor \(id)";
+    ),
+
+    runMonitor id = synchronized timer \(
+        for monitors do mon:
+            if mon.id == id then
+                _ = mon.monitor();
+                ();
+            fi;
+        done;
+    ),
+
+    activateMonitor id active = synchronized timer \(
+        for monitors do mon:
+            if mon.id == id then
+                mon.active := active;
+            fi;
+        done;
+    ),
+
+    showMonitors () = synchronized timer \(
+        sprint "monitors: \n";
+        for monitors do el:
+            sprint "\(el.id): \(el.active): \(el.name): \(el.monitor)\n";
+        done;
+        cprint "";
+    ),
+
+    get shellEnviroment () = sem.shellEnviroment,
+
+    var replEnviroment  = newEvaluator (_sourceDirs),
+
+    var refreshCode = "",
+
+    refresh () = (
+        replEnviroment := newEvaluator (_sourceDirs);
+        if (strLength refreshCode) > 0 then
+            cprint (replEnviroment refreshCode).str;
+        fi;
+        cprint "repl refreshed"
+    ),
+
+    brancheWithDirs srcDirs  code = (
+        testEvaluator = newEvaluator srcDirs;
+        cprint ("-----------------------branche start: ");
+        if (strLength code) > 0 then
+            res = testEvaluator code;
+            sprint (res.str ^ "\n");
+        fi;
+        cprint ("branche end ------------------------");
+    ),
+
+    branche code = brancheWithDirs (_sourceDirs) code,
+
+    /*
+    checkSpec moduleName is string -> ()=
+        branche "(load org.yeb.yebspec).printResult print ((load \(moduleName)) none)",
+    */
+
+ 
+}

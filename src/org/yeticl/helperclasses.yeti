@@ -1,0 +1,74 @@
+/*
+ * Copyright 2011 Christian Essl
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions
+ * and limitations under the License.
+ */
+
+module org.yeticl.helperclasses;
+
+import java.lang:Thread, ClassLoader, Throwable;
+import yeti.lang.compiler: CompileException, YetiEval;
+
+yclm = load org.yeticl.yeticlassloadermodule;
+sem = load org.yeticl.shellenviroment;
+evalm = load yeti.lang.compiler.eval;
+
+class YetiCompileHelper
+    void compileAll(String[] classPath, String[] sourceDirs, boolean srcFromClassPath, String[] sourceFiles, String destDir)
+       evalm.compileYetiFiles [To destDir,
+                         SourceReader (yclm.sourceReader
+                            if nullptr? sourceDirs then [] else map string (wrapArray sourceDirs) fi
+                            srcFromClassPath Thread#currentThread()#getContextClassLoader()),
+                         ClassPath if nullptr? classPath then [] else map string (wrapArray classPath) fi]
+                         []
+                         (map string (wrapArray sourceFiles));
+        (),
+
+    void htmlDocAll(String[] classPath, String[] sourceDirs, boolean srcFromClassPath, String[] sourceFiles, String docDir)
+        types = array [];
+        evalm.compileYetiFiles [SourceReader (yclm.sourceReader
+                                    if nullptr? sourceDirs then [] else map string (wrapArray sourceDirs) fi
+                                    srcFromClassPath Thread#currentThread()#getContextClassLoader()),
+                         ClassPath if nullptr? classPath then [] else map string (wrapArray classPath) fi]
+                         [Type (push types)]
+                         (map string (wrapArray sourceFiles));
+        if not empty? types then
+            ctx = evalm.evaluateYetiCode [ICast ()];
+            case ctx [Bind (), Source 'doc.yeti', Exec (array [docDir])]
+                     ((inputHandle classOf YetiEval#getClassLoader()
+                                   #getResourceAsStream('doc.yeti')
+                                   'UTF-8').contents()) of
+                {result = Result obj}:
+                    for types (obj is ~Object unsafely_as 'a);
+                {str}:
+                    println str
+            esac;
+        fi;
+        (),
+
+    void shellEvaluateLoop(ClassLoader parentClassLoader, String[] sourceDirs, String[] commands)
+        _ = sem.shellEvaluateLoop parentClassLoader
+                          if nullptr? sourceDirs then [] else map string (wrapArray sourceDirs) fi
+                          if nullptr? commands then [] else map string (wrapArray commands) fi;
+        (),
+
+    Object evaluate(String code)
+        case evalm.evaluateYetiCode[][] code of
+            {result = Result obj}: obj is ~Object;
+            {result = CompileException ex}: throw (ex is ~CompileException);
+            {result = Exception ex}: throw (ex is ~Throwable);
+            {str} : throw new RuntimeException(string str);
+        esac,
+
+end;
+1

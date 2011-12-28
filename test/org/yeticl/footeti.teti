@@ -1,0 +1,8 @@
+module org.yeticl.footeti;
+
+do y:
+    write x = println x;
+    writers = { e = write, u = write};
+
+%>Write something here<%
+done

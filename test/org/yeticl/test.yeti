@@ -1,0 +1,5 @@
+module org.yeticl.test;
+
+r = load org.yeticl.test1;
+
+"test"

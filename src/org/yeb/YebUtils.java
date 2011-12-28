@@ -19,7 +19,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.regex.Pattern;
 
-import org.yeticl.YetiCompileHelper;
 import yeti.lang.Fun;
 
 /**

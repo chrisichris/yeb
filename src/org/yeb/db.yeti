@@ -45,6 +45,12 @@ typedef dataSourceType = {
     handleWarnings is string -> ~Statement -> (),
 };
 
+class DBValue(Object value, int sqlType)
+    int getSqlType() sqlType,
+    Object getValue() value,
+    boolean isNull() nullptr? value,
+end;
+
 sqlWarningExceptionString warning is ~SQLWarning -> string = (
     if defined? warning then
         stb = new StringBuilder();

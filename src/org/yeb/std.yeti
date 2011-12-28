@@ -16,13 +16,37 @@
 
 module org.yeb.std;
 
-import org.yeb.TMap;
-import org.slf4j: Logger, LoggerFactory;
-import java.util: Iterator,List,ListIterator;
-import java.io: File;
-import java.lang: Thread, ClassLoader, StringBuilder, Throwable;
+import java.lang: String, Thread, ClassLoader, StringBuilder, Throwable;
+import java.util: Locale, Iterator,List,ListIterator;
 import yeti.lang.Struct;
+import java.io: File;
+//import org.yeb.TMap;
+import org.slf4j: Logger, LoggerFactory;
 
+class Message(String key, String defaultFormat, Object[] params) 
+    
+    message = String#format(defaultFormat, params),
+
+    String getDefaultFormat() defaultFormat,
+    String getKey() key,
+    String getMessage() message,
+    Object[] getParams() params,
+    String getLocalMessage(Locale loc) 
+        String#format(loc,defaultFormat,params),
+    String toString() message,
+end;
+
+class MessageException(Message messageObject) extends IllegalArgumentException(messageObject#getMessage()) 
+    Message getMessageObject() messageObject,
+    static MessageException create(Message msg)
+        new MessageException( msg),
+end;
+
+class ValidationException(Message message, Object wrongValue) extends MessageException(message)
+    Object getWrongValue() wrongValue,
+    static ValidationException create(Message msg, Object wV)
+        new ValidationException(msg, wV),
+end;
 
 
 message key defaultFormat values is string -> string -> list<~Object> -> ~Message =
@@ -30,6 +54,11 @@ message key defaultFormat values is string -> string -> list<~Object> -> ~Messag
 
 plainMessage text = message "" text [];
 
+failWithMessage msg = throw new MessageException(msg);
+failWithValidation msg value =
+    throw new ValidationException(msg, value unsafely_as ~Object);
+newValidationException msg value =
+    new ValidationException(msg, value unsafely_as ~Object);
 
 validOr notValid valueFn =
     try
@@ -282,6 +311,9 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> = (
     message,
     plainMessage,
     validOr, validOr', maybeValid,
+    failWithMessage,
+    failWithValidation,
+    newValidationException,
 
     getLogger,
     composeToRight fn1 fn2 = do a: fn2 (fn1 a) done,

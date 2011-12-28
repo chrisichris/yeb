@@ -95,7 +95,6 @@ printError ex srcs resp =
 class YebFilter extends javax.servlet.Filter
 
     var yebWebDir = "src/main/yeti",
-    var yebMainDir = "src/main/java",
 
     pathHelper = new org.springframework.web.util.UrlPathHelper(),
 
@@ -111,23 +110,6 @@ class YebFilter extends javax.servlet.Filter
     var mainWebHandler is handlerType = \(mvc.goonResult),
     var mainWebModuleClassLoader = () as ~ClassLoader,
 
-    loadMainModule filterConfig = (
-        srcPath = if (not configModule.webDynamicReload?) or (strLength yebMainDir == 0) then [] else [yebMainDir] fi;
-        mainModuleClassLoader := new YetiClassLoader(Thread#currentThread()#getContextClassLoader(),
-                                    array srcPath, true) as ~ClassLoader;
-        mainWebModuleClassLoader := mainModuleClassLoader;
-
-        withClassLoader mainModuleClassLoader \(
-            mcl = try _ = mainModuleClassLoader#loadClass("yebMain"); Some mainModuleClassLoader catch ClassNotFoundException: none yrt;
-            case mcl of
-                None _: log#info("No yebMain module - starting without");
-                Some cL:
-                    (mmod = (YebUtils#moduleLoad(cL, "yebMain")) unsafely_as mainModuleType;
-                    log#info("Initializing yebMain module");
-                    mmod.init (filterConfig is ~FilterConfig);
-                    mainModule := mmod);
-             esac;
-        )),
 
     loadWebModule cl is ~ClassLoader -> 'a = (
         oldCl = mainWebModuleClassLoader;
@@ -158,30 +140,38 @@ class YebFilter extends javax.servlet.Filter
             fi),
 
 
-   void init(FilterConfig fc)
-     filterConfig := fc;
+    void init(FilterConfig fc)
+        filterConfig := fc;
+        servletContext := fc#getServletContext();
 
-     if defined? fc#getInitParameter("yebMainDir") then
-        yebMainDir := strTrim (string fc#getInitParameter("yebMainDir"));
-     fi;
+        if defined? fc#getInitParameter("yebWebDir") then
+            yebWebDir := strTrim (string fc#getInitParameter("yebWebDir"));
+        fi;
 
-     if defined? fc#getInitParameter("yebWebDir") then
-        yebWebDir := strTrim (string fc#getInitParameter("yebWebDir"));
-     fi;
-     servletContext := fc#getServletContext();
+        mainModuleClassLoader := Thread#currentThread()#getContextClassLoader();
 
-     loadMainModule fc;
+        mainWebModuleClassLoader := mainModuleClassLoader;
+
+        withClassLoader mainModuleClassLoader \(
+            mcl = try _ = mainModuleClassLoader#loadClass("yebMain"); Some mainModuleClassLoader catch ClassNotFoundException: none yrt;
+            case mcl of
+                None _: log#info("No yebMain module - starting without");
+                Some cL:
+                    (mmod = (YebUtils#moduleLoad(cL, "yebMain")) unsafely_as mainModuleType;
+                    log#info("Initializing yebMain module");
+                    mmod.init (filterConfig is ~FilterConfig);
+                    mainModule := mmod);
+             esac;
+        );
+
+        if (not configModule.webDynamicReload?) or (strLength yebWebDir == 0) then
+            loadWebModule mainModuleClassLoader;
+        else
+            loadWebModuleFromSource ();
+        fi,
 
 
-
-     if (not configModule.webDynamicReload?) or (strLength yebWebDir == 0) then
-        loadWebModule mainModuleClassLoader;
-     else
-        loadWebModuleFromSource ();
-     fi,
-
-
-   void destroy()
+    void destroy()
         withClassLoader mainWebModuleClassLoader mainWebModule.destroy;
         log#info("yebWebMain destroyed");
         withClassLoader mainModuleClassLoader mainModule.destroy;
@@ -212,17 +202,17 @@ class YebFilter extends javax.servlet.Filter
             status = withClassLoader mainWebModuleClassLoader \(
 
                 pathInfo = (
-                      p = pathHelper#getPathWithinApplication(req);
-                      if strStarts? p "/" then strRight p 1 else p fi
+                    p = pathHelper#getPathWithinApplication(req);
+                    if strStarts? p "/" then strRight p 1 else p fi
                 );
                 ctxt = mvc.rootCtxt pathInfo servletContext req res;
 
                 log#debug("handling context for path: {}",pathInfo);
                 r = try
-                        handler ctxt;
+                    handler ctxt;
                 catch Exception ex:
                     if development then
-                        printError ex [yebWebDir,yebMainDir] res;
+                        printError ex ["src",yebWebDir] res;
                         //{status = 500};
                         throw ex;
                     else

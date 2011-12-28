@@ -105,7 +105,7 @@ peekedToJSON peeked jsonGenerator is 'a -> ~JsonGenerator -> () = (
 
 //+++++++++++++++Parsing Json ++++++++++++++++++++++++++++++++++++++++
 
-failUnpeek reason = throw new MessageException(std.plainMessage reason);
+failUnpeek reason = std.failWithMessage (std.plainMessage reason);
 
 
 unpeekStr o is ~Object -> 'a =
