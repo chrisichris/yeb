@@ -94,7 +94,7 @@ printError ex srcs resp =
 
 class YebFilter extends javax.servlet.Filter
 
-    var yebWebDir = "src",
+    var yebWebDir = "yebwebsrc",
 
     pathHelper = new org.springframework.web.util.UrlPathHelper(),
 
