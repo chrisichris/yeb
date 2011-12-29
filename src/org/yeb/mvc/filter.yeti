@@ -94,7 +94,10 @@ printError ex srcs resp =
 
 class YebFilter extends javax.servlet.Filter
 
+    var mainModuleName = "yebMain",
+    var mainWebModuleName = "yebWebMain",
     var yebWebDir = "yebwebsrc",
+    
 
     pathHelper = new org.springframework.web.util.UrlPathHelper(),
 
@@ -111,8 +114,8 @@ class YebFilter extends javax.servlet.Filter
     var mainWebModuleClassLoader = () as ~ClassLoader,
 
 
-    loadWebModule cl is ~ClassLoader -> 'a = (
-        oldCl = mainWebModuleClassLoader;
+    loadWebModule cl is ~ClassLoader -> 'a = 
+       (oldCl = mainWebModuleClassLoader;
         mainWebModuleClassLoader := cl;
 
         withClassLoader oldCl mainWebModule.destroy;
@@ -120,10 +123,10 @@ class YebFilter extends javax.servlet.Filter
 
 
         withClassLoader mainWebModuleClassLoader \(
-            log#info("loading yebWebMain module with classLoader \(cl)");
-            mainWebModule := (YebUtils#moduleLoad(cl, "yebWebMain")) unsafely_as mainWebModuleType;
+            log#info("loading \(mainWebModuleName) yebWebMain module with classLoader \(cl)");
+            mainWebModule := (YebUtils#moduleLoad(cl, mainWebModuleName)) unsafely_as mainWebModuleType;
             mainWebModule.init filterConfig;
-            log#info("new yebWebMain module initialized");
+            log#info("new \(mainWebModuleName) yebWebMain module initialized");
             mainWebHandler := mainWebModule.handler;
         );
     ),
@@ -143,7 +146,17 @@ class YebFilter extends javax.servlet.Filter
     void init(FilterConfig fc)
         filterConfig := fc;
         servletContext := fc#getServletContext();
+        
+        
+        
+        if defined? fc#getInitParameter("yebMainModule") then
+            mainModuleName := strTrim (string fc#getInitParameter("yebMainModule"));
+        fi;
 
+        if defined? fc#getInitParameter("yebWebModule") then
+            mainWebModuleName := strTrim (string fc#getInitParameter("yebWebModule"));
+        fi;
+        
         if defined? fc#getInitParameter("yebWebDir") then
             yebWebDir := strTrim (string fc#getInitParameter("yebWebDir"));
         fi;
@@ -153,11 +166,11 @@ class YebFilter extends javax.servlet.Filter
         mainWebModuleClassLoader := mainModuleClassLoader;
 
         withClassLoader mainModuleClassLoader \(
-            mcl = try _ = mainModuleClassLoader#loadClass("yebMain"); Some mainModuleClassLoader catch ClassNotFoundException: none yrt;
+            mcl = try _ = mainModuleClassLoader#loadClass(mainModuleName); Some mainModuleClassLoader catch ClassNotFoundException: none yrt;
             case mcl of
                 None _: log#info("No yebMain module - starting without");
                 Some cL:
-                    (mmod = (YebUtils#moduleLoad(cL, "yebMain")) unsafely_as mainModuleType;
+                    (mmod = (YebUtils#moduleLoad(cL, mainModuleName)) unsafely_as mainModuleType;
                     log#info("Initializing yebMain module");
                     mmod.init (filterConfig is ~FilterConfig);
                     mainModule := mmod);

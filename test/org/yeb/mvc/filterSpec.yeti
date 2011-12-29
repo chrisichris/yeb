@@ -12,8 +12,9 @@ _ = load org.yeb.mvc.filter;
 specificationsFor "org.yeb.mvc.filter" \(
 
     newConfig _ = (sc = new MockServletContext("webapps/general");
-                h.filterConfig sc ["yebWebDir":"src/test/resources/webapps/general/WEB-INF/yeti",
-                                   "yebMainDir":"src/test/resources/webapps/general/WEB-INF/yetim"]);
+                h.filterConfig sc ["yebWebDir":"testwebapps/filtertest/WEB-INF/yeti",
+                                   "yebMainModule":"org.yeb.mvc.filterSpecMainModule",
+                                   "yebWebModule":"yebWebModule"]);
 
     initFilter _ = (cf = newConfig (); 
                     filter = new YebFilter();
