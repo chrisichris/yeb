@@ -3,16 +3,12 @@ module org.yeticl.yebspecSpec;
 
 load org.yeb.yebspec;
 
-specificationsFor "yebspec itself" do ct:
-    describe ct "a specifications simple test" do ct:
-        should ct "be ok if nothing wrong" do ct:
-            ()
-        done;
+specificationsFor "yebspec itself" \(
+    describe "a specifications simple test" \(
+        should "be ok if nothing wrong" \();
 
-        should ct "be wrong if context fail" do ct:
-            assertFail ();
-        done;
+        should "be wrong if context fail" \()
 
-    done
+    )
 
-done
+) 
