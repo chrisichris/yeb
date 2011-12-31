@@ -279,7 +279,8 @@ withTLConnection dataSource fn =
             done;
     Some prov: fn prov;
     esac;
-    
+
+     
 
 
 
@@ -434,7 +435,11 @@ sqlExceptionString seq is ~SQLException -> string = (
 {
 
 
-
+cDB () = 
+    case _tlConnection.value of
+    None _ : failWith "No current connection";
+    Some v : v;
+    esac,
 
 withConnection,
 withTLConnection,
@@ -445,7 +450,7 @@ sqlUpdateEntity,
 sqlUpdateById,
 sqlList,
 sqlSome,
-sqlExceptionString
+sqlExceptionString,
 
 
 nullString = new DBValue((),Types#VARCHAR),
