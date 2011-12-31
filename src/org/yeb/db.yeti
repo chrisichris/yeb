@@ -23,33 +23,21 @@ import java.util.regex.Pattern;
 
 load org.yeb.std;
 
-typedef connectionFactoryType = () -> ~Connection;
-typedef transactionMapType = {var current is None () | Some ~Connection, 
-                              connections is hash<connectionFactoryType,~Connection>
-                             }
+typedef connectionProviderType<a> = {
+    connection is ~Connection,
+    rollbackOnly is () -> (),
+    rollbackOnly? is boolean,
+} 
 
-
-typedef dataSourceType = {
-    name is string,
-    logger is ~org.slf4j.Logger,
-    dataSource is ~DataSource,
-    connectionTL is {var value is None () | Some ~Connection },
-    transactionTL is {var value is number},
-    withConnection is ~Object,
-    withTransaction is ~Object,
-    sqlUpdate is ~Object,
-    sqlBaseQuery is ~Object,
-    operateStatement is ~Object,
-    queryTimeOut is number,
-    maxRows is number,
-    handleWarnings is string -> ~Statement -> (),
-};
 
 class DBValue(Object value, int sqlType)
     int getSqlType() sqlType,
     Object getValue() value,
     boolean isNull() nullptr? value,
 end;
+
+logger = getLogger "sql";
+
 
 sqlWarningExceptionString warning is ~SQLWarning -> string = (
     if defined? warning then
@@ -66,60 +54,6 @@ sqlWarningExceptionString warning is ~SQLWarning -> string = (
     fi;
 );
 
-someConnection ds is dataSourceType -> ( None () | Some ~Connection ) = ds.connectionTL.value;
-connection? ds = maybe false \true (someConnection ds);
-connection ds is 'a -> ~Connection = case someConnection ds of
-                    None _ : failWith "No connection";
-                    Some c : c;
-                esac;
-
-
-_withConnection ds code is dataSourceType -> 'a -> 'b = (
-    ensure (not connection? ds) "there is already a connection ";
-    dataSource = ds.dataSource;
-    con = ds.dataSource#getConnection();
-    try
-        ds.connectionTL.value := Some con;
-        code () //ds.connectionAdapter ds code;
-    finally
-        ds.connectionTL.value := none;
-        if defined? con then
-            con#close();
-        fi
-    yrt;
-);
-
-rollbackOnly? ds = ds.transactionTL.value == 2;
-transaction? ds = ds.transactionTL.value > 0;
-rollbackOnly ds =
-    if ds.transactionTL.value > 0 then ds.transactionTL.value := 2 else failWith "No transaction running" fi;
-
-tryRollbackOnly ds =
-    if ds.transactionTL.value > 0 then ds.transactionTL.value := 2 else () fi;
-
-
-_withTransaction ds code  is dataSourceType -> 'a -> 'b = (
-    ensure (not transaction? ds) "There is already a transaction";
-    con = connection ds;
-    oldAutoCommit = con#getAutoCommit();
-    con#setAutoCommit(false);
-    ds.transactionTL.value := 1;
-    try
-        r = code();
-        if ds.transactionTL.value == 2 then
-            con#rollback();
-        else
-            con#commit();
-        fi;
-        r;
-    catch Exception ex:
-        con#rollback();
-        throw ex;
-    finally
-        ds.transactionTL.value := 0;
-        con#setAutoCommit(oldAutoCommit)
-    yrt
-);
 
 _setStatementValue ps pos value is ~PreparedStatement -> number -> ~Object -> number = (
     import yeti.lang: Num,BigNum,RatNum,IntNum,FloatNum,AList, Tag;
@@ -196,147 +130,164 @@ _setStatementValue ps pos value is ~PreparedStatement -> number -> ~Object -> nu
 
 _expandPattern = Pattern#compile('\?');
 _expandSql sql params is string -> list<~Object> -> string = (
-    import java.lang:StringBuffer,CharSequence;
-    import yeti.lang:AList;
+        import java.lang:StringBuffer,CharSequence;
+        import yeti.lang:AList;
 
-    m = _expandPattern#matcher(sql unsafely_as ~CharSequence);
-    result = new StringBuffer();
-    var rest = params;
-    (m#find()) loop (
-        if empty? rest then
-            failWith "There are more questionmarks than params [\(length params)] in the sql: \(sql)"
-        fi;
-        param = head rest;
-        rest := tail rest;
-
-        questionMarks =
-            if param instanceof AList then
-                l = param unsafely_as list<'a>;
-                strJoin "," (map \"?" l);
-            elif nullptr? param then
-                ""
-            else
-                "?"
+        m = _expandPattern#matcher(sql unsafely_as ~CharSequence);
+        result = new StringBuffer();
+        var rest = params;
+        (m#find()) loop (
+            if empty? rest then
+                failWith "There are more questionmarks than params [\(length params)] in the sql: \(sql)"
             fi;
-        m#appendReplacement(result, questionMarks);
+            param = head rest;
+            rest := tail rest;
+
+            questionMarks =
+                if param instanceof AList then
+                    l = param unsafely_as list<'a>;
+                    strJoin "," (map \"?" l);
+                elif nullptr? param then
+                    ""
+                else
+                    "?"
+                fi;
+            m#appendReplacement(result, questionMarks);
+        );
+        m#appendTail(result);
+        string result;
     );
-    m#appendTail(result);
-    string result;
-);
 
 
-_operateStatement ds sql params statementHandler
-        is dataSourceType -> string -> list<~Object> -> (string -> ~PreparedStatement -> 'a) -> 'a= (
-    esql = _expandSql sql params;
+
+
+_resultSetWrapper rs = 
+   (maybePNum pos = objectMaybeNum (rs is ~ResultSet)#getObject(pos is number);
+    maybeNum name = objectMaybeNum rs#getObject(name is string);
+    maybePStr pos =
+        (s = rs#getString(pos is number);
+        if not defined? s then none else Some s fi);
+    maybeStr name =
+        (s = rs#getString(name is string);
+        if not defined? s then none else Some s fi);
+    
+    {
+        resultSet = rs is ~ResultSet,
+
+        pnum pos = maybe 0 id (maybePNum pos),
+        num name = maybe 0 id (maybeNum name),
+
+        pstr pos = maybe "" id (maybePStr pos),
+        str name = maybe "" id (maybeStr name),
+
+        pbool pos = rs#getBoolean(pos is number),
+        bool name = rs#getBoolean(name is string),
+
+        maybeNum,
+        maybePNum,
+        maybeStr,
+        maybePStr,
+    });
+
+
+        
+withConnection dataSource fn =
+    (con = (dataSource is ~DataSource)#getConnection();
     try
-        ps = (connection ds)#prepareStatement(esql);
+        oldAutoCommit = con#getAutoCommit();
+        con#setAutoCommit(false);
         try
+            var rbOnly = false;
+            arg = {
+                connection = con,
+                
+                get rollbackOnly? () = rbOnly,
+                
+                rollbackOnly () = rbOnly := true,
+                
+                operateStatement sql params statementHandler = 
+                   (esql = _expandSql sql params;
+                    try
+                        ps = con#prepareStatement(esql);
+                        try
+                            _ = _setStatementValue ps 1 (params:!);
 
-            _ = _setStatementValue ps 1 (params:!);
+                            r is ~Object = statementHandler ps;
 
-            r = statementHandler esql ps;
+                            if defined? ps#getWarnings() then
+                                logger#info(sqlWarningExceptionString(ps#getWarnings()))
+                            fi;
+                            r
+                        finally
+                            ps#close()
+                        yrt;
+                    catch Exception ex:
+                        //println "Wrong Sql \(esql)";
+                        logger#error("Wrong Sql [%1]",esql,ex);
+                        throw ex;
+                    yrt)
 
-            ds.handleWarnings esql ps;
-            r
+            };
+            r = fn arg;
+            if rbOnly then
+                con#rollback();
+            else
+                con#commit();
+            fi;
+            r;
+        catch Exception ex:
+            con#rollback();
+            throw ex;
         finally
-            ps#close()
-        yrt;
-    catch Exception ex:
-        //println "Wrong Sql \(esql)";
-        ds.logger#error("Wrong Sql [%1]",esql,ex);
-        throw ex;
-    yrt;
-);
+            con#setAutoCommit(oldAutoCommit)
+        yrt
+    finally
+        if defined? con then
+            con#close();
+        fi
+    yrt);
 
-_sqlUpdate ds sql params
-        is dataSourceType -> string -> list<~Object>  -> 'a=
-    (ds.operateStatement:!!) ds sql params
-            (_ sql ps is string -> ~PreparedStatement -> 'a = (rs is ~PreparedStatement = ps; rs#executeUpdate() ));
+sqlUpdate sql params cp =
+   (handler st is ~PreparedStatement -> ~Object =
+        st#executeUpdate() unsafely_as ~Object;
+    r is ~Object = cp.operateStatement sql params handler;
+    r unsafely_as number);    
 
-_sqlBaseQuery ds sql params resultSetHandler
-        is dataSourceType -> string -> list<~Object> -> (~ResultSet -> 'a) -> 'a=
-    (ds.operateStatement:!!) ds sql params
-            (_ sql ps is string -> ~PreparedStatement -> 'a = (rs is ~PreparedStatement = ps; resultSetHandler (rs#executeQuery()) ));
+sqlBaseQuery sql params resultSetHandler cp =
+    (cp.operateStatement sql params  
+        do st: 
+            r = (resultSetHandler is 'a -> 'b) 
+                (_resultSetWrapper (st is ~PreparedStatement)#executeQuery());
+            r unsafely_as ~Object
+        done) unsafely_as 'b;
+    
+    
+_tlConnection = threadLocal none;
+    
+withTLConnection dataSource fn =    
+    case _tlConnection.value of
+    None _: 
+        withConnection dataSource 
+            do prov: 
+                oP = _tlConnection.value;
+                try 
+                    _tlConnection.value := Some prov;
+                    fn prov
+                finally
+                    _tlConnection.value := oP;
+                yrt
+            done;
+    Some prov: fn prov;
+    esac;
+    
 
 
-defineDataSource name dataSource is string -> ~DataSource -> dataSourceType = {
-    name,
-    logger = getLogger name,
-    dataSource,
-    connectionTL = (m is None () | Some ~Connection = none; threadLocal m),
-    transactionTL = threadLocal 0, //0 = no transation, 1 = active transaction to commit, 2 = active but rollback only
-    withConnection = _withConnection:!,
-    withTransaction = _withTransaction:!,
-    sqlUpdate = _sqlUpdate:!,
-    sqlBaseQuery = _sqlBaseQuery:!,
-    operateStatement = _operateStatement:!,
-    queryTimeOut = 0,
-    maxRows = 0,
-    handleWarnings sql statement is string -> ~Statement -> () =
-        if defined? statement#getWarnings() then
-            logger#info(sqlWarningExceptionString(statement#getWarnings()))
-        fi,
-};
-
-
-typedef withHandlerType<a> = dataSourceType -> (() -> a) -> a
-
-withConnection ds code is withHandlerType<'a> =
-    if connection? ds then
-        code ();
-    else
-        (ds.withConnection:!!) ds code;
-    fi;
-
-setConnectionHandler ds adapter
-        is dataSourceType -> (withHandlerType<'a> -> withHandlerType<'a>) -> dataSourceType =
-    ds with {withConnection = (adapter (ds.withConnection:!!)):!};
-
-withTransaction ds code is withHandlerType<'a> =
-    if transaction? ds then
-        code ();
-    elif connection? ds then
-        (ds.withTransaction:!!) ds code;
-    else
-        withConnection ds \((ds.withTransaction:!!) ds code)
-    fi;
-
-setTransactionHandler ds adapter
-        is dataSourceType -> (withHandlerType<'a> -> withHandlerType<'a>) -> dataSourceType =
-    ds with {withTransaction = (adapter (ds.withTransaction:!!)):!};
-
-typedef updateHandlerType = dataSourceType -> string -> list<~Object> -> number;
-
-sqlUpdate ds sql params is  updateHandlerType =
-    if transaction? ds then
-        (ds.sqlUpdate:!!) ds sql params;
-    else
-        withTransaction ds \((ds.sqlUpdate:!!) ds sql params);
-    fi;
-
-setUpdateHandler ds adapter
-        is dataSourceType -> (updateHandlerType -> updateHandlerType) -> dataSourceType =
-    ds with {sqlUpdate = (adapter (ds.sqlUpdate:!!)):!};
-
-typedef queryHandlerType<a> = dataSourceType -> string -> list<~Object> -> (~ResultSet -> a) -> a;
-
-sqlBaseQuery ds sql params resultSetHandler
-        is queryHandlerType<'a> =
-    if transaction? ds then
-        (ds.sqlBaseQuery:!!) ds sql params resultSetHandler;
-    else
-        withTransaction ds \((ds.sqlBaseQuery:!!) ds sql params resultSetHandler)
-    fi;
-
-setBaseQueryHandler ds adapter
-        is dataSourceType -> (queryHandlerType<'a> -> queryHandlerType<'a>) -> dataSourceType =
-    ds with { sqlBaseQuery = (adapter (ds.sqlBaseQuery:!!)):!};
 
 ///////////////////////////////////////////
 //update helpers
 
-sqlInsertEntity db tableName stru is dataSourceType -> string -> {} -> number = (
-    import yeti.lang: Struct;
+sqlInsertEntity  tableName stru cP =
+   (import yeti.lang: Struct;
 
     ist = (stru:!) unsafely_as ~Struct;
     stb = new StringBuilder();
@@ -356,13 +307,14 @@ sqlInsertEntity db tableName stru is dataSourceType -> string -> {} -> number = 
         push values ist#get(i);
     done;
 
-    stb#append(") VALUES (?)"); //the values list will be expanded to ? by sql update
+    //the values list will be expanded to ? by sql update
+    stb#append(") VALUES (?)"); 
 
-    sqlUpdate db stb#toString() [(list values):!];
+    sqlUpdate stb#toString() [(list values):!] cP;
 );
 
-sqlUpdateEntity db tableName stru whereClause whereParams is dataSourceType -> string -> {} -> string -> list<~Object> -> number= (
-    import yeti.lang: Struct;
+sqlUpdateEntity tableName stru whereClause whereParams db = 
+    (import yeti.lang: Struct;
 
     ist = (stru:!) unsafely_as ~Struct;
     stb = new StringBuilder();
@@ -386,12 +338,11 @@ sqlUpdateEntity db tableName stru whereClause whereParams is dataSourceType -> s
     stb#append(whereClause);
 
     params = values ++ whereParams;
-    sqlUpdate db stb#toString() params;
+    sqlUpdate stb#toString() params db);
 
-);
-
-sqlUpdateById db tableName stru is dataSourceType -> string -> {} -> number= (
-    import yeti.lang: Struct;
+    
+sqlUpdateById tableName stru db = 
+   (import yeti.lang: Struct;
 
     ist = (stru:!) unsafely_as ~Struct;
     stb = new StringBuilder();
@@ -421,203 +372,39 @@ sqlUpdateById db tableName stru is dataSourceType -> string -> {} -> number= (
     done;
 
     case idField of
-        None _ : failWith "the struct must contain a 'id' or '*_id' field";
-        Some n : (
-            stb#append(" WHERE \(n) = ?");
-
-            push values idValue;
-            sqlUpdate db stb#toString() (list values);
-
-        );
+    None _ : failWith "the struct must contain a 'id' or '*_id' field";
+    Some n : 
+       (stb#append(" WHERE \(n) = ?");
+        push values idValue;
+        sqlUpdate stb#toString() (list values) db);
     esac);
 
-rspMaybeNum rs pos = objectMaybeNum (rs is ~ResultSet)#getObject(pos is number);
-rsMaybeNum name rs = objectMaybeNum (rs is ~ResultSet)#getObject(name is string);
-
-rspNum pos rs = maybe 0 id (rspMaybeNum rs pos);
-rsNum name rs = maybe 0 id (rsMaybeNum rs name);
-
-rspMaybeStr pos rs =
-    (s = (rs is ~ResultSet)#getString(pos is number);
-    if nullptr? s then none else Some s fi);
-rsMaybeStr name rs =
-    (s = (rs is ~ResultSet)#getString(name is number);
-    if nullptr? s then none else Some s fi);
-
-rspStr pos rs = maybe "" id (rspMaybeStr rs pos);
-rsStr name rs = maybe "" id (rsMaybeStr rs name);
-
-rspBool pos rs = (rs is ~ResultSet)#getBoolean(pos is number);
-rsBool name rs = (rs is ~ResultSet)#getBoolean(name is string);
-
+//value getters
+    
 //////////////////////////////////////////
 //query helpers
 
 
 
-listResult rowHandler rs is (~ResultSet -> 'a) -> ~ResultSet -> list<'a> = (
-    ret = array [];
-    (rs#next()) loop push ret (rowHandler rs);
-    list ret;
-);
+sqlList sql setters rowHandler ds =
+    sqlBaseQuery sql setters 
+        do rs:
+            ret = array [];
+            ((rs.resultSet) is ~ResultSet)#next() loop push ret (rowHandler rs);
+            list ret;
+        done
+        ds;
 
-someResult rowHandler rs is (~ResultSet -> 'a) -> ~ResultSet -> ( None () | Some 'a ) =
-    if rs#next() then Some (rowHandler rs) else none fi;
-
-
-_resultSetValueToTemplate failText template dbValue is string -> 'a -> ~Object -> 'a= (
-    import yeti.lang: Struct, GenericStruct, Num,BigNum,RatNum,IntNum,FloatNum,Tag;
-    import java.lang: Number, String;
-
-
-    ot is ~Object = template unsafely_as ~Object; 
-
-    failT type = "\(failText): value [\(dbValue)] is [\(dbValue#getClass())]  but template [\(ot)] is [\(ot#getClass())]";
-
-    ro = if not defined? dbValue then
-        if ot instanceof Tag and (string (ot unsafely_as ~Tag)#name) == "Some" then
-            none unsafely_as ~Object;
-        else
-            failWith "\(failText): The value was null but the template is not a None | Some variant";
-        fi
-    elif ot instanceof Tag then
-        if  (string (ot unsafely_as ~Tag)#name) == "Some" then
-            r = _resultSetValueToTemplate failText ((ot unsafely_as ~Tag)#value) dbValue;
-            (Some r) unsafely_as ~Object;
-        else
-            failWith "\(failText): template is tag but only Some | None tags are supported";
-        fi
-    elif dbValue instanceof Number then
-        num = (obj dbValue) unsafely_as ~Number;
-        if (ot instanceof IntNum) or (ot instanceof BigNum) then
-            new IntNum(num#longValue());
-        elif (ot instanceof FloatNum) or (ot instanceof RatNum) then
-            new FloatNum(num#doubleValue());
-        elif (ot instanceof java.util.Date) then
-            new java.util.Date(num#longValue());
-        else
-            failWith (failT "number");
-        fi;
-    elif ot#getClass()#isAssignableFrom((obj dbValue)#getClass()) then
-        dbValue
-    elif ot instanceof String then
-        obj "\(dbValue)";
-    else
-        failWith "\(failText): template [\(template)] does not fit value [\(dbValue)]";
-    fi;
-    ro unsafely_as 'a;
-);
-
-singleValueRowHandler template rs is 'a -> ~ResultSet -> 'a =
-    _resultSetValueToTemplate "" template rs#getObject(1);
-
-toStructRowHandler template rs is 'a -> ~ResultSet -> 'a = (
-    import yeti.lang: Struct, GenericStruct, Num,BigNum,RatNum,IntNum,FloatNum;
-
-    o = template unsafely_as ~Object;
-    if o instanceof Struct then
-        tst = o unsafely_as ~Struct;
-        
-        mp is hash<string, ~Object> = [:];
-        for [0 .. tst#count() -1] do i:
-            name = string (tst#name(i));
-            dbValue =
-                if name =~ '^_\d+$' then
-                    //we have a digit
-                    rs#getObject((number (strRight name 1)) );
-                else
-                    uname = YebUtils#camelCaseToUnderline(name);
-                    rs#getObject(uname);
-                fi;
-            mp.[name] := _resultSetValueToTemplate name tst#get(i) dbValue;
-        done;
-        (new GenericStruct(mp)) unsafely_as 'a
-    else
-        failWith "template must be a struct"
-    fi;
-
-);
-
-sqlList ds sql setters rowHandler=
-    sqlBaseQuery ds sql setters (listResult rowHandler);
-
-sqlSome ds sql setters rowHandler =
-    sqlBaseQuery ds sql setters (someResult rowHandler);
-
-sqlListStruct ds sql setters template =
-    sqlBaseQuery ds sql setters (listResult (toStructRowHandler template));
-
-sqlSomeStruct ds sql setters template =
-    sqlBaseQuery ds sql setters (someResult (toStructRowHandler template));
-
-_selectClauseFromStruct stru = (
-    import yeti.lang: Struct;
-    if (stru:!) instanceof Struct then
-        ist = (stru:!) unsafely_as ~Struct;
-        stb = new StringBuilder();
-        stb#append("SELECT ");
-
-        for [0 .. ist#count() -1] do i:
-            //add names to sql
-            name = string YebUtils#camelCaseToUnderline(ist#name(i));
-            if i > 0 then stb#append(", "); fi;
-            stb#append(name);
-            ()
-        done;
-        stb#toString();
-    else
-        failWith "template must be a struct"
-    fi;
-
-);
-
-sqlSomeEntity db template fromWhereClause params = (
-    sql = (_selectClauseFromStruct template) ^ " " ^ fromWhereClause;
-    sqlSomeStruct db sql params template;
-);
-
-sqlListEntity db template fromWhereClause params = (
-    sql = (_selectClauseFromStruct template) ^ " " ^ fromWhereClause;
-    sqlListStruct db sql params template;
-);
-
-sqlSomeById db tableName stru is dataSourceType -> string -> 'a -> 'b= (
-    import yeti.lang: Struct;
-
-    if (stru:!) instanceof Struct then
-        ist = (stru:!) unsafely_as ~Struct;
-
-        var idField is ( None () | Some string ) = none;
-        var idValue is ~Object = ():!;
-        //find the id
-        for [0 .. ist#count() -1] do i:
-            name = string YebUtils#camelCaseToUnderline(ist#name(i));
-           if(name == "id") or (strEnds? name "_id") then
-                idField := Some name;
-                idValue := ist#get(i);
-            fi;
-        done;
-
-        case idField of
-            None _ : failWith "the struct must contain a 'id' or '*_id' field";
-            Some n : (
-                whereClause = "FROM \(tableName) WHERE \(n) = ?";
-                sqlSomeEntity db stru whereClause [idValue];
-            );
-        esac;
-    else
-        failWith "template must be a struct"
-    fi;
-
-);
-
-
-sqlListValue ds sql setters template =
-    sqlBaseQuery ds sql setters (listResult (singleValueRowHandler template));
-
-sqlSomeValue ds sql setters template =
-    sqlBaseQuery ds sql setters (someResult (singleValueRowHandler template));
-
+sqlSome sql setters rowHandler ds =
+    sqlBaseQuery sql setters 
+        do rs:
+            if ((rs.resultSet) is ~ResultSet)#next() then
+                Some (rowHandler rs)
+            else
+                none
+            fi
+        done
+        ds;
 
 
 
@@ -649,28 +436,16 @@ sqlExceptionString seq is ~SQLException -> string = (
 
 
 
-sqlWarningExceptionString,
-withConnection, someConnection, connection?, connection, withTransaction,
-
-rollbackOnly?, transaction?, rollbackOnly, tryRollbackOnly,
-
-defineDataSource,
-
-sqlInsertEntity,
+withConnection,
+withTLConnection,
 sqlUpdate,
+sqlBaseQuery,
+sqlInsertEntity,
 sqlUpdateEntity,
 sqlUpdateById,
-
-rspMaybeNum, rsMaybeNum, rspNum, rsNum, rspMaybeStr, rsMaybeStr, rspStr, rsStr, rspBool, rsBool,
-
-
-sqlBaseQuery,
-sqlList, sqlSome,
-sqlListStruct, sqlSomeStruct,
-sqlSomeEntity, sqlListEntity,
-sqlListValue, sqlSomeValue,
-
-sqlSomeById,
+sqlList,
+sqlSome,
+sqlExceptionString
 
 
 nullString = new DBValue((),Types#VARCHAR),
@@ -679,8 +454,6 @@ nullDouble = new DBValue((),Types#DOUBLE),
 nullBoolean = new DBValue((),Types#BOOLEAN),
 nullTimestamp = new DBValue((),Types#TIMESTAMP),
 
-
-sqlExceptionString,
 
 
 }
