@@ -396,10 +396,10 @@ filterConfig ctxt fparams is ~ServletContext -> hash<string,string> -> 'a = (
 
     class MyConfig extends FilterConfig
         String getFilterName()
-            maybeAt "filter: \(System#currentTimeMillis())" id "filterName":!!! params,
+            maybeAt \"filter: \(System#currentTimeMillis())" id "filterName":!!! params,
 
         String getInitParameter(String name)
-            maybeAt (() as ~String) id name:!!! params,
+            maybeAt \(() as ~String) id name:!!! params,
 
         ServletContext getServletContext() ctxt,
 

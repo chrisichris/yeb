@@ -9,25 +9,25 @@ load org.yeb.std;
 
 specificationsFor "org.yeb.validation"\(
 
-    describe "maybeValid" \(
+    describe "validateFn" \(
         should "execute not valid if not valid" \(
             var f = false;
-            maybeValid \(f := true) \(f:=false) (valiString 100 120) "";
+            validateFn \(f := true) \(f:=false) (valiString 100 120) "";
             assertTrue f;
         );
         should "execute valid if valid" \(
             var f = false;
-            maybeValid \(f := false) \(f:=true) (valiString 1 10 ) "a";
+            validateFn \(f := false) \(f:=true) (valiString 1 10 ) "a";
             assertTrue f;
         );
     );
 
     describe "defaultVali" \(
         should "return defaultValue if wrong" \(
-            assertEquals "here" (maybeValid \"here" id (valiCheck \false) "foo");
+            assertEquals "here" (validateFn \"here" id (valiCheck \false) "foo");
         );
         should "return invalue when right" \(
-            assertEquals "here" (maybeValid \"foo" id (valiCheck \true) "here");
+            assertEquals "here" (validateFn \"foo" id (valiCheck \true) "here");
         );
     );
 

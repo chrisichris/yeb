@@ -97,7 +97,7 @@ valiURL max input =
     catch org.owasp.esapi.errors.ValidationException ex: throw (esapiToValiEx ex input) yrt;
 
 valiList vali listIn  = 
-    filter (maybeValid \false \true vali) listIn;
+    listIn |> filter (validateFn \false \true vali);
 
 
 valiString min max str = 

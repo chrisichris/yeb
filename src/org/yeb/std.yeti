@@ -36,27 +36,31 @@ class Message(String key, String defaultFormat, Object[] params)
     String toString() message,
 end;
 
-class MessageException(Message messageObject) extends IllegalArgumentException(messageObject#getMessage()) 
+class MessageException(Message messageObject) 
+    extends IllegalArgumentException(messageObject#getMessage()) 
     Message getMessageObject() messageObject,
     static MessageException create(Message msg)
         new MessageException( msg),
 end;
 
-class ValidationException(Message message, Object wrongValue) extends MessageException(message)
+class ValidationException(Message message, Object wrongValue) 
+    extends MessageException(message)
     Object getWrongValue() wrongValue,
     static ValidationException create(Message msg, Object wV)
         new ValidationException(msg, wV),
 end;
 
 
-message key defaultFormat values is string -> string -> list<~Object> -> ~Message =
+message key defaultFormat values =
     new Message(key, defaultFormat, array values);
 
 plainMessage text = message "" text [];
 
 failWithMessage msg = throw new MessageException(msg);
+
 failWithValidation msg value =
     throw new ValidationException(msg, value unsafely_as ~Object);
+
 newValidationException msg value =
     new ValidationException(msg, value unsafely_as ~Object);
 
@@ -67,32 +71,30 @@ validOr notValid valueFn =
         notValid;
     yrt;
 
-validOr' notValidFn validFn valueFn =
-    try validFn (valueFn ())
+
+validateFn notValidFn valueFn validFn value =
+    try
+        v = validFn value;
+        valueFn v;
     catch MessageException ex:
         notValidFn ex;
     yrt;
+        
+maybeValid notValidFn validFn valueFn =
+    validateFn notValidFn validFn valueFn (); 
 
-maybeValid notValidFn validFn validateFn value =
-    try validFn (validateFn value)
-    catch MessageException ex:
-        notValidFn ex;
-    yrt;
-
-
-stringWriter () = (
-    stB = new StringBuilder();
+stringWriter () = 
+   (stB = new StringBuilder();
     {
         write str = (stB#append("\(str)");()),
         text () = string stB#toString(),
-    }
-);
+    });
 
-objectMaybeNum o is ~Object -> ( None () | Some number ) = (
-   import java.lang: Double, Float,Number;
-   import java.math: BigInteger, BigDecimal;
-   import yeti.lang:Num,BigNum,IntNum,FloatNum;
-   o2 = if (o instanceof Double) or
+objectMaybeNum o is ~Object -> ( None () | Some number ) = 
+   (import java.lang: Double, Float,Number;
+    import java.math: BigInteger, BigDecimal;
+    import yeti.lang:Num,BigNum,IntNum,FloatNum;
+    o2 = if (o instanceof Double) or
              (o instanceof Float) or
              (o instanceof BigDecimal)
              then
@@ -106,23 +108,21 @@ objectMaybeNum o is ~Object -> ( None () | Some number ) = (
             new IntNum(nu#longValue());
         else o
         fi;
-   if o2 instanceof Num then Some (o2 unsafely_as number) else none fi;
-);
+    if o2 instanceof Num then Some (o2 unsafely_as number) else none fi);
 
-withThreadLocal threadLocal newValue ac = (
-    oldV = threadLocal.value;
+withThreadLocal threadLocal newValue ac = 
+   (oldV = threadLocal.value;
     threadLocal.value := newValue;
     try
         ac ();
     finally
         threadLocal.value := oldV;
-    yrt
-);
+    yrt);
 
 
 
-toCallable f = (
-    class RunCallable extends java.lang.Runnable, java.util.concurrent.Callable
+toCallable f = 
+   (class RunCallable extends java.lang.Runnable, java.util.concurrent.Callable
         void run()
             _ = f ();
             (),
@@ -130,27 +130,23 @@ toCallable f = (
             r = f();
             r unsafely_as ~Object,
     end;
-    new RunCallable();
-); 
+    new RunCallable());
 
 getLogger name is string -> ~Logger = LoggerFactory#getLogger(name);
 
 
-andThenEither f g is ('a-> (Left 'm | Right 'b)) -> ('b-> (Left 'm | Right 'c)) ->  ('a-> (Left 'm | Right 'c)) =
-    do a:
-        case f a of
-          Left m: Left m;
-          Right b:
-            g b;
-        esac
-    done;
+andThenEither fn fn2 a =
+    case fn a of
+    Left m: Left m;
+    Right b: fn2 b;
+    esac;
 
 
 maybeHead noHead headF li =
-    if empty? li then noHead else headF (head li) fi;
+    if empty? li then (noHead ()) else headF (head li) fi;
 
 maybeAt noValue valueF k hs =
-    if k in hs then valueF (hs.[k]) else noValue fi;
+    if k in hs then valueF (hs.[k]) else (noValue k) fi;
 
 listStarts? start l =
     if empty? start then
@@ -164,11 +160,8 @@ listStarts? start l =
     fi;
 
 
-maybeDefined' defaultFn valueFn x =
+maybeDefined defaultFn valueFn x =
     if defined? x then valueFn x else defaultFn () fi;
-
-maybeDefined defaultValue valueFn x =
-    if defined? x then valueFn x else defaultValue fi;
 
 
 maybe' defaultFn fn opt =
@@ -179,11 +172,11 @@ maybe' defaultFn fn opt =
 
 
 
-getSome' msg maybe = case maybe of
-                    Some v: v;
-                    None _: failWith msg; esac;
-
-getSome maybe = getSome' "expected some but was none" maybe;
+getSome opt = 
+    case opt of
+    None () : failWith "expects Some but was None";
+    Some v : v;
+    esac;
 
 some v is 'a -> (Some 'a | None () )= Some v;
 
@@ -301,7 +294,6 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> = (
 
 {
     ($) x y = x y,
-    (|>) x y = y x, // (|> F# style) pipeForward
     (|>>) fn1 fn2 = composeToRight fn1 fn2,
 
     (:!) x is 'a -> 'b = x as ~Object,
@@ -310,7 +302,8 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> = (
 
     message,
     plainMessage,
-    validOr, validOr', maybeValid,
+    validOr, maybeValid,
+    validateFn,
     failWithMessage,
     failWithValidation,
     newValidationException,
@@ -321,9 +314,8 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> = (
     maybeHead,
     maybeAt,
     maybeDefined,
-    maybeDefined',
     maybe',
-    getSome, getSome',
+    getSome,
     some,
 
     wrapMap, wrapList,

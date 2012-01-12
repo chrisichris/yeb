@@ -64,7 +64,7 @@ isAjax ctxt = (request ctxt)#getHeader("X-Requested-With") == "XMLHttpRequest";
 {
     request,response,servletContext,locale,
     session ctxt = ((request ctxt)#getSession(true)) is ~HttpSession,
-    maybeSession ctxt = maybeDefined none Some ((request ctxt)#getSession(false) is ~HttpSession),
+    maybeSession ctxt = maybeDefined None Some ((request ctxt)#getSession(false) is ~HttpSession),
 
     params, param, maybeParam, isAjax,
 

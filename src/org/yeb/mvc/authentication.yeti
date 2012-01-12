@@ -46,7 +46,7 @@ sessionAuthenticator nextAuthenticator ctxt =
             |>maybe' (nextAuthenticator ctxt)
                 do sess:
                    (sess is ~HttpSession)#getAttribute("org.yeb.mvc.authentication.user")
-                       |> maybeDefined' (nextAuthenticator ctxt) do u: Some ((u:!) unsafely_as principalType) done
+                       |> maybeDefined (nextAuthenticator ctxt) do u: Some ((u:!) unsafely_as principalType) done
                 done;
 
 

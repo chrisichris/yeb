@@ -122,7 +122,7 @@ createField minValues maxValues form unprefixedName converter toString
                 displayStrings := params;
 
                 //convert the string values
-                for params (maybeValid do ex: errors := ex#getMessageObject() :: errors done
+                for params (validateFn do ex: errors := ex#getMessageObject() :: errors done
                                           do r: _values := r :: _values done
                                           converter);
 
@@ -184,7 +184,7 @@ optionalField form unprefixedName converter toString= (
     f with {
               eitherValue _ = case f.eitherValue () of
                         Left m: Left m;
-                        Right li: Right (maybeHead none Some li);
+                        Right li: Right (maybeHead None Some li);
                     esac,
               get value () =
                     case eitherValue () of

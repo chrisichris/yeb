@@ -18,22 +18,17 @@ specificationsFor "org.yeb.std"\(
         should "fail if none" \(
             assertFailWith \(getSome none)));
 
-    describe "getSome'" \(
-        should "give value of Some" \(
-            assertSame (getSome' "" (Some 1)) 1);
-        should "fail if none with text" \(
-            assertFailWithText "footext" \(getSome' "footext" none)));
 
-    describe "maybeValid" \(
+    describe "validateFn" \(
         load org.yeb.validation;
         should "execute not valid if not valid" \(
             var f = false;
-            maybeValid \(f := true) \(f:=false) (valiString 100 120) "";
+            validateFn \(f := true) \(f:=false) (valiString 100 120) "";
             assertTrue f;
         );
         should "execute valid if valid" \(
             var f = false;
-            maybeValid \(f := false) \(f:=true) (valiString 1 10 ) "a";
+            validateFn \(f := false) \(f:=true) (valiString 1 10 ) "a";
             assertTrue f;
         );
     );
@@ -46,16 +41,16 @@ specificationsFor "org.yeb.std"\(
             assertEquals "b" (validOr "b" \("a" |> valiString 100 120)));
         );
 
-    describe "validOr'" \(
+    describe "maybeValid" \(
         load org.yeb.validation;
         should "execute not valid if not valid" \(
             var f = false;
-            validOr' \(f := true) \(f:=false) \("" |> valiString 100 120);
+            maybeValid \(f := true) \(f:=false) \("" |> valiString 100 120);
             assertTrue f;
         );
         should "execute valid if valid" \(
             var f = false;
-            validOr' \(f := false) \(f:=true) \("a" |> valiString 1 10 );
+            maybeValid \(f := false) \(f:=true) \("a" |> valiString 1 10 );
             assertTrue f;
         );
     );
