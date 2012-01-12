@@ -121,8 +121,7 @@ method: \(method)\n";
 
         opt = httpGetString options url ;
         maybe' None do str:
-                    stp = stringParser str;
-                    Right (jsonMap stp);
+                    Right (jsonMap str);
                   done opt;
     ),
 

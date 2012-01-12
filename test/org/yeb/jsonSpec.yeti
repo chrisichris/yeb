@@ -11,8 +11,8 @@ specificationsFor "org.yeb.json"\(
     describe "make a json string" \(
         should "transfer a struct to json string and return the value again" \(
             customer = {name="John", age=3, items=[1,2,3]};
-            str = toJSONString customer;
-            wr = jsonMap (stringParser str);
+            str = toJSON customer;
+            wr = jsonMap str;
             assertEquals (jsStr "name" wr) "John";
             assertEquals (jsNum "age" wr) 3;
             //foo;
@@ -32,8 +32,8 @@ specificationsFor "org.yeb.json"\(
                     father={name="Paul",age=40},
                     children= map do c : {name="child\(c)",age=c} done [1 .. 5],
                    };
-        str = toJSONString customer;
-        jmap = jsonMap (stringParser str);
+        str = toJSON customer;
+        jmap = jsonMap str;
 
         should "unpeek a string" \(
             assertEquals "John" (jsStr "name" jmap);

@@ -32,12 +32,12 @@ jsonFactory = new JsonFactory();
 
 
 
+toJSON stru = 
+   (stw = new java.io.StringWriter();
+    generator = jsonFactory#createJsonGenerator(stw);
 
-
-peekedToJSON peeked jsonGenerator is 'a -> ~JsonGenerator -> () = (
-    generator is ~JsonGenerator = jsonGenerator;
-    peekedWrite p = (
-        case p of
+    peekedWrite p = 
+       (case p of
             Number num: generator#writeNumber(string num);
             String str : generator#writeString(string str);
             Boolean bo: generator#writeBoolean(bo);
@@ -90,17 +90,11 @@ peekedToJSON peeked jsonGenerator is 'a -> ~JsonGenerator -> () = (
                 else
                     failWith "Can not write \(p)";
                 fi
-        esac;
-    );
-    peekedWrite peeked;
+        esac);
+    peekedWrite (peekObject stru);
     generator#flush();
-);
-
-
-
-
-
-
+    generator#close();
+    stw#getBuffer()#toString());
 
 
 //+++++++++++++++Parsing Json ++++++++++++++++++++++++++++++++++++++++
@@ -124,7 +118,8 @@ unpeekBool o is ~Object -> 'a =
         else failUnpeek "\(o) is no boolean"
     fi;
 
-itToList mf ls jit is (~Object -> 'c) -> list<'c> -> ~java.util.ListIterator -> list<'c> =
+itToList mf ls jit 
+    is (~Object -> 'c) -> list<'c> -> ~java.util.ListIterator -> list<'c> =
     if jit#hasPrevious() then
         el = mf jit#previous();
         ln = el :: ls;
@@ -201,60 +196,19 @@ _mapJavaIterator mapF javaIterator is 'a -> ~Iterator -> 'b = (
 
 
 {
-    jsonFactory,
 
-
-
-    //to JSON
-    fileGenerator file encoding is ~java.io.File -> ~JsonEncoding -> ~JsonGenerator =
-        jsonFactory#createJsonGenerator(file,encoding),
-
-    outputStreamGenerator os encoding is ~java.io.OutputStream -> ~JsonEncoding -> ~JsonGenerator =
-        jsonFactory#createJsonGenerator(os,encoding),
-
-    writerGenerator writer is ~java.io.Writer -> ~JsonGenerator =
-        jsonFactory#createJsonGenerator(writer),
-
-    peekedToJSON,
-    toJSON stru jsonGenerator  =
-        peekedToJSON (peekObject stru) jsonGenerator,
-
-
-    toJSONString a is 'a -> string = (
-        ao = a unsafely_as ~Object;
-        stw = new java.io.StringWriter();
-        gen = writerGenerator stw;
-        toJSON ao gen;
-        gen#close();
-        stw#getBuffer()#toString();
-    ),
-
+    toJSON,
 
     //from JSON
 
     //jackson utilities
-    jsonUTF8Encoding = JsonEncoding#UTF8,
-    jsonUTF16LE_Encoding = JsonEncoding#UTF16_LE,
-    jsonUTF16BE_Encoding = JsonEncoding#UTF16_BE,
-    jsonUTF32LE_Encoding = JsonEncoding#UTF32_LE,
-    jsonUTF32BE_Encoding = JsonEncoding#UTF32_BE,
-
-    fileParser file is ~java.io.File -> ~JsonParser =
-        jsonFactory#createJsonParser(file),
-
-    stringParser str is string -> ~JsonParser =
-        jsonFactory#createJsonParser(str),
-
-    inputStreamParser stream is ~java.io.InputStream -> ~JsonParser =
-        jsonFactory#createJsonParser(stream),
-
-    readerParser reader is ~java.io.Reader -> ~JsonParser =
-        jsonFactory#createJsonParser(reader),
 
 
 
-    jsonMap jacksonParser is ~JsonParser -> ~Map = (
+    jsonMap jsonString = (
         mapper = new ObjectMapper();
+        jacksonParser = 
+            jsonFactory#createJsonParser((jsonString is string) as ~String);
         ro = mapper#readValue(jacksonParser, (new Object())#getClass());
         if ro instanceof java.util.Map then
             ro unsafely_as ~java.util.Map;
