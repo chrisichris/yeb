@@ -166,8 +166,8 @@ maybeDefined defaultFn valueFn x =
 
 maybe' defaultFn fn opt =
     case opt of
-        None x: defaultFn x;
-        Some v: fn v;
+    None x: defaultFn x;
+    Some v: fn v;
     esac;
 
 
@@ -183,17 +183,17 @@ some v is 'a -> (Some 'a | None () )= Some v;
 loadClass name =
     Thread#currentThread()#getContextClassLoader()#loadClass(name);
 
-wrapMap keyFn valueFn jmap = (
-    import java.util.Map;
+wrapMap keyFn valueFn jmap = 
+   (import java.util.Map;
     it = (jmap is ~Map)#entrySet()#iterator();
     ret = [:];
-    (it#hasNext()) loop (
-        entry = it#next() unsafely_as ~java.util.Map$Entry;
+    (it#hasNext()) loop 
+        (entry = it#next() unsafely_as ~java.util.Map$Entry;
         ret.[keyFn entry#getKey()] := valueFn entry#getValue());
-     ret);
+    ret);
 
-wrapList mapF jlist = (
-    it = (jlist is ~java.util.List)#iterator();
+wrapList mapF jlist = 
+   (it = (jlist is ~java.util.List)#iterator();
     ret = array [];
     (it#hasNext()) loop (
         push ret (mapF it#next()));
@@ -210,26 +210,45 @@ ensure cond msg =
   fi;
 
 findCodeForException linesSourround sourceDirs ex =
-    (prov = (load org.yeticl.yeticlassloadermodule).sourceReader sourceDirs false
-                                Thread#currentThread()#getContextClassLoader();
+    (prov = (load org.yeticl.yeticlassloadermodule).sourceReader 
+                    sourceDirs false
+                    Thread#currentThread()#getContextClassLoader();
 
-    (|>) x y = y x; // (|> F# style) pipeForward
-    exStack = (rf exp exls = if nullptr? (exp is ~Throwable) then exls else rf exp#getCause() (exp :: exls) fi;
-               reverse (rf ex []));
-    exStack|>map do ex:
+    exStack = 
+        (rf exp exls = if nullptr? (exp is ~Throwable) then 
+                    exls 
+                else 
+                    rf exp#getCause() (exp :: exls) 
+                fi;
+        reverse (rf ex []));
+    exStack |> map do ex:
             stels = wrapArray (ex is ~Throwable)#getStackTrace()
-                    |>map do ste:
-                        arg = {var name = string (ste is ~java.lang.StackTraceElement)#getFileName(), fullpath = false};
-                        code = prov arg;
-                        {fileName = arg.name,code,lineNumber = ste#getLineNumber()} done
-                    |>filter do {code}: code != undef_str done
-                    |>map do {fileName,code,lineNumber}:
-                            fromLineNumber = (max 0 (lineNumber -linesSourround)) + 1;
+                    |> map do ste:
+                            arg = {
+                                var name = string 
+                                           (ste is ~java.lang.StackTraceElement)
+                                           #getFileName(), 
+                                fullpath = false
+                            };
+                            code = prov arg;
+                            {fileName = arg.name,
+                             code,
+                             lineNumber = ste#getLineNumber()
+                            } 
+                       done
+                    |> filter do {code}: code != undef_str done
+                    |> map do {fileName,code,lineNumber}:
+                            fromLineNumber = 
+                                (max 0 (lineNumber -linesSourround)) + 1;
                             toLineNumber = lineNumber + linesSourround;
                             lines = list (strSplit '\n' code)
                                 |> drop (fromLineNumber - 1)
                                 |> take (2 *linesSourround);
-                            {fileName,lines,lineNumber,fromLineNumber,toLineNumber};
+                            {fileName,
+                            lines,
+                            lineNumber,
+                            fromLineNumber,
+                            toLineNumber};
                         done;
             {exception = ex, codeLines= stels}
         done) ;
@@ -247,17 +266,15 @@ typedef tableType<k,v> = {
    .getDefault is 'k -> 'v -> 'v,
 }
 
-addAll table ha is tableType<'k,'v> -> hash<'k,'v> -> tableType<'k,'v>= (
-    var t = table;
+addAll table ha is tableType<'k,'v> -> hash<'k,'v> -> tableType<'k,'v>= 
+    (var t = table;
     forHash ha do k v: t := (t.add k v) done;
-    t
-);
+    t);
 
 
-create hash is hash<'k, 'v> -> tableType<'k,'v> = (
-
-    newTable pm is ~TMap -> tableType<'k,'v>  = (
-        {
+create hash is hash<'k, 'v> -> tableType<'k,'v> = 
+   (newTable pm is ~TMap -> tableType<'k,'v>  = 
+       ({
           add k v is 'k -> 'v -> tableType<'k,'v> = newTable (pm#update(k,v)),
 
           remove k is 'k -> tableType<'k,'v> = newTable (pm#remove(k)),
@@ -286,8 +303,7 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> = (
         t;
     else 
        addAll t hash
-    fi
-);
+    fi);
 
 
 
