@@ -97,10 +97,12 @@ toJSON stru =
     stw#getBuffer()#toString());
 
 
+    
 //+++++++++++++++Parsing Json ++++++++++++++++++++++++++++++++++++++++
 
 failUnpeek reason = std.failWithMessage (std.plainMessage reason);
 
+    
 
 unpeekStr o is ~Object -> 'a =
     if o instanceof String then (o unsafely_as string);
@@ -137,7 +139,7 @@ unpeekList peeker o  is (~Object -> 'c) -> ~Object -> list<'c> =
     else failUnpeek "\(o) is no java.util.List"
     fi;
 
-
+    
 unpeekStru mapper obj is ('b -> 'c ) -> ~Object -> 'c= (
     if obj instanceof java.util.Map then
         ma = obj unsafely_as ~java.util.Map;
@@ -190,6 +192,69 @@ _mapJavaIterator mapF javaIterator is 'a -> ~Iterator -> 'b = (
     reverse li
 );
 
+
+unpeeker obj = {
+    get str () = unpeekStr obj,
+    get num () = unpeekNum obj,
+    get bool () = unpeekBool obj,
+    some fn =
+        if not defined? obj then
+            none
+        else
+            Some (fn (unpeeker obj))
+        fi,
+    maybe noneFn fn = 
+        if not defined? obj then
+            noneFn ()
+        else
+            fn (unpeeker obj)
+        fi,
+    ls fn = 
+        if obj instanceof java.util.List then
+            mapJavaList (fn . unpeeker) (obj unsafely_as ~java.util.List);
+        else
+            failUnpeek "\(obj) is no list"
+        fi,
+    at name =     
+        if obj instanceof java.util.Map then
+            ma = obj unsafely_as ~java.util.Map;
+            unpeeker ma#get(name);
+        else
+            failUnpeek "\(obj) is no map";
+        fi,
+    
+    maybeAt name noneFn fn =    
+        if obj instanceof java.util.Map then
+            ma = obj unsafely_as ~java.util.Map;
+            ro = ma#get(name);
+            if defined? ro then
+                fn (unpeeker ro)
+            else
+                noneFn ()
+            fi
+        else
+            failUnpeek "\(obj) is no map";
+        fi,
+        
+    someAt name fn =    
+        if obj instanceof java.util.Map then
+            ma = obj unsafely_as ~java.util.Map;
+            ro = ma#get(name);
+            if defined? ro then
+                Some (fn (unpeeker ro))
+            else
+                none
+            fi
+        else
+            failUnpeek "\(obj) is no map";
+        fi};
+
+ayxc () = (obx = unpeeker (() as ~Object);
+_ = obx.str;
+_ = obx.someAt "chris" (.str);
+_ = obx.someAt "chris" (.num);
+_ = obx.ls (.str);
+_ = obx.ls (.num));
 
 
 
