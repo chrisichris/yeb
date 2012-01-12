@@ -23,11 +23,6 @@ import java.util.regex.Pattern;
 
 load org.yeb.std;
 
-typedef connectionProviderType<a> = {
-    connection is ~Connection,
-    rollbackOnly is () -> (),
-    rollbackOnly? is boolean,
-} 
 
 
 class DBValue(Object value, int sqlType)
@@ -396,7 +391,7 @@ sqlList sql setters rowHandler ds =
         done
         ds;
 
-sqlSome sql setters rowHandler ds =
+sqlMaybe sql setters rowHandler ds =
     sqlBaseQuery sql setters 
         do rs:
             if ((rs.resultSet) is ~ResultSet)#next() then
@@ -449,7 +444,7 @@ sqlInsertEntity,
 sqlUpdateEntity,
 sqlUpdateById,
 sqlList,
-sqlSome,
+sqlMaybe,
 sqlExceptionString,
 
 
