@@ -104,99 +104,26 @@ failUnpeek reason = std.failWithMessage (std.plainMessage reason);
 
     
 
-unpeekStr o is ~Object -> 'a =
-    if o instanceof String then (o unsafely_as string);
-        else failUnpeek "\(o) is no string"
-    fi;
-
-unpeekNum o is ~Object -> 'a = 
-    case std.objectMaybeNum o of
-       None _ : failUnpeek "\(o) is no number";
-       Some n : n;
-    esac;
-
-unpeekBool o is ~Object -> 'a =
-    if o instanceof Boolean then  (o unsafely_as boolean);
-        else failUnpeek "\(o) is no boolean"
-    fi;
-
-itToList mf ls jit 
-    is (~Object -> 'c) -> list<'c> -> ~java.util.ListIterator -> list<'c> =
-    if jit#hasPrevious() then
-        el = mf jit#previous();
-        ln = el :: ls;
-        itToList mf ln jit;
-    else
-        ls
-    fi;
-
-
-unpeekList peeker o  is (~Object -> 'c) -> ~Object -> list<'c> =
-    if o instanceof java.util.List then
-        javaList = o unsafely_as ~java.util.List;
-        it = javaList#listIterator(javaList#size());
-        itToList peeker [] it;
-    else failUnpeek "\(o) is no java.util.List"
-    fi;
-
-    
-unpeekStru mapper obj is ('b -> 'c ) -> ~Object -> 'c= (
-    if obj instanceof java.util.Map then
-        ma = obj unsafely_as ~java.util.Map;
-        mapper ma;
-    else
-        failUnpeek "\(obj) is no java.util.Map";
-    fi;
-);
- 
-unpeekHash keyPeeker valuePeeker o is (~Object-> 'a) -> (~Object -> 'b) -> ~Object -> hash<'a,'b> = (
-    if o instanceof java.util.Map then
-        ma = o unsafely_as ~java.util.Map;
-        it = ma#keySet()#iterator();
-        hashRet = [:];
-        (it#hasNext()) loop (
-            ko = it#next();
-            vo = ma#get(ko);
-            k = keyPeeker ko;
-            v = valuePeeker vo;
-            hashRet.[k] := v;
-        );
-        hashRet;
-    else
-        failUnpeek "\(o) is no java.util.Map";
-    fi;
-);
-
-takeFromMap key unpeeker map is string -> (~Object -> 'a) ->  ~java.util.Map -> 'a = (
-    v = map#get(key);
-    if defined? v then
-        unpeeker v;
-    else
-        failUnpeek "key \(key) does not exist in map \(map)";
-    fi;
-
-);
-
-
-_itToList mf ls jit is 'a -> 'd -> ~java.util.Iterator -> 'c =
-    if jit#hasNext() then
-        _ = mf jit#next();
-        ln = mf :: ls;
-        _itToList mf ln jit;
-    else
-        ls
-    fi;
-
-_mapJavaIterator mapF javaIterator is 'a -> ~Iterator -> 'b = (
-    li = _itToList mapF [] javaIterator;
-    reverse li
-);
 
 
 unpeeker obj = {
-    get str () = unpeekStr obj,
-    get num () = unpeekNum obj,
-    get bool () = unpeekBool obj,
+    get str () = 
+        if (obj is ~Object) instanceof String then 
+            (obj unsafely_as string);
+        else 
+            failUnpeek "\(obj) is no string"
+        fi,
+    get num () = 
+        case std.objectMaybeNum obj of
+        None _ : failUnpeek "\(obj) is no number";
+        Some n : n;
+        esac,
+    get bool () = 
+        if obj instanceof Boolean then  
+            (obj unsafely_as boolean);
+        else 
+            failUnpeek "\(obj) is no boolean"
+        fi,
     some fn =
         if not defined? obj then
             none
@@ -264,51 +191,19 @@ _ = obx.ls (.num));
 
     toJSON,
 
-    //from JSON
-
-    //jackson utilities
-
-
-
-    jsonMap jsonString = (
-        mapper = new ObjectMapper();
+    fromJSON jsonString = 
+       (mapper = new ObjectMapper();
         jacksonParser = 
             jsonFactory#createJsonParser((jsonString is string) as ~String);
         ro = mapper#readValue(jacksonParser, (new Object())#getClass());
         if ro instanceof java.util.Map then
-            ro unsafely_as ~java.util.Map;
-        else failUnpeek "\(ro) was no java map." fi;
-    ),
+            mro = ro unsafely_as ~java.util.Map;
+            unpeeker mro
+        else 
+            failUnpeek "\(ro) was no java map." 
+        fi),
 
 
-    jsTake unpeeker key map = takeFromMap key unpeeker map,
-    jsStr name map = takeFromMap name unpeekStr map,
-    jsNum name map = takeFromMap name unpeekNum map,
-    jsBool name map = takeFromMap name unpeekBool map,
-    jsStru mapper name map = takeFromMap name (unpeekStru mapper) map,
-    jsList peeker name map = takeFromMap name (unpeekList peeker) map,
-    jsHash keyPeeker valuePeeker name map = takeFromMap name (unpeekHash keyPeeker valuePeeker) map,
-
-    xpath map is ~Map -> ~JXPathContext = JXPathContext#newContext(map),
-
-    xpStr path jxc is string -> ~JXPathContext -> string = unpeekStr jxc#getValue(path),
-    xpNum path jxc is string -> ~JXPathContext -> number = unpeekNum jxc#getValue(path),
-    xpBool path jxc is string -> ~JXPathContext -> boolean = unpeekBool jxc#getValue(path),
-    xpStru mapper path jxc is 'a -> string -> ~JXPathContext -> 'b = (unpeekStru mapper) jxc#getValue(path),
-    xpList peeker path jxc is 'a -> string -> ~JXPathContext -> 'b = (unpeekList peeker) jxc#getValue(path),
-    xpHash keyPeeker valuePeeker path jxc  is 'a -> 'b -> string -> ~JXPathContext -> 'c = (unpeekHash keyPeeker valuePeeker) jxc#getValue(path),
-    xpTake unpeeker path jxc is 'a -> string -> ~JXPathContext -> 'c = unpeeker jxc#getValue(path),
-
-    xpListStr path jxc is string -> ~JXPathContext -> 'c = _mapJavaIterator unpeekStr jxc#iterate(path),
-    xpListNum path jxc is string -> ~JXPathContext -> 'c = _mapJavaIterator unpeekNum jxc#iterate(path),
-    xpListBool path jxc is string -> ~JXPathContext -> 'c = _mapJavaIterator unpeekBool jxc#iterate(path),
-    xpListStru mapper path jxc is 'a -> string -> ~JXPathContext -> 'c = _mapJavaIterator (unpeekStru mapper) jxc#iterate(path),
-    xpListList peeker path jxc is 'a -> string -> ~JXPathContext -> 'c = _mapJavaIterator (unpeekList peeker) jxc#iterate(path),
-    xpListHash keyPeeker valuePeeker path jxc is 'a -> 'b -> string -> ~JXPathContext -> 'c = _mapJavaIterator (unpeekHash keyPeeker valuePeeker) jxc#iterate(path),
-    xpListTake unpeeker path jxc is 'a -> string -> ~JXPathContext -> 'c = _mapJavaIterator unpeeker jxc#iterate(path),
-
-
-    unpeekStr, unpeekNum, unpeekBool, unpeekList, unpeekStru, unpeekHash
 
 
 }
