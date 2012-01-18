@@ -16,8 +16,10 @@
 
 module org.yeb.json;
 
-import org.codehaus.jackson: JsonParser, JsonToken, JsonFactory, JsonGenerator,JsonEncoding;
-import org.codehaus.jackson.map: ObjectMapper;
+import net.minidev.json: JSONValue, JSONStyle;
+import com.jayway.jsonpath:JsonPath;
+//import org.codehaus.jackson: JsonParser, JsonToken, JsonFactory, JsonGenerator,JsonEncoding;
+//import org.codehaus.jackson.map: ObjectMapper;
 import java.lang: StringBuilder,Number,Double,Float;
 import java.math: BigDecimal,BigInteger;
 import java.util: Iterator, Map;
@@ -28,73 +30,90 @@ std = load org.yeb.std;
 
 
 //++++++++++++++++++++++++JSON Things +++++++++++++++++++++++++++++++++
-jsonFactory = new JsonFactory();
 
 
 
-toJSON stru = 
-   (stw = new java.io.StringWriter();
-    generator = jsonFactory#createJsonGenerator(stw);
-
+writeJSON stru opts = 
+   (stb = new StringBuilder();
+    var style = JSONStyle#NO_COMPRESS;
+    for opts do x: () done;
+    
+    append str = (stb#append(str is string); ());
+    
     peekedWrite p = 
-       (case p of
-            Number num: generator#writeNumber(string num);
-            String str : generator#writeString(string str);
-            Boolean bo: generator#writeBoolean(bo);
-            List l: (
-                generator#writeStartArray();
-                for l do e: peekedWrite e done;
-                generator#writeEndArray();
-            );
-            Hash o: (
-                generator#writeStartObject();
+       (writeKV k v =
+            (if not defined? k then append "null"
+            elif not style#mustProtectKey(k) then append k
+            else
+                append '"';
+                JSONValue#escape(k,stb,style);
+                append '"';
+            fi;
+            append ":";
+            peekedWrite(v));
+            
+                
+       
+        case p of
+        Number num: append (string num); 
+        String str : JSONValue#writeJSONString(str, stb, style);
+        Boolean bo:
+            append (if bo then "true" else "false" fi);
+                
+        List l: 
+            if empty? l then
+                append "null";
+            else
+                append "[";
+                var first = true;
+                for l do e:
+                    if first then first := false else append "," fi;
+                    peekedWrite e;
+                done;
+                append "]";
+            fi;
+        Hash o:
+            if empty? o then
+                append "null";
+            else
+                var first = true;
+                append "{";
                 forHash o do k v:
-                    //k must be of string number or boolean
-                    ks = case k of
-                            String str: str;
-                            Number num: string num;
-                            Boolean bol: string bol;
-                            x: failWith "Can not use as object name key: \(x)";
-                          esac;
-                    generator#writeFieldName(ks);
-                    peekedWrite v;
+                    if first then first := false else append "," fi;
+                    ke = case k of
+                    Number n: string n;
+                    String s: s;
+                    Boolean b: string b;
+                    _ : failWith "Only number, string or boolean types are supported as keys in hash";
+                    esac;
+                    writeKV ke v;
                 done;
-                generator#writeEndObject();
-            );
-            Struct {fields, value}: (
-                generator#writeStartObject();
+                append "}";
+            fi;
+            
+        Struct {fields, value}: 
+            if empty? fields then
+                append "null";
+            else
+                var first = true;
+                append "{";
                 for fields do f:
-                    generator#writeFieldName("\(f)");
-                    peekedWrite (value f);
+                    if first then first := false else append "," fi;
+                    writeKV f (value f);
                 done;
-                generator#writeEndObject();
-            );
-            Variant {tag="None"}:
-                generator#writeNull();
-            Variant {tag="Some", value}:
-                peekedWrite value;
-            Variant {tag="Unpeeked", value}:
-                peekedWrite value;
-            Variant {tag,value} :
-                generator#writeStartObject();
-                generator#writeFieldName("variant");
-                generator#writeString(tag);
-                generator#writeFieldName("value");
-                peekedWrite value;
-                generator#writeEndObject();
-            Object o :
-                if o instanceof TagCon then
-                    failWith "Can not write TagConstructor \(o)"
-                elif o instanceof Fun then
-                    failWith "Can not write Function \(o)"
-                else
-                    failWith "Can not write \(p)";
-                fi
+                append "}"
+            fi;
+            
+        Variant {tag="None"}:
+            append "null";
+        Variant {tag="Some", value}:
+            peekedWrite value;
+        Variant {tag="Unpeeked", value}:
+            peekedWrite value;
+        o : failWith "Can not write \(o)";
         esac);
     peekedWrite (peekObject stru);
-    generator#flush();
-    generator#close();
-    stw#getBuffer()#toString());
+    string stb#toString());
 
 
     
@@ -102,108 +121,112 @@ toJSON stru =
 
 failUnpeek reason = std.failWithMessage (std.plainMessage reason);
 
+jsonStr obj =
+    if (obj is ~Object) instanceof String then 
+        (obj unsafely_as string);
+    else 
+        failUnpeek "\(obj) is no string"
+    fi;
+
+jsonNum obj =     
+    case std.objectMaybeNum obj of
+    None _ : failUnpeek "\(obj) is no number";
+    Some n : n;
+    esac;
     
+jsonBool obj =
+    if (obj is ~Object) instanceof Boolean then  
+        (obj unsafely_as boolean);
+    else 
+        failUnpeek "\(obj) is no boolean"
+    fi;
 
-
-
-unpeeker obj = {
-    get str () = 
-        if (obj is ~Object) instanceof String then 
-            (obj unsafely_as string);
-        else 
-            failUnpeek "\(obj) is no string"
-        fi,
-    get num () = 
-        case std.objectMaybeNum obj of
-        None _ : failUnpeek "\(obj) is no number";
-        Some n : n;
-        esac,
-    get bool () = 
-        if obj instanceof Boolean then  
-            (obj unsafely_as boolean);
-        else 
-            failUnpeek "\(obj) is no boolean"
-        fi,
-    some fn =
-        if not defined? obj then
-            none
-        else
-            Some (fn (unpeeker obj))
-        fi,
-    maybe noneFn fn = 
-        if not defined? obj then
-            noneFn ()
-        else
-            fn (unpeeker obj)
-        fi,
-    ls fn = 
-        if obj instanceof java.util.List then
-            mapJavaList (fn . unpeeker) (obj unsafely_as ~java.util.List);
-        else
-            failUnpeek "\(obj) is no list"
-        fi,
-    at name =     
-        if obj instanceof java.util.Map then
-            ma = obj unsafely_as ~java.util.Map;
-            unpeeker ma#get(name);
-        else
-            failUnpeek "\(obj) is no map";
-        fi,
-    
-    maybeAt name noneFn fn =    
-        if obj instanceof java.util.Map then
-            ma = obj unsafely_as ~java.util.Map;
-            ro = ma#get(name);
-            if defined? ro then
-                fn (unpeeker ro)
+jsonList fn obj =
+    if nullptr? (obj is ~Object) then
+        []
+    elif obj instanceof java.util.List then
+        mapJavaList fn (obj unsafely_as ~java.util.List);
+    elif obj instanceof java.util.Iterator then
+        it = obj unsafely_as ~java.util.Iterator;
+        itfn () =
+            if it#hasNext() then 
+                (fn it#next()) :. itfn
             else
-                noneFn ()
-            fi
+                []
+            fi;
+        itfn ();
+    else
+        failUnpeek "\(obj) is no list"
+    fi;
+
+jsonHash kfn vfn obj =
+    if nullptr? (obj is ~Object) then
+        [:]
+    elif obj instanceof java.util.Map then
+        ret = [:];
+        forJavaMap (obj unsafely_as ~java.util.Map) do k v:
+            ret.[kfn k] := vfn v;
+        done;
+        ret;
+    else
+        failUnpeek "\(obj) is no map";
+    fi;
+
+jsonAt name obj=     
+    if (obj is ~Object) instanceof java.util.Map then
+        jma = (obj unsafely_as ~java.util.Map);
+        jma#get(name);
+    else
+        failUnpeek "\(obj) is no map";
+    fi;
+ 
+jsonMAt name fn obj=
+    if (obj is ~Object) instanceof java.util.Map then
+        jma = (obj unsafely_as ~java.util.Map);
+        r = jma#get(name);
+        if nullptr? r then
+            none;
         else
-            failUnpeek "\(obj) is no map";
-        fi,
+            Some (fn r);
+        fi
+    else
+        failUnpeek "\(obj) is no map";
+    fi;
+    
+jsonObj obje = {
+    jmap = obje,
+    at name = jsonAt name obje,
+    str name = jsonAt name obje |> jsonStr,
+    num name = jsonAt name obje |> jsonNum,
+    bool name = jsonAt name obje |> jsonBool,
+    obj name = jsonAt name obje |> jsonObj,
+    hash name kfn vfn  = jsonAt name obje |> jsonHash kfn vfn,
+    list name fn = jsonAt name obje |> jsonList fn,
+
+    maybeAt name = jsonMAt name id obje,
+    maybeStr name = jsonMAt name jsonStr obje,
+    maybeNum name = jsonMAt name jsonNum obje,
+    maybeBool name = jsonMAt name jsonBool obje,
+    maybeObj name = jsonMAt name jsonObj obje,
+    
+    path name fn = 
+        fn JsonPath#read(obje is ~Object, name is string)
+};
+    
         
-    someAt name fn =    
-        if obj instanceof java.util.Map then
-            ma = obj unsafely_as ~java.util.Map;
-            ro = ma#get(name);
-            if defined? ro then
-                Some (fn (unpeeker ro))
-            else
-                none
-            fi
-        else
-            failUnpeek "\(obj) is no map";
-        fi};
-
-ayxc () = (obx = unpeeker (() as ~Object);
-_ = obx.str;
-_ = obx.someAt "chris" (.str);
-_ = obx.someAt "chris" (.num);
-_ = obx.ls (.str);
-_ = obx.ls (.num));
-
-
-
 
 
 {
 
-    toJSON,
-
-    fromJSON jsonString = 
-       (mapper = new ObjectMapper();
-        jacksonParser = 
-            jsonFactory#createJsonParser((jsonString is string) as ~String);
-        ro = mapper#readValue(jacksonParser, (new Object())#getClass());
-        if ro instanceof java.util.Map then
-            mro = ro unsafely_as ~java.util.Map;
-            unpeeker mro
-        else 
-            failUnpeek "\(ro) was no java map." 
-        fi),
+    writeJSON,
 
 
+    parseJSON jsonString = 
+       jsonObj JSONValue#parseWithException(jsonString is string),
+    
+    parseJSONStrict jsonString =
+       jsonObj JSONValue#parseStrict(jsonString is string),
 
+    jsonStr, jsonNum, jsonBool, jsonList, jsonObj, jsonHash    
 
 }

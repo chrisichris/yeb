@@ -103,12 +103,46 @@ objectMaybeNum o is ~Object -> ( None () | Some number ) =
         elif o instanceof BigInteger then
             nu = o unsafely_as ~BigInteger;
             new BigNum(nu);
+        elif o instanceof Num then
+            o unsafely_as ~Num;
         elif o instanceof Number then
             nu = o unsafely_as ~Number;
             new IntNum(nu#longValue());
         else o
         fi;
     if o2 instanceof Num then Some (o2 unsafely_as number) else none fi);
+
+number x is 'a -> number = 
+    maybe Double#NaN id (objectMaybeNum (x as ~Object));
+    
+nan? x = Double#isNaN(x is number);    
+    
+objectMaybeBoolean x is 'a -> (None () | Some boolean) =
+    if x instanceof Boolean then
+        Some (((x unsafely_as ~Object) unsafely_as ~Boolean)#booleanValue())
+    else
+        none
+    fi;
+    
+boolean x is 'a -> boolean =
+    (import java.lang.Number;
+    o = x unsafely_as ~Object;
+    case objectMaybeBoolean o of
+        Some b:b;
+        None _: 
+            if (defined? x)
+               or (nullptr? x)
+               or ((o instanceof String) 
+                    and ((o unsafely_as ~String)#length() == 0)) 
+               or ((o instanceof Number) 
+                   and ((o unsafely_as ~Number)#intValue() == 0))
+            then 
+                false
+            else 
+                true
+            fi;
+    esac);
+
 
 withThreadLocal threadLocal newValue ac = 
    (oldV = threadLocal.value;
@@ -163,7 +197,9 @@ listStarts? start l =
 maybeDefined defaultFn valueFn x =
     if defined? x then valueFn x else defaultFn () fi;
 
-
+onDefined valueFn x = 
+    if defined? x then Some (valueFn x) else none fi;
+    
 maybe' defaultFn fn opt =
     case opt of
     None x: defaultFn x;
@@ -330,10 +366,12 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> =
     maybeHead,
     maybeAt,
     maybeDefined,
+    onDefined,
     maybe',
     getSome,
     some,
-
+    
+    
     wrapMap, wrapList,
 
     withThreadLocal,
@@ -346,6 +384,10 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> =
     toCallable,
 
     objectMaybeNum,
+    number,
+    objectMaybeBoolean,
+    boolean,
+    nan?,
     obj a = a as ~Object,
 
     stringWriter,

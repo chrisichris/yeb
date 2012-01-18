@@ -20,9 +20,7 @@ dependency "commons-lang" "commons-lang" "2.0" [];
 dependency "commons-fileupload" "commons-fileupload" "1.1.1" [];
 dependency "commons-codec" "commons-codec" "1.3" [];
 dependency "commons-httpclient" "commons-httpclient" "3.1" [];
-dependency "commons-jxpath" "commons-jxpath" "1.3" [];
 dependency "com.google.guava" "guava" "r07" [];
-dependency "org.codehaus.jackson" "jackson-mapper-asl" "1.7.1" [];
 dependency "joda-time" "joda-time" "1.6" [];
 dependency "org.slf4j" "jcl-over-slf4j" "1.5.2" [];
 dependency "org.slf4j" "slf4j-log4j12" "1.5.2" [];
@@ -30,6 +28,8 @@ dependency "log4j" "log4j" "1.2.12" [];
 dependency "org.springframework" "spring-web" "3.0.5.RELEASE" [];
 dependency "org.springframework" "spring-test" "3.0.5.RELEASE" [];
 dependency "org.springframework.security" "spring-security-web" "3.0.5.RELEASE" [];
+
+dependency "com.jayway.jsonpath" "json-path" "0.5.5" [];
 
 dependency "org.yeb" "yebspec" "1.0-SNAPSHOT" [TestScope ()];
 dependency "junit" "junit" "3.8.2" [TestScope ()];
