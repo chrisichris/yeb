@@ -1,4 +1,4 @@
-module org.yeticl.footeti;
+<%module org.yeticl.footeti;
 
 do y:
     write x = println x;

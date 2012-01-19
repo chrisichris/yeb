@@ -1,3 +1,4 @@
+<%
 module org.yeticl.tetiTest;
 
 import java.lang.StringBuffer;
@@ -6,7 +7,6 @@ stB = new StringBuffer();
 
 write str = (stB#append("\(str)"); ());
 
-writers = { e = write, u = write};
 
 %>Hier kommt Kurt.<%
 
