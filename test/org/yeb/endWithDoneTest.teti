@@ -1,4 +1,4 @@
-<%module org.yeticl.endWithDoneTest;
+<%module org.yeb.endWithDoneTest;
 
 import java.lang.StringBuffer;
 

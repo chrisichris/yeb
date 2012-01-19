@@ -14,7 +14,7 @@
  * and limitations under the License.
  */
 
-module org.yeticl.yeticlassloadermodule;
+module org.yeb.yeticlassloadermodule;
 
 import java.lang.ClassLoader;
 import java.lang.ClassNotFoundException;

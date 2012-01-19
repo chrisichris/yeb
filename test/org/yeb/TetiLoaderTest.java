@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package org.yeticl;
+package org.yeb;
 
 import java.io.InputStream;
 import java.lang.reflect.Constructor;
@@ -43,7 +43,7 @@ public class TetiLoaderTest extends TestCase {
         try {
             ClassLoader parent = parentNullable == null ? Thread.currentThread().getContextClassLoader() : parentNullable;
             String[] sourceDirs = sourceDirsNullable == null ? new String[]{} : sourceDirsNullable;
-            Class cl = Thread.currentThread().getContextClassLoader().loadClass("org.yeticl.YetiClassLoader");
+            Class cl = Thread.currentThread().getContextClassLoader().loadClass("org.yeb.YetiClassLoader");
             Constructor c = cl.getConstructor(ClassLoader.class, String[].class, Boolean.TYPE);
             return (ClassLoader) c.newInstance(parent, sourceDirs, useClassPath);
         } catch (Exception ex) {
@@ -57,20 +57,20 @@ public class TetiLoaderTest extends TestCase {
  
     public void testLoadTetiTest() throws Exception {
         ClassLoader ycl = mkClassLoader();
-        String r = YetiShellUtils.moduleLoad(ycl, "org.yeticl.tetiTest").toString();
+        String r = YebUtils.moduleLoad(ycl, "org.yeb.tetiTest").toString();
         assertEquals("Hier kommt Kurt.",r.trim());
     }
 
     public void testLoadFootTetiTest() throws Exception {
         ClassLoader ycl = mkClassLoader();
-        YetiShellUtils.moduleLoad(ycl, "org.yeticl.footeti").toString();
+        YebUtils.moduleLoad(ycl, "org.yeb.footeti").toString();
     }
 
 
     public void testEndWithDoneTetiTest() throws Exception {
         ClassLoader ycl = mkClassLoader();
         StringBuffer stB = new StringBuffer();
-        YetiShellUtils.moduleRun(ycl, "org.yeticl.endWithDoneTest", stB);
+        YebUtils.moduleRun(ycl, "org.yeb.endWithDoneTest", stB);
         assertEquals("Does end with done?",stB.toString().trim());
     }
 

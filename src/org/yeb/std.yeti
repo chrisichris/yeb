@@ -246,7 +246,7 @@ ensure cond msg =
   fi;
 
 findCodeForException linesSourround sourceDirs ex =
-    (prov = (load org.yeticl.yeticlassloadermodule).sourceReader 
+    (prov = (load org.yeb.yeticlassloadermodule).sourceReader 
                     sourceDirs false
                     Thread#currentThread()#getContextClassLoader();
 

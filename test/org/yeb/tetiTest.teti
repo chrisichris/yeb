@@ -1,5 +1,5 @@
 <%
-module org.yeticl.tetiTest;
+module org.yeb.tetiTest;
 
 import java.lang.StringBuffer;
 

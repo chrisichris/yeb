@@ -14,7 +14,7 @@
  * and limitations under the License.
  */
 
-package org.yeticl;
+package org.yeb;
 
 import junit.framework.TestCase;
 
@@ -56,7 +56,7 @@ public class YetiClassLoaderTest extends TestCase {
     
     public void testLoadClassCompile() throws Exception {
         ClassLoader ycl = mkClassLoader();
-        Class cl = ycl.loadClass("org.yeticl.test");
+        Class cl = ycl.loadClass("org.yeb.test");
         assertNotNull(cl);
     }
 

@@ -1,0 +1,5 @@
+module org.yeb.test;
+
+r = load org.yeb.test1;
+
+"test"
