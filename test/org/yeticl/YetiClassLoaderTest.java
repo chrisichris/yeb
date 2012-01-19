@@ -63,12 +63,12 @@ public class YetiClassLoaderTest extends TestCase {
 
     public void testThreadClassLoader() throws Exception {
         ClassLoader cl = Thread.currentThread().getContextClassLoader();
-        assertNotNull(cl.loadClass("yeti.lang.compiler.repl"));
+        assertNotNull(cl.loadClass("yeti.lang.compiler.eval"));
     }
 
     public void testYetiLoadClass() throws Exception {
         ClassLoader ycl = mkClassLoader();
-        assertNotNull(ycl.loadClass("yeti.lang.compiler.repl"));
+        assertNotNull(ycl.loadClass("yeti.lang.compiler.eval"));
     }
 
 
