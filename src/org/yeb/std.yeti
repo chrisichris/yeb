@@ -403,7 +403,7 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> =
     async,
     
     
-    wrapMap, wrapList,
+    //wrapMap, wrapList,
 
     withThreadLocal,
 
