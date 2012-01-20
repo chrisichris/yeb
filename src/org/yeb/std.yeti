@@ -247,21 +247,6 @@ some v is 'a -> (Some 'a | None () )= Some v;
 loadClass name =
     Thread#currentThread()#getContextClassLoader()#loadClass(name);
 
-wrapMap keyFn valueFn jmap = 
-   (import java.util.Map;
-    it = (jmap is ~Map)#entrySet()#iterator();
-    ret = [:];
-    (it#hasNext()) loop 
-        (entry = it#next() unsafely_as ~java.util.Map$Entry;
-        ret.[keyFn entry#getKey()] := valueFn entry#getValue());
-    ret);
-
-wrapList mapF jlist = 
-   (it = (jlist is ~java.util.List)#iterator();
-    ret = array [];
-    (it#hasNext()) loop (
-        push ret (mapF it#next()));
-    ret);
 
 require cond msg =
   if not cond then
@@ -403,7 +388,6 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> =
     async,
     
     
-    //wrapMap, wrapList,
 
     withThreadLocal,
 
