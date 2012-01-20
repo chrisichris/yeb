@@ -159,7 +159,7 @@ defaultExecutor =
    (import java.util.concurrent.Executors;
     Executors#unconfigurableExecutorService(Executors#newCachedThreadPool()));
 
-async opts fn is 'a -> (() -> 'b) -> 'c =
+async opts fn   =
   (import java.util.concurrent:TimeUnit, Callable;
    var executor = defaultExecutor;
     var timeout = 1000;
@@ -170,17 +170,21 @@ async opts fn is 'a -> (() -> 'b) -> 'c =
         esac
     done;
     
+    fn2 is () -> 'a = fn;
+    
     class Ca extends Callable
         Object call()
-            fn ()
+            (fn2()) unsafely_as ~Object 
     end;
     
     future = executor#submit(new Ca());
-    if timeout < 1 then
-        \((future#get()) unsafely_as 'b)
+    r = if timeout < 1 then
+        do (): future#get() done;
     else
-        \((future#get(timeout, TimeUnit#MILLISECONDS)) unsafely_as 'b)
-    fi);
+        do ():future#get(timeout,TimeUnit#MILLISECONDS) done;
+    fi;
+    (r unsafely_as ~Object) unsafely_as () -> 'a; 
+    );
 
 
 
