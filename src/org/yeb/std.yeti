@@ -18,6 +18,7 @@ module org.yeb.std;
 
 import java.lang: String, Thread, ClassLoader, StringBuilder, Throwable;
 import java.util: Locale, Iterator,List,ListIterator;
+
 import yeti.lang.Struct;
 import java.io: File;
 //import org.yeb.TMap;
@@ -153,6 +154,33 @@ withThreadLocal threadLocal newValue ac =
         threadLocal.value := oldV;
     yrt);
 
+
+defaultExecutor = 
+   (import java.util.concurrent.Executors;
+    Executors#unconfigurableExecutorService(Executors#newCachedThreadPool()));
+
+async opts fn is 'a -> (() -> 'b) -> 'c =
+  (import java.util.concurrent:TimeUnit, Callable;
+   var executor = defaultExecutor;
+    var timeout = 1000;
+    for opts do opt:
+        case opt of
+        Executor ex: executor := ex;
+        Timeout tm: timeout := tm;
+        esac
+    done;
+    
+    class Ca extends Callable
+        Object call()
+            fn ()
+    end;
+    
+    future = executor#submit(new Ca());
+    if timeout < 1 then
+        \((future#get()) unsafely_as 'b)
+    else
+        \((future#get(timeout, TimeUnit#MILLISECONDS)) unsafely_as 'b)
+    fi);
 
 
 toCallable f = 
@@ -370,6 +398,9 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> =
     maybe',
     getSome,
     some,
+    
+    defaultExecutor,
+    async,
     
     
     wrapMap, wrapList,
