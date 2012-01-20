@@ -183,16 +183,6 @@ async opts fn is 'a -> (() -> 'b) -> 'c =
     fi);
 
 
-toCallable f = 
-   (class RunCallable extends java.lang.Runnable, java.util.concurrent.Callable
-        void run()
-            _ = f ();
-            (),
-        Object call()
-            r = f();
-            r unsafely_as ~Object,
-    end;
-    new RunCallable());
 
 getLogger name is string -> ~Logger = LoggerFactory#getLogger(name);
 
@@ -396,7 +386,6 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> =
     require,
     ensure,
     listStarts?,
-    toCallable,
 
     objectMaybeNum,
     number,
