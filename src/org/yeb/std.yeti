@@ -295,7 +295,22 @@ findCodeForException linesSourround sourceDirs ex =
             {exception = ex, codeLines= stels}
         done) ;
 
+simpleTest testHash ()=
+   (var bad = 0;
 
+    forHash testHash do name f:
+        if not (f ()) then
+            println "\(name) failed.";
+            bad := bad + 1
+        fi
+    done;
+
+    total = length testHash;
+    if bad == 0 then
+        "Testing done, \(total - bad)/\(total) OK."
+    else
+        "FAILURE: Testing done, \(total - bad)/\(total) OK."
+    fi);
 
 //+++++++++++++++++++++++table things ++++++++++++++++++++++++++++++++
 
@@ -396,6 +411,7 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> =
     boolean,
     nan?,
     obj a = a as ~Object,
+    simpleTest,
 
     stringWriter,
 

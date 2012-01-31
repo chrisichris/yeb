@@ -1,0 +1,8 @@
+module org.yeb.simpleSTest;
+
+load org.yeb.std;
+
+simpleTest [
+  "a first test": do: true done,
+  "a second test": do: 1 == 1 done
+];  
