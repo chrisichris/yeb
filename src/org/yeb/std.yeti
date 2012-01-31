@@ -156,8 +156,29 @@ withThreadLocal threadLocal newValue ac =
 
 
 defaultExecutor = 
-   (import java.util.concurrent.Executors;
-    Executors#unconfigurableExecutorService(Executors#newCachedThreadPool()));
+   (import java.util.concurrent:Executors, ThreadFactory, TimeUnit;
+    import java.lang: Thread, Runnable, Runtime,InterruptedException;
+
+    class MyThF extends ThreadFactory
+        Thread newThread(Runnable r)
+            th = Executors#defaultThreadFactory()#newThread(r);
+            th#setDaemon(true);
+            th,
+    end;
+   
+    exec = Executors#newCachedThreadPool(new MyThF());
+    class ShutDR extends Runnable
+        void run()
+            try
+                exec#shutdown();
+                _ = exec#awaitTermination(2, TimeUnit#SECONDS);
+                ()
+            catch InterruptedException ex:
+                ()
+            yrt,
+    end;
+    Runtime#getRuntime()#addShutdownHook(new Thread(new ShutDR()));
+    exec);
 
 async opts fn   =
   (import java.util.concurrent:TimeUnit, Callable;
