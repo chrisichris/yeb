@@ -113,7 +113,7 @@ objectMaybeNum o is ~Object -> ( None () | Some number ) =
         fi;
     if o2 instanceof Num then Some (o2 unsafely_as number) else none fi);
 
-number x is 'a -> number = 
+num x is 'a -> number = 
     maybe Double#NaN id (objectMaybeNum (x as ~Object));
     
 nan? x = Double#isNaN(x is number);    
@@ -183,8 +183,7 @@ async opts fn   =
     else
         do ():future#get(timeout,TimeUnit#MILLISECONDS) done;
     fi;
-    (r unsafely_as ~Object) unsafely_as () -> 'a; 
-    );
+    (r unsafely_as ~Object) unsafely_as () -> 'a);
 
 
 
@@ -392,7 +391,7 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> =
     listStarts?,
 
     objectMaybeNum,
-    number,
+    num,
     objectMaybeBoolean,
     boolean,
     nan?,

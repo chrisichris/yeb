@@ -34,6 +34,7 @@ dependency "org.springframework" "spring-web" "3.0.5.RELEASE" [];
 dependency "org.springframework" "spring-test" "3.0.5.RELEASE" [];
 dependency "org.springframework.security" "spring-security-web" "3.0.5.RELEASE" [];
 
+dependency "org.codehaus.jackson" "jackson-core-asl" "1.9.3" [];
 dependency "com.jayway.jsonpath" "json-path" "0.5.5" [];
 
 dependency "org.yeb" "yebspec" "1.0-SNAPSHOT" [TestScope ()];

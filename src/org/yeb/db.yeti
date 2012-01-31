@@ -380,7 +380,41 @@ sqlUpdateById tableName stru db =
 //////////////////////////////////////////
 //query helpers
 
-
+_structHandler rs =
+   (rsmd = (rs is ~ResultSet)#getMetaData();
+    columnCount = rsmd#getColumnCount();
+    columnNames = array ([0 .. (columnCount - 1)] |> map do c:
+        na = rsmd#getColumnLabel(c);
+        if (nullptr? na) or (0 == (strLength na)) then
+            string rsmd#getColumnName(c);
+        else
+            string na
+        fi;
+    done);
+    
+    do:
+        ma = new java.util.HashMap();
+        for [0 .. (columnCount -1)] do c:
+            colName = columnNames.[c];
+            val = rs#getObject(c);
+            if not nullptr? val then
+                value = if val instanceof java.lang.Number then
+                    (num val) unsafely_as ~Object;
+                elif val instanceof java.lang.String then
+                    (string val) as ~String;
+                elif val instanceof java.lang.Boolean then
+                    ((val unsafely_as ~Boolean)#booleanValue()) unsafely_as ~Object;
+                else
+                    val;
+                fi;
+                ma#put(colName, value);
+                ()
+            fi;
+        done;
+        (new yeti.lang.GenericStruct(ma) unsafely_as ~Object) unsafely_as 'a;
+    done);        
+        
+    
 
 sqlList sql setters rowHandler ds =
     sqlBaseQuery sql setters 
@@ -391,17 +425,27 @@ sqlList sql setters rowHandler ds =
         done
         ds;
 
-sqlMaybe sql setters rowHandler ds =
+sqlListStruct sql setters ds =
+    sqlBaseQuery sql setters do rs:
+        strH = _structHandler rs.resultSet;
+        ret = array [];
+        rs.resultSet#next() loop push ret (strH ());
+        list ret;
+    done ds;
+
+sqlMaybe sql setters noneHandler rowHandler ds =
     sqlBaseQuery sql setters 
         do rs:
             if ((rs.resultSet) is ~ResultSet)#next() then
-                Some (rowHandler rs)
+                rowHandler rs
             else
-                none
+                noneHandler rs
             fi
         done
         ds;
 
+sqlMaybeStruct sql setters ds =
+    sqlMaybe sql setters \none do rs: (_structHandler rs.resultSet) () done ds;        
 
 
 //Helpers for handling datasource exception etc
@@ -445,6 +489,8 @@ sqlUpdateEntity,
 sqlUpdateById,
 sqlList,
 sqlMaybe,
+sqlListStruct,
+sqlMaybeStruct,
 sqlExceptionString,
 
 

@@ -18,7 +18,6 @@ module org.yeb.json;
 
 import net.minidev.json: JSONValue, JSONStyle;
 import com.jayway.jsonpath:JsonPath;
-//import org.codehaus.jackson: JsonParser, JsonToken, JsonFactory, JsonGenerator,JsonEncoding;
 //import org.codehaus.jackson.map: ObjectMapper;
 import java.lang: StringBuilder,Number,Double,Float;
 import java.math: BigDecimal,BigInteger;
@@ -31,6 +30,66 @@ std = load org.yeb.std;
 
 //++++++++++++++++++++++++JSON Things +++++++++++++++++++++++++++++++++
 
+jsonFactory = new org.codehaus.jackson.JsonFactory();
+(import org.codehaus.jackson: JsonParser, JsonParser$Feature;
+    jsonFactory#configure(JsonParser$Feature#ALLOW_SINGLE_QUOTES, true);
+    jsonFactory#configure(JsonParser$Feature#ALLOW_UNQUOTED_FIELD_NAMES, true);
+    jsonFactory#configure(JsonParser$Feature#ALLOW_COMMENTS, true);
+    jsonFactory#configure(JsonParser$Feature#ALLOW_NON_NUMERIC_NUMBERS, true);
+    jsonFactory#configure(JsonParser$Feature#ALLOW_NUMERIC_LEADING_ZEROS, true);
+    jsonFactory#configure(JsonParser$Feature#ALLOW_BACKSLASH_ESCAPING_ANY_CHARACTER, true));
+    
+    
+
+fromJSON jsonStr = 
+   (import org.codehaus.jackson: JsonParser, JsonToken, JsonFactory, JsonGenerator,JsonEncoding;
+    jp = jsonFactory#createJsonParser((jsonStr) is string);
+    readToken token =
+        if nullptr? (token is ~JsonToken) then
+            failWith "null token should not happen";
+        elif token == JsonToken#VALUE_TRUE then
+            Boolean#TRUE unsafely_as ~Object;
+        elif token == JsonToken#VALUE_FALSE then
+            Boolean#FALSE unsafely_as ~Object;
+        elif token ==  JsonToken#VALUE_NUMBER_FLOAT then
+            (jp#getDoubleValue()) unsafely_as ~Object;
+        elif token == JsonToken#VALUE_NUMBER_INT then
+            (jp#getLongValue()) unsafely_as ~Object;
+        elif token == JsonToken#VALUE_STRING then
+            (jp#getText()) unsafely_as ~Object;
+        elif token == JsonToken#VALUE_NULL then
+            () unsafely_as ~Object;
+        elif token == JsonToken#START_ARRAY then
+            ar = array [];
+            var nextToken = jp#nextToken();
+            ((not nullptr? nextToken) 
+              and (nextToken != JsonToken#END_ARRAY)) loop
+               (push ar (readToken nextToken);
+                nextToken := jp#nextToken());
+            (list ar) unsafely_as ~Object;
+        elif token == JsonToken#START_OBJECT then
+            ma = new java.util.HashMap();
+            var nextToken = jp#nextToken();
+            ((not nullptr? nextToken) 
+              and (nextToken != JsonToken#END_OBJECT)) loop
+               (name = jp#getCurrentName();
+                t = jp#nextToken();
+                ma#put(name, readToken t);
+                nextToken := jp#nextToken());
+            new HashStruct(ma);
+            /*
+            curN = jp#getCurrentName();
+            if (not nullptr? curN)
+               and (contains? (string curN) hashes) then
+                new yeti.lang.Hash(ma);
+            else
+                new yeti.lang.GenericStruct(ma);
+            fi*/
+        else 
+            failWith "no allowed token";
+        fi;
+    r = readToken (jp#nextToken());    
+    r unsafely_as 'a);
 
 
 writeJSON stru opts = 
@@ -219,6 +278,7 @@ jsonObj obje = {
 {
 
     writeJSON,
+    fromJSON,
 
 
     parseJSON jsonString = 
