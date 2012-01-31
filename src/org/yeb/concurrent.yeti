@@ -1,4 +1,152 @@
 module org.yeb.concurrent;
 
-0
+import java.util.concurrent:ForkJoinPool;
+1
+/*
+defaultForkJoinPool = new ForkJoinPool();
+
+recursiveTask fn =
+    (class RecurT extends java.util.concurrent.RecursiveTask
+        Object compute()
+            (fn ()) unsafely_as ~Object
+    end;
+    new RecurT());
+
+submit opts fn =
+   (var pool = defaultForkJoinPool;
+    var timeout = 1000;
+    for opts do opt:
+        case opt of
+        Executor po : pool := po;
+        Timeout ms: timeout = ms;
+        esac;
+    done;
+    
+    future = pool#submit(recursiveTask (fn is () -> 'a));
+    
+    r = if timeout < 1 then
+        do (): future#get() done;
+    else
+        do ():future#get(timeout,TimeUnit#MILLISECONDS) done;
+    fi;
+    (r unsafely_as ~Object) unsafely_as () -> 'a);
+
+fork opts fn =    
+   (var timeout = 0;
+    for opts do opt:
+        case opt of
+        Timeout n : timeout := n
+        esac
+    done;
+    
+    future = recursiveTask (fn is () -> 'a);
+    future.fork();
    
+    
+    r = if timeout < 1 then
+        do (): future#join() done;
+    else
+        do ():future#get(timeout,TimeUnit#MILLISECONDS) done;
+    fi;
+    (r unsafely_as ~Object) unsafely_as () -> 'a);
+    
+forkActor initialValue opts is 'a -> 'b -> 'c= 
+   (import java.util.concurrent.atomic:AtomicReference;
+    import java.util.concurrent:RecursiveTask;
+    var to = 0;
+    for opts do:
+        case opt of
+        Timeout n : to := n;
+        esac
+    done;
+    
+    taskRef = new AtomicReference();
+    {
+        var timeout = to,
+        get value () = 
+            valueRef#get() unsafely_as 'a,
+        
+        set value v =
+            valueRef#set((v is 'a) unsafely_as ~Object),
+            
+        taskGetAndSet newTask =
+            taskRef#getAndSet(newTask is ~RecursiveTask) 
+                unsafely_as ~RecursiveTask,
+    });
+
+send [] fn actor =
+   (import java.util.concurrent.RecursiveTask;
+    class SendTask extends RecursiveTask
+        Object compute()
+            oldT is ~RecursiveTask =
+                actor#taskGetAndSet(this);
+            if defined? oldT then 
+                oldT#join() 
+            fi;
+                
+            ((fn is 'b -> 'a) actor ) unsafely_as ~Object,
+    end;
+    task = new SendTask();
+    task#fork();
+    
+    r = if actor.timeout < 1 then
+        do (): task#join() done;
+    else
+        do ():task#get(actor.timeout,TimeUnit#MILLISECONDS) done;
+    fi;
+    (r unsafely_as ~Object) unsafely_as () -> 'a);
+    
+actorCounter = new java.util.concurrent.atomic.AtomicLong();
+actor () is () -> 'a=  
+    {
+        alive = new java.util.concurrent.atomic.AtomicBoolean;
+        mutex = new Object(),
+        get alive? () = alive#get(),
+        cid = actorCounter#incrementAndGet(),
+        linked = [:] is hash<'a,'a -> ()>,
+        killAction = () -> ()
+    });
+    
+kill ac =
+    if ac.alive#compareAndSet(true, false) then
+        linked = synchronized ac.mutex \(
+            ret = copy ac.linked;
+            clearHash ac.linked;
+            ret);
+        forHash linked do act fn: act fn done
+    else
+        ();
+    fi;
+
+link ac1 fn1 ac2 fn2 =
+    if ac1.cid > ac2.cid then
+        link ac2.cid ac1.cid;
+    elif ac1.cid == ac2.cid then
+        ();
+    else
+        doAfter = synchronized ac1.mutex \(synchronized ad2.mutex
+          \(if ac1.alive#get() and ac2.alive#get() then
+                ac1.linked.[ac2] = fn2 ac2;
+                ac2.linked.[ac1] = fn1 ac1;
+            elif ac1.alive#get() then
+                \(fn1 ac1)
+            elif ac2.alive#get() then
+                \(fn2 ac2)
+            else 
+                \()
+            fi
+            ));
+        doAfter();
+    fi;
+        
+unlink ac1 ac2 =
+    if ac1.cid > ac2.cid then
+        link ac2.cid ac1.cid;
+    elif ac1.cid == ac2.cid then
+        ();
+    else
+        synchronized ac1.mutex \(synchronized ad2.mutex
+          \(delete ac1.linked ac2;
+            delete ac2.linked ac1));
+    fi;
+*/
