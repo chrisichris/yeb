@@ -144,15 +144,42 @@ specificationsFor "org.yeb.db"\(
             done;
         );
     );
+
+    describe "select a list struct" \(
+        should "normal select by name" \(
+            withDSCon do ds:
+                result = sqlListStruct 
+                    "select USER_ID, USER_NAME from users" [] ds;
+                assertEquals 3 (length result);
+                ls = result |> map (.user_name);
+                println "************************************************";
+                println result;
+                
+                assertTrue (contains? "admin" ls);
+            done;
+        );
+        should "select with where" \(
+            withDSCon do ds:
+                result = sqlListStruct 
+                    "select USER_ID, USER_NAME from users where USER_ID = ?" 
+                    [1:!] 
+                    ds;
+                assertEquals 1 (length result);
+                ls = result |> map (.user_name);
+                assertTrue (contains? "admin" ls);
+            done;
+        );
+    );
     
     describe "select a option" \(
         should "select some" \(
             withDSCon do ds:
                 result = sqlMaybe 
                     "select USER_ID, USER_NAME from users where USER_ID = ?" 
-                    [1:!] 
+                    [1:!]
+                    \none    
                     do rs:
-                        rs.str "USER_NAME"
+                        Some (rs.str "USER_NAME")
                     done 
                     ds;
                 assertSomeEquals "admin" result;
@@ -163,9 +190,10 @@ specificationsFor "org.yeb.db"\(
             withDSCon do ds:
                 result = sqlMaybe 
                     "select USER_ID, USER_NAME from users where USER_ID = ?" 
-                    [100:!] 
+                    [100:!]
+                    \none
                     do rs:
-                        rs.str "USER_NAME"
+                        Some (rs.str "USER_NAME")
                     done 
                     ds;
                     
@@ -174,6 +202,33 @@ specificationsFor "org.yeb.db"\(
         );
     );
 
+    describe "select a struct" \(
+        should "select some" \(
+            withDSCon do ds:
+                result = sqlMaybeStruct 
+                    "select USER_ID, USER_NAME from users where USER_ID = ?" 
+                    [1:!]
+                    \none    
+                    (Some . (.user_name))
+                    ds;
+                assertSomeEquals "admin" result;
+            done;
+        );
+            
+        should "select none" \(
+            withDSCon do ds:
+                result = sqlMaybeStruct 
+                    "select USER_ID, USER_NAME from users where USER_ID = ?" 
+                    [100:!]
+                    \none
+                    (Some . (.user_name))
+                    ds;
+                    
+                assertNone result;
+            done;
+        );
+    );
+    
     describe "insert/update" \(
         should "insert one db value" \(
             withDSCon do ds:
@@ -181,8 +236,10 @@ specificationsFor "org.yeb.db"\(
                 _ = sqlInsertEntity "users" u ds;
                 r = sqlMaybe 
                         "select USER_ID , USER_NAME, PASSWORD from users WHERE USER_ID = ? "
-                        [4:!] do rs:
-                            {userId=rs.num "USER_ID",
+                        [4:!] 
+                        \none
+                        do rs:
+                            Some {userId=rs.num "USER_ID",
                              userName=rs.str "USER_NAME",
                              password= rs.str "PASSWORD"} 
                         done ds;
@@ -196,7 +253,9 @@ specificationsFor "org.yeb.db"\(
                 _ = sqlUpdateEntity "users" u "WHERE USER_ID=?" [1:!] ds;
                 r = sqlMaybe 
                         "select PASSWORD from users WHERE USER_ID = ? "
-                        [1:!] do rs: {password = rs.str "PASSWORD"} done ds;
+                        [1:!] 
+                        \none
+                        do rs: Some {password = rs.str "PASSWORD"} done ds;
                 assertSomeEquals u r;
             done;
         );
@@ -207,9 +266,10 @@ specificationsFor "org.yeb.db"\(
                 _ = sqlUpdateById "users" u ds;
                 r = sqlMaybe
                         "select PASSWORD from users WHERE USER_ID = ? "
-                        [1:!] 
+                        [1:!]
+                        \none
                         do rs: 
-                            {password = rs.str "PASSWORD", userId = 1} 
+                            Some {password = rs.str "PASSWORD", userId = 1} 
                         done ds;
                 assertSomeEquals u r;
             done;
@@ -234,5 +294,12 @@ specificationsFor "org.yeb.db"\(
         );
 
     );
+
+    describe "underlineToUppercase" \(
+        should "make normal camel case to underline" \(
+            assertEquals "someFooCustomer" YebUtils#underlineToCamelCase("some_foo_customer");
+        );
+    );
+    
 )
 

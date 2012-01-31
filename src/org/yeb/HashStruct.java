@@ -63,6 +63,37 @@ public class HashStruct extends Hash implements Struct {
         index[at] = field;
         return this;
     }
+    
+    public boolean equals(Object o) {
+        if (o instanceof Map) {
+            return super.equals(o);
+        }else {
+            if (o instanceof Struct) {
+                Struct st = (Struct) o;
+                int acnt = count(), bcnt = st.count(), i = 0, j = 0;
+                while (i < acnt && j < bcnt) {
+                    String an, bn;
+                    if ((an = name(i)) == (bn = st.name(j))) {
+                        Object a = get(i);
+                        Object b = st.get(j);
+                        if (a != b && (a == null || !a.equals(b)))
+                            return false;
+                    } else {
+                        int cmp = an.compareTo(bn);
+                        if (cmp > 0) --i;
+                        if (cmp < 0) --j;
+                    }
+                    ++i;
+                    ++j;
+                }
+                return true;
+                
+            }else
+                return false;
+        }
+            
+    }
+    
 
     
 }

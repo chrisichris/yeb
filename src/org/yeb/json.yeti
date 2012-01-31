@@ -72,7 +72,7 @@ fromJSON jsonStr =
             var nextToken = jp#nextToken();
             ((not nullptr? nextToken) 
               and (nextToken != JsonToken#END_OBJECT)) loop
-               (name = jp#getCurrentName();
+               (name = strUncapitalize (string jp#getCurrentName());
                 t = jp#nextToken();
                 ma#put(name, readToken t);
                 nextToken := jp#nextToken());

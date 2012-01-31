@@ -383,19 +383,21 @@ sqlUpdateById tableName stru db =
 _structHandler rs =
    (rsmd = (rs is ~ResultSet)#getMetaData();
     columnCount = rsmd#getColumnCount();
-    columnNames = array ([0 .. (columnCount - 1)] |> map do c:
+    columnNames = array ([1 .. columnCount] |> map do c:
         na = rsmd#getColumnLabel(c);
-        if (nullptr? na) or (0 == (strLength na)) then
-            string rsmd#getColumnName(c);
+        na2 = if (nullptr? na) or (0 == (strLength na)) then
+            rsmd#getColumnName(c);
         else
-            string na
+            na
         fi;
+        strLower (string na2);
+        //string YebUtils#underlineToCamelCase(lna);
     done);
     
     do:
         ma = new java.util.HashMap();
-        for [0 .. (columnCount -1)] do c:
-            colName = columnNames.[c];
+        for [1 .. columnCount] do c:
+            colName = columnNames.[c - 1];
             val = rs#getObject(c);
             if not nullptr? val then
                 value = if val instanceof java.lang.Number then
@@ -444,8 +446,11 @@ sqlMaybe sql setters noneHandler rowHandler ds =
         done
         ds;
 
-sqlMaybeStruct sql setters ds =
-    sqlMaybe sql setters \none do rs: (_structHandler rs.resultSet) () done ds;        
+sqlMaybeStruct sql setters noneHandler dataHandler ds =
+    sqlMaybe sql setters noneHandler do rs: 
+        v = (_structHandler rs.resultSet) ();
+        dataHandler v;
+    done ds;        
 
 
 //Helpers for handling datasource exception etc

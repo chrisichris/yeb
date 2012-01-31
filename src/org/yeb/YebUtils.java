@@ -52,6 +52,33 @@ public class YebUtils {
         }
     }
 
+    public static String underlineToCamelCase(String name) {
+        final int length = name.length();
+        StringBuilder stb = new StringBuilder(length);
+        boolean nextUpper = false;
+        int i = 0;
+        while (i < length) {
+            char c = name.charAt(i);
+            i = i + 1;
+            if(c == '_')
+                nextUpper = true;
+            else {
+                if (stb.length() == 0) {
+                    stb.append(Character.toLowerCase(c));
+                    nextUpper = false;
+                }else {
+                    if (nextUpper) {
+                        stb.append(Character.toUpperCase(c));
+                        nextUpper = false;
+                    }else {
+                        stb.append(c);
+                    };
+                }
+            };        
+        }
+        return stb.toString();
+    }
+    
 
     public static String camelCaseToUnderline(String name) {
         final int length = name.length();
