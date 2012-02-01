@@ -459,7 +459,38 @@ asyncPipe asyncFn receiverFn =
     None _ : 
         _ =receiverFn (asyncFn ());
     esac;
-{
+    
+future timeout fn = 
+   (import java.util.concurrent.atomic:AtomicMarkableReference;
+    import java.util.concurrent:TimeoutException;
+    ref = new AtomicMarkableReference(() as ~Object, false);
+    lock = new Object();
+    
+    (fn is ( 'a -> () ) -> () ) do v :
+       (if ref#isMarked() then
+            failWith "value already set only set once";
+        fi;
+        synchronized lock \(
+            _ = ref#set((v is 'a) unsafely_as ~Object,true);
+            lock#notifyAll());
+        ()
+    done;
+            
+    do:
+        synchronized lock \(
+            ref#isMarked loop
+                if timeout < 1 then
+                    lock#wait();
+                else
+                    lock#wait(timeout)
+                fi);
+        if ref#isMarked() then
+            ref#get() unsafely_as 'a;
+        else 
+            throw new TimeoutException();
+        fi;
+    done);
+{       
 
     
 
