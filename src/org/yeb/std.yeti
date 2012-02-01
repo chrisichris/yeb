@@ -383,13 +383,90 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> =
        addAll t hash
     fi);
 
+//----REACTOR--------------------------------------------------------
 
+currentReactor = threadLocal none;
 
+reactor opts = 
+   (import java.util.concurrent.atomic:AtomicReference, AtomicInteger, 
+                                       AtomicBoolean;
+    import java.util.concurrent:Executor, ExecutorService;
+    import java.lang:Runnable;
+    
+    var executor = defaultExecutor;
+    for opts do opt:
+        case opt of
+        Executor exs: executor := exs;
+        esac;
+    done;
+    
+    running? = new AtomicBoolean(true);
+    flushing = new AtomicBoolean(false);
+    lock = new Object();
+    var queue = array [];
+    class FlushRunnable extends Runnable 
+        void run()
+            buffer = synchronized lock \(
+                ((empty? queue) and running?#get()) loop
+                    lock#wait();
+                buffer = queue;
+                queue := array [];
+                buffer);
+            
+            if running?#get() then 
+                for buffer do fn: fn() done;    
+            
+                _ = flushing#compareAndSet(true,false);
+            
+                if synchronized lock \(not empty? queue) then
+                    if flushing#compareAndSet(false,true) then
+                        executor#execute(this);
+                    fi
+                fi
+            fi
+    end;
+    
+    flushRunnable = new FlushRunnable();
+   
+    execute fn =
+        if running?#get() then
+            synchronized lock \(
+                push queue fn;
+                lock#notify());
+            if flushing#compareAndSet(false,true) then
+                executor#execute(flushRunnable);
+            fi
+        fi;
+    p = {
+        execute,
+        get running? () = running?#get(),
+        stop () = running?#set(false),
+    };
+    
+    nexecute fn = withThreadLocal 
+                currentReactor 
+                (Some (p with {execute fn2 = nexecute fn2}))
+                do: execute fn done;
+    
+    p with {execute fn = nexecute fn});
 
+asyncPipe asyncFn receiverFn = 
+    case currentReactor.value of
+    Some reac :
+        _ = async [] \(
+            r = asyncFn ();
+            reac.execute \(receiverFn r));
+    None _ : 
+        _ =receiverFn (asyncFn ());
+    esac;
 {
+
+    
+
     ($) x y = x y,
     (|>>) fn1 fn2 = composeToRight fn1 fn2,
-
+    (|~>) fn1 fn2 = asyncPipe fn1 fn2;
+    
     (:!) x is 'a -> 'b = x as ~Object,
     (:!!) x is ~Object -> 'a = x unsafely_as 'a,
     (:!!!) x is 'a -> 'b = x unsafely_as 'b,
@@ -415,7 +492,8 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> =
     
     defaultExecutor,
     async,
-    
+    reactor,
+    asyncPipe,
     
 
     withThreadLocal,
