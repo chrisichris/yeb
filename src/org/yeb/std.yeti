@@ -144,7 +144,13 @@ boolean x is 'a -> boolean =
             fi;
     esac);
 
-
+toRunnable fn =
+   (import java.lang.Runnable;
+    class StdRunnable extends Runnable
+        void run () 
+            fn (),
+    end;
+    new StdRunnable());
 withThreadLocal threadLocal newValue ac = 
    (oldV = threadLocal.value;
     threadLocal.value := newValue;
@@ -419,6 +425,7 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> =
     
 
     withThreadLocal,
+    toRunnable,
 
     loadClass,
 
