@@ -26,7 +26,8 @@ import java.text:NumberFormat, DecimalFormat, DateFormat, SimpleDateFormat;
 import java.net: URLEncoder, URLDecoder;
 import java.io:File;
 
-import javax.servlet: ServletContext, FilterChain,ServletException;
+import javax.servlet: ServletContext, FilterChain,ServletException
+                      AsyncContext;
 import javax.servlet: Filter,FilterConfig,ServletRequest,ServletResponse;
 import javax.servlet.http: HttpServletRequest, HttpServletResponse,HttpSession;
 
@@ -61,13 +62,13 @@ makeNewCtxt sctxt req res =
      req is ~HttpServletRequest,
      res is ~HttpServletResponse};
 
-     /*
+     
 newAsyncCtxt sctxt asyncCtxt =
     {sctxt is ~ServletContext,
      get req () = asyncCtxt#getRequest(),
      get res () = asyncCtxt#getResponse(),
      asyncCtxt is ~AsyncContext};
-*/
+
 resultTH = threadLocal handledResult;
 
 flashKey = "org.yeb.session.flash";
