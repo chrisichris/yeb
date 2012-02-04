@@ -76,12 +76,7 @@ flashKey = "org.yeb.session.flash";
 flashGetStruct ctx =
    (ra = (request ctx)#getAttribute(flashKey);
     if not defined? ra then
-        ma = {
-            oldMap is hash<string,~Object> = [:],
-            newMap is hash<string,~Object> = [:],
-        };
-        (request ctx)#setAttribute(flashKey, ma as ~Object);
-        ma
+        failWith "no FlashContext: flash acces must be wrapped in a flashHandler";
     else
         ra unsafely_as {var oldMap is hash<string,~Object>, 
                         var newMap is hash<string, ~Object>}
@@ -108,36 +103,39 @@ flashGetAndKeep ctx key =
     esac;
     r);
 
-rootCtxt pathInfo sctxt req res is string -> ~ServletContext -> ~HttpServletRequest -> ~HttpServletResponse -> 'a = (
-    //serlvetPath = "";
-    reqn = new YebHttpServletRequestWrapper(() as ~Locale, "",pathInfo,() as ~java.util.Map, req);
-    makeNewCtxt sctxt reqn res;
-);
+rootCtxt pathInfo sctxt req res  = 
+   (reqn = new YebHttpServletRequestWrapper(() as ~Locale, "",
+                                        pathInfo,() as ~java.util.Map, req);
+    makeNewCtxt sctxt reqn res);
 
 
 
-mockCtxt opts = (
-
-    var reqMethod = "GET";
+mockCtxt opts = 
+   (var reqMethod = "GET";
     var reqPath = "/";
     var resourcePath = "test/resources/webapp";
     var headers = [:];
     var params = [:];
     for opts do opt:
         case opt of
-            Get ruri : (reqMethod := "GET";reqPath := ruri);
-            Head ruri : (reqMethod := "HEAD";reqPath := ruri);
-            Post ruri : (reqMethod := "POST";reqPath := ruri);
-            Put ruri : (reqMethod := "PUT";reqPath := ruri);
-            Delete ruri : (reqMethod := "DELETE";reqPath := ruri);
-            Trace ruri : (reqMethod := "TRACE";reqPath := ruri);
-            Connect ruri : (reqMethod := "CONNET";reqPath := ruri);
-            ResourcePath str: resourcePath := str;
-            Header ha: forHash ha do k v: headers.[string k] := string v done;
-            Param ha: forHash ha do k v: params.[string k] := array [(string v) unsafely_as ~String] done;
-            Params ha : forHash ha do k v:
-                    params.[string k] := array (map do ve: (string ve) unsafely_as ~String done v)
-                done;
+        Get ruri : (reqMethod := "GET";reqPath := ruri);
+        Head ruri : (reqMethod := "HEAD";reqPath := ruri);
+        Post ruri : (reqMethod := "POST";reqPath := ruri);
+        Put ruri : (reqMethod := "PUT";reqPath := ruri);
+        Delete ruri : (reqMethod := "DELETE";reqPath := ruri);
+        Trace ruri : (reqMethod := "TRACE";reqPath := ruri);
+        Connect ruri : (reqMethod := "CONNET";reqPath := ruri);
+        ResourcePath str: resourcePath := str;
+        Header ha: forHash ha do k v: headers.[string k] := string v done;
+        Param ha: forHash ha do k v: 
+                params.[string k] := array [(string v) unsafely_as ~String] 
+            done;
+        Params ha : forHash ha do k v:
+                params.[string k] := 
+                    array (map do ve: 
+                            (string ve) unsafely_as ~String 
+                           done v)
+            done;
         esac;
     done;
 
@@ -174,10 +172,18 @@ urlPatternToRegex pat = YebUtils#patternToRegex((pat is string));
 
 _regexHandler addLast? methodRegex handler is boolean -> string -> handlerAdapterType<'a> = (
     methodCut = strIndexOf methodRegex "::" 0;
-    method = if methodCut == -1 then "" else strUpper (strLeft methodRegex methodCut) fi;
+    method = if methodCut == -1 then 
+                "" 
+             else 
+                strUpper (strLeft methodRegex methodCut) 
+             fi;
     method? = method != "";
 
-    regex = if methodCut == -1 then methodRegex else strRight methodRegex (methodCut +2) fi;
+    regex = if methodCut == -1 then 
+                methodRegex 
+            else 
+                strRight methodRegex (methodCut +2) 
+            fi;
     pattern = Pattern#compile(regex);
 
     do octxt:
@@ -188,7 +194,12 @@ _regexHandler addLast? methodRegex handler is boolean -> string -> handlerAdapte
             //mp is ~java.lang.String = (octxt.req)#getPathInfo();
             //matcher = pattern#matcher(mp as ~CharSequence);
             matcher = pattern#matcher(oreq#getPathInfo() as ~java.lang.String);
-            if if addLast? then matcher#lookingAt() else matcher#matches() fi then
+            matches? = if addLast? then 
+                            matcher#lookingAt() 
+                       else 
+                            matcher#matches() 
+                       fi; 
+            if matches? then
                 nreq = new YebHttpServletRequestWrapper(true,oreq);
 
                 //add the paramters
@@ -201,13 +212,15 @@ _regexHandler addLast? methodRegex handler is boolean -> string -> handlerAdapte
                 if addLast? then
                     nsp = matcher#group();
                     nreq#setServletPath((oreq#getServletPath()) ^ nsp);
-                    nreq#setPathInfo(strRight (oreq#getPathInfo()) (strLength nsp));
+                    nreq#setPathInfo(
+                        strRight (oreq#getPathInfo()) (strLength nsp));
                 else
                     nreq#setPathInfo("");
-                    newServletPath = (oreq#getServletPath()) ^ (oreq#getPathInfo());
+                    newServletPath = 
+                        (oreq#getServletPath()) ^ (oreq#getPathInfo());
                     nreq#setServletPath(newServletPath);
                 fi;
-                nctxt = octxt with {req = (nreq as ~HttpServletRequest)};//makeCtxt (servletContext octxt) nreq (response octxt);
+                nctxt = octxt with {req = (nreq as ~HttpServletRequest)};
                 handler nctxt
             else
                 goonResult
@@ -257,11 +270,12 @@ runHandlers handlers ctxt is list<handlerType<'a>> -> 'a -> resultType =
         fi
     fi;
 
-lazyHandler moduleName  is string -> handlerType<'b> =(
-    var myHandler is (Some handlerType<'b> | None () ) = none;
+lazyHandler moduleName  is string -> handlerType<'b> =
+   (var myHandler is (Some handlerType<'b> | None () ) = none;
     loadHandler () = (
         cl = Thread#currentThread()#getContextClassLoader()#loadClass(moduleName);
-        mod = cl#getMethod("eval",() as ~Class[])#invoke(() as ~Object, () as ~Object[]);
+        mod = cl#getMethod(
+            "eval",() as ~Class[])#invoke(() as ~Object, () as ~Object[]);
         jmod = mod unsafely_as {handler is handlerType<'b>};
         h = jmod.handler;
         myHandler := Some h;
@@ -277,104 +291,107 @@ lazyHandler moduleName  is string -> handlerType<'b> =(
             esac;
             ha ctxt;
         done;
-    fi;
-);
+    fi);
 
-handlersFact oldVhs = (
-    var vhs = [];
+handlersFact oldVhs = 
+   (vhs = array [];
     {
         add handler =
-            vhs := handler :: vhs,
+            push vhs handler,
 
         r regex handler = add $ (regexHandler regex) handler,
         rsub regex handler = add $ (subRegexHandler regex) handler,
-        rlazy regex moduleName = add $ (subRegexHandler regex) (lazyHandler moduleName),
-        p regex handler = add $ (regexHandler (urlPatternToRegex regex)) handler,
-        psub regex handler = add $ (subRegexHandler (urlPatternToRegex regex)) handler,
-        plazy regex moduleName = add $ (subRegexHandler (urlPatternToRegex regex)) (lazyHandler moduleName),
+        rlazy regex moduleName = 
+            add $ (subRegexHandler regex) (lazyHandler moduleName),
+        p regex handler = 
+            add $ (regexHandler (urlPatternToRegex regex)) handler,
+        psub regex handler = 
+            add $ (subRegexHandler (urlPatternToRegex regex)) handler,
+        plazy regex moduleName = 
+            add $ (subRegexHandler (urlPatternToRegex regex)) 
+                    (lazyHandler moduleName),
 
         get handler () =
             runHandlers ((reverse vhs) ++ oldVhs),
 
         get sub () =
             handlersFact ((reverse vhs) ++ oldVhs),
-    }
-);
+    });
 
 handlers () = handlersFact [];
 
-localHandler locales handler is list<~Locale> -> handlerAdapterType<'a> = (
-    if empty? locales then
+localHandler locales handler is list<~Locale> -> handlerAdapterType<'a> = 
+   (if empty? locales then
        handler
     else
         lh = hash locales;
         defaultL = head locales;
         do ctxt:
-            nctxt = if (request ctxt)#getLocale() in lh then ctxt
-                    else
-                        nreq = new YebHttpServletRequestWrapper(false, (request ctxt));
-                        nreq#setLocale(defaultL);
-                        ctxt with {req = (nreq as ~HttpServletRequest)};//makeCtxt (servletContext ctxt) nreq (response ctxt)
-                    fi;
-            handler nctxt;
+            handler 
+                if (request ctxt)#getLocale() in lh then 
+                    ctxt
+                else
+                    nreq = 
+                        new YebHttpServletRequestWrapper(false, (request ctxt));
+                    nreq#setLocale(defaultL);
+                    ctxt with {req = (nreq as ~HttpServletRequest)};
+                fi;
         done;
-    fi
-);
+    fi);
 
 
 
-flashHandler handler ctxt is handlerAdapterType<'a> = (
-        sess = (request ctxt)#getSession(true);
-        //synchronized on session lazly create the flash structure
-        flashStruct = synchronized sess do _:
-            f = sess#getAttribute(flashKey);
-            flashStruct = if not defined? f then
-                fr = {var oldMap = new java.util.HashMap(),
-                      var newMap = new java.util.HashMap()};
-                sess#setAttribute(flashKey, fr);
-                fr;
-            else
-                f unsafely_as {var oldMap is ~java.util.HashMap,
-                               var newMap is ~java.util.HashMap}
-            fi;
-            //store in the request
-            (request ctxt)#setAttribute(flashKey,flashStruct);
-            flashStruct;
-        done;
-        //synchronized on the flashstruct do the rest of the
-        //request handling
-        synchronized flashStruct do _:
-            try
-                handler ctxt
-            finally
-                //do the cleanup again synchronized on the session
-                synchronized sess do _:
-                    flashStruct.oldMap#clear();
-                    om = flashStruct.oldMap;
-                    flashStruct.oldMap := flashStruct.newMap;
-                    flashStruct.newMap := om;
-                    sess#setAttribute(flashKey,flashStruct);
-                done;
-            yrt;
-        done;
-);
+flashHandler handler ctxt is handlerAdapterType<'a> = 
+   (sess = (request ctxt)#getSession(true);
+    //synchronized on session lazly create the flash structure
+    flashStruct = synchronized sess do _:
+        f = sess#getAttribute(flashKey);
+        flashStruct = if not defined? f then
+            fr = {var oldMap = new java.util.HashMap(),
+                  var newMap = new java.util.HashMap()};
+            sess#setAttribute(flashKey, fr);
+            fr;
+        else
+            f unsafely_as {var oldMap is ~java.util.HashMap,
+                           var newMap is ~java.util.HashMap}
+        fi;
+        //store in the request
+        (request ctxt)#setAttribute(flashKey,flashStruct);
+        flashStruct;
+    done;
+    //synchronized on the flashstruct do the rest of the
+    //request handling
+    synchronized flashStruct do _:
+        try
+            handler ctxt
+        finally
+            //do the cleanup again synchronized on the session
+            synchronized sess do _:
+                flashStruct.oldMap#clear();
+                om = flashStruct.oldMap;
+                flashStruct.oldMap := flashStruct.newMap;
+                flashStruct.newMap := om;
+                sess#setAttribute(flashKey,flashStruct);
+            done;
+        yrt;
+    done);
 
 
 ///forces teh creation of a session and synchronizes on the session if
 ///true on the frist argument
-sessionHandler synchOnSession handler ctxt is boolean -> handlerAdapterType<'a> = (
-    session = (request ctxt)#getSession(true);
+sessionHandler synchOnSession handler ctxt = 
+   (session = (request ctxt)#getSession(true);
     if synchOnSession then
         mutex = WebUtils#getSessionMutex(session);
         synchronized mutex \(handler ctxt);
     else
-        handler ctxt
-    fi;
+        (handler is handlerType<'a>) ctxt
+    fi);
 
-);
-
-initializedFilterHandler filter handler ctxt is ~Filter -> handlerAdapterType<'a> = (
-    var res = goonResult;
+initializedFilterHandler filter handler ctxt 
+        is ~Filter -> handlerAdapterType<'a> = 
+   (var res = goonResult;
+   
     class MyChain extends FilterChain
         void doFilter(ServletRequest sreq, ServletResponse sres)
             res :=
@@ -383,25 +400,28 @@ initializedFilterHandler filter handler ctxt is ~Filter -> handlerAdapterType<'a
                 then
                     req = sreq unsafely_as ~HttpServletRequest;
                     res = sres unsafely_as ~HttpServletResponse;
-                    if (same? req (request ctxt)) and (same? res (response ctxt)) then
+                    if (same? req (request ctxt)) 
+                       and (same? res (response ctxt)) then
                         handler ctxt
                     else
-                        handler (ctxt with {req,res}) //makeCtxt (servletContext ctxt) req res
+                        handler (ctxt with {req,res}) 
                     fi
                 else
                     failWith "Filter did not transfer HttpServletRequest or HttpServletResponse";
                 fi,
     end;
     filter#doFilter(request ctxt, response ctxt,new MyChain());
-    res
-);
-filterConfig ctxt fparams is ~ServletContext -> hash<string,string> -> 'a = (
-    import java.util:Enumeration, NoSuchElementException;
+    res);
+    
+filterConfig ctxt fparams is ~ServletContext -> hash<string,string> -> 'a = 
+   (import java.util:Enumeration, NoSuchElementException;
     params is hash<~String,~String> = fparams:!!!;
 
     class MyConfig extends FilterConfig
         String getFilterName()
-            maybeAt \"filter: \(System#currentTimeMillis())" id "filterName":!!! params,
+            maybeAt \"filter: \(System#currentTimeMillis())" 
+                    id "filterName":!!! 
+                    params,
 
         String getInitParameter(String name)
             maybeAt \(() as ~String) id name:!!! params,
@@ -424,41 +444,63 @@ filterConfig ctxt fparams is ~ServletContext -> hash<string,string> -> 'a = (
             new MyEnum();
         ),
     end;
-    new MyConfig();
-);
+    new MyConfig());
 
-filterHandler sctxt filter params is 'b -> ~Filter -> hash<string,string> -> handlerAdapterType<'a> = (
-    cfg = filterConfig sctxt params;
+filterHandler sctxt filter params 
+        is 'b -> ~Filter -> hash<string,string> -> handlerAdapterType<'a> = 
+   (cfg = filterConfig sctxt params;
     filter#init(cfg);
-    initializedFilterHandler filter;
-);
+    initializedFilterHandler filter);
 
 
 
 
 {
-handledStatusCode, goonStatusCode,skipStatusCode,goonResult,skipResult,handledResult,
 
-//makeNewCtxt,
-rootCtxt,mockCtxt,
+    handledStatusCode, 
+    goonStatusCode,
+    skipStatusCode,
+    goonResult,
+    skipResult,
+    handledResult,
+
+    //makeNewCtxt,
+    rootCtxt,
+    mockCtxt,
 
 
-request,response,locale, servletContext,
+    request,
+    response,
+    locale, 
+    servletContext,
 
-params,param,isAjax,
+    params,
+    param,
+    isAjax,
 
-flashKey, flashGet, flashPut,flashGetAndKeep,
+    flashKey, 
+    flashGet, 
+    flashPut,
+    flashGetAndKeep,
 
-resultTH,
+    resultTH,
 
-urlPatternToRegex,
+    urlPatternToRegex,
 
-idHandler, goonHandler, ifHandler,regexHandler,subRegexHandler,toHandler,runHandlers,
-sessionHandler,
-handlers,
-localHandler,flashHandler,
+    idHandler, 
+    goonHandler, 
+    ifHandler,
+    regexHandler,
+    subRegexHandler,
+    toHandler,
+    runHandlers,
+    sessionHandler,
+    handlers,
+    localHandler,
+    flashHandler,
 
-initializedFilterHandler,filterConfig, filterHandler,
-
+    initializedFilterHandler,
+    filterConfig, 
+    filterHandler,
 }
 
