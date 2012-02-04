@@ -150,7 +150,7 @@ toRunnable fn =
         void run () 
             fn (),
     end;
-    new StdRunnable());
+    new StdRunnable() as ~Runnable);
 withThreadLocal threadLocal newValue ac = 
    (oldV = threadLocal.value;
     threadLocal.value := newValue;

@@ -30,7 +30,8 @@ import javax.servlet: ServletContext, FilterChain,ServletException;
 import javax.servlet: Filter,FilterConfig,ServletRequest,ServletResponse;
 import javax.servlet.http: HttpServletRequest, HttpServletResponse,HttpSession;
 
-import org.springframework.mock.web: MockFilterConfig, MockServletContext, MockHttpServletRequest, MockHttpServletResponse,MockFilterChain;
+import org.springframework.mock.web: MockFilterConfig, MockServletContext, 
+    MockHttpServletRequest, MockHttpServletResponse,MockFilterChain;
 import org.springframework.web.util.WebUtils;
 
 import yeti.lang: Fun, Struct;
@@ -41,9 +42,7 @@ load org.yeb.validation;
 
 typedef resultType = {status is number};
 
-//typedef ctxtType = {servlet is {req is ~HttpServletRequest, res is ~HttpServletResponse, sctxt is ~ServletContext}};
 typedef handlerType<a> = a -> resultType;
-//typedef ctxtHandlerType = handlerType<ctxtType>
 typedef handlerAdapterType<a> = handlerType<a> -> handlerType<a>;
 
 
@@ -57,51 +56,56 @@ skipResult = {status = skipStatusCode};
 handledResult = {status = handledStatusCode};
 
 
-makeNewCtxt sctxt req res is ~ServletContext -> ~HttpServletRequest -> ~HttpServletResponse -> 'a=
-    {sctxt,req,res};
+makeNewCtxt sctxt req res =
+    {sctxt is ~ServletContext,
+     req is ~HttpServletRequest,
+     res is ~HttpServletResponse};
 
-
+     /*
+newAsyncCtxt sctxt asyncCtxt =
+    {sctxt is ~ServletContext,
+     get req () = asyncCtxt#getRequest(),
+     get res () = asyncCtxt#getResponse(),
+     asyncCtxt is ~AsyncContext};
+*/
 resultTH = threadLocal handledResult;
-
 
 flashKey = "org.yeb.session.flash";
 
-flashGetStruct ctx is 'a -> {var oldMap is ~java.util.HashMap, var newMap is ~java.util.HashMap} = (
-    ra = (request ctx)#getAttribute(flashKey);
+flashGetStruct ctx =
+   (ra = (request ctx)#getAttribute(flashKey);
     if not defined? ra then
-        throw new java.lang.NullPointerException("No Flash is defined");
+        ma = {
+            oldMap is hash<string,~Object> = [:],
+            newMap is hash<string,~Object> = [:],
+        };
+        (request ctx)#setAttribute(flashKey, ma as ~Object);
+        ma
     else
-        ra unsafely_as {var oldMap is ~java.util.HashMap, var newMap is ~java.util.HashMap}
-    fi
-);
+        ra unsafely_as {var oldMap is hash<string,~Object>, 
+                        var newMap is hash<string, ~Object>}
+    fi);
 
 flashGet ctx key is 'b -> string -> (None () | Some 'a) = (
     fc = flashGetStruct ctx;
-    if fc.newMap#containsKey(key) then
-        r = (fc.newMap#get(key)) unsafely_as 'a;
-        Some r;
-    elif fc.oldMap#containsKey(key) then
-        r = (fc.oldMap#get(key)) unsafely_as 'a;
-        Some r;
+    if key in fc.newMap then
+        Some (fc.newMap.[key] unsafely_as 'a);
+    elif key in fc.oldMap then
+        Some (fc.oldMap.[key] unsafely_as 'a);
     else
-        None();
-    fi;
-);
+        none
+    fi);
 
-flashPut ctx key value is 'b -> string -> 'a -> () = (
-    fc = flashGetStruct ctx;
-    fc.newMap#put(key,value);
-    ();
-);
-flashGetAndKeep ctx key  is 'b -> string -> (None () | Some 'a) = (
-
-    r = flashGet ctx key;
+flashPut ctx key value =
+   (flashGetStruct ctx).newMap.[key] := (value unsafely_as ~Object);
+    
+flashGetAndKeep ctx key =
+   (r = flashGet ctx key;
     case r of
         Some v: flashPut ctx key v;
         None _: ();
     esac;
-    r;
-);
+    r);
 
 rootCtxt pathInfo sctxt req res is string -> ~ServletContext -> ~HttpServletRequest -> ~HttpServletResponse -> 'a = (
     //serlvetPath = "";
