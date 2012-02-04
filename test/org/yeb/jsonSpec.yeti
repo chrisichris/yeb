@@ -40,7 +40,6 @@ specificationsFor "org.yeb.json"\(
             stru = fromJSON str;
             assertEquals "John" stru.name;
             assertEquals 23 stru.age;
-            assertEquals "hier" stru.age;
             assertEquals 3.2 stru.price;
             assertEquals [1..20] stru.items;
             assertEquals ["chris":1, "paul":2, "elis":3] stru.names;
