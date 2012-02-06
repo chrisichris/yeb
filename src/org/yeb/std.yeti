@@ -59,30 +59,6 @@ plainMessage text = message "" text [];
 
 failWithMessage msg = throw new MessageException(msg);
 
-failWithValidation msg value =
-    throw new ValidationException(msg, value unsafely_as ~Object);
-
-newValidationException msg value =
-    new ValidationException(msg, value unsafely_as ~Object);
-
-validOr notValid valueFn =
-    try
-        valueFn ();
-    catch MessageException ex:
-        notValid;
-    yrt;
-
-
-validateFn notValidFn valueFn validFn value =
-    try
-        v = validFn value;
-        valueFn v;
-    catch MessageException ex:
-        notValidFn ex;
-    yrt;
-        
-maybeValid notValidFn validFn valueFn =
-    validateFn notValidFn validFn valueFn (); 
 
 stringWriter () = 
    (stB = new StringBuilder();
@@ -113,7 +89,7 @@ objectMaybeNum o is ~Object -> ( None () | Some number ) =
         fi;
     if o2 instanceof Num then Some (o2 unsafely_as number) else none fi);
 
-num x is 'a -> number = 
+number' x is 'a -> number = 
     maybe Double#NaN id (objectMaybeNum (x as ~Object));
     
 nan? x = Double#isNaN(x is number);    
@@ -403,11 +379,7 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> =
 
     message,
     plainMessage,
-    validOr, maybeValid,
-    validateFn,
     failWithMessage,
-    failWithValidation,
-    newValidationException,
 
     getLogger,
     composeToRight fn1 fn2 = do a: fn2 (fn1 a) done,
@@ -423,7 +395,10 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> =
     defaultExecutor,
     async,
     
-
+    isString x = x ^ "",
+    isNumber' x = x + 0,
+    
+    
     withThreadLocal,
     toRunnable,
 
@@ -434,7 +409,7 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> =
     listStarts?,
 
     objectMaybeNum,
-    num,
+    number',
     objectMaybeBoolean,
     boolean,
     nan?,

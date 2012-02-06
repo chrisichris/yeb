@@ -236,9 +236,13 @@ class YebFilter extends javax.servlet.Filter
                 r.status
             );
             //depending on the result do further filter or skip
-            if status < 0 then
+            if status == mvc.asyncStatusCode then
+                ()
+            elif status < 0 then
                 filterChain#doFilter(req,res);
-            else () fi;
+            else 
+                () 
+            fi;
         else
             filterChain#doFilter(sreq,sres)
         fi;

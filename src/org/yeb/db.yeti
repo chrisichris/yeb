@@ -401,7 +401,7 @@ _structHandler rs =
             val = rs#getObject(c);
             if not nullptr? val then
                 value = if val instanceof java.lang.Number then
-                    (num val) unsafely_as ~Object;
+                    (number' val) unsafely_as ~Object;
                 elif val instanceof java.lang.String then
                     (string val) as ~String;
                 elif val instanceof java.lang.Boolean then

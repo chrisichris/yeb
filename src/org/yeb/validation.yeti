@@ -28,6 +28,30 @@ import org.owasp.validator.html:AntiSamy,Policy;
 
 load org.yeb.std; 
 
+failWithValidation msg value =
+    throw new ValidationException(msg, value unsafely_as ~Object);
+
+newValidationException msg value =
+    new ValidationException(msg, value unsafely_as ~Object);
+
+validOr notValid valueFn =
+    try
+        valueFn ();
+    catch MessageException ex:
+        notValid;
+    yrt;
+
+
+validateFn notValidFn valueFn validFn value =
+    try
+        v = validFn value;
+        valueFn v;
+    catch MessageException ex:
+        notValidFn ex;
+    yrt;
+        
+maybeValid notValidFn validFn valueFn =
+    validateFn notValidFn validFn valueFn (); 
 
 
 //validator () = ESAPI#validator();
@@ -125,18 +149,12 @@ valiRegex regexPattern str =
         failWithValidation(message "stringpattern" "string %1$s does not match pattern %2$s" [obj str, obj regexPattern]) str;
     fi;
 
-
-strToNum min max str =
-    (try ESAPI#validator()#getValidNumber("",str is string, min, max, false)
-    catch org.owasp.esapi.errors.ValidationException ex: throw (esapiToValiEx ex str) yrt)#doubleValue();
-
-strToInt min max str =
-    try ESAPI#validator()#getValidInteger("",str is string, min, max, false)
-    catch org.owasp.esapi.errors.ValidationException ex: throw (esapiToValiEx ex str) yrt#intValue();
-
-strToDouble min max str =
-    try ESAPI#validator()#getValidDouble("",str is string, min, max, false)
-    catch org.owasp.esapi.errors.ValidationException ex: throw (esapiToValiEx ex str) yrt#doubleValue();
+strToNum str = 
+    try 
+        number str;
+    catch Exception ex:
+        failWithValidation(message "numpattern" "string %1$s is no number" [obj str]) str;
+    yrt;
 
 valiDirectory parent path =
     try ESAPI#validator()#getValidDirectoryPath("",path is string,new java.io.File(parent is string),  false)
@@ -215,21 +233,79 @@ valiCreditCard str =
     string try ESAPI#validator()#getValidCreditCard("",str is string, false)
     catch org.owasp.esapi.errors.ValidationException ex: throw (esapiToValiEx ex str) yrt;
 
+ve converter v = 
+    case v of
+    E s : converter s;
+    V v : v;
+    esac;
+
+veMaybe converter nfn sfn v = 
+    if not defined? v then
+        nfn()
+    else
+        case v of
+        Some s: sfn (ve converter s);
+        None (): nfn();
+        esac;
+    fi;
+
+veList converter v =
+    if not defined? v then
+        []
+    else
+        case v of
+        E vl : map converter vl;
+        V vl : vl;
+        esac;
+    fi;
+    
+ves v = ve string;
+ven v = ve strToNum;
+    
 {
-valiHtml, valiSafeHtml,
-valiCreditCard, valiEmail, valiIPAddress, valiURL,
+    ve, 
+    veMaybe,
+    veList,
+    ves,
+    ven,
+    
+    failWithValidation,
+    newValidationException,
+    validOr, 
+    maybeValid,
+    validateFn,
 
-valiListLength, valiList,
+    
+    valiHtml, 
+    valiSafeHtml,
+    valiCreditCard, 
+    valiEmail, 
+    valiIPAddress, 
+    valiURL,
 
-valiString,valiRegex, valiNum,
+    valiListLength, 
+    valiList,
 
-valiCheck, valiMsg,
+    valiString,
+    valiRegex, 
+    valiNum,
 
-strToDouble, strToInt, strToNum,
-valiDirectory, valiFileName,valiRedirectLocation,
+    valiCheck, 
+    valiMsg,
 
-numberFormat, strFormatedToNum,numToFormatedStr,
-strNumberToDate, dateToNumberStr, dateFormat, strFormatedToDate, dateToFormatedStr,
-strToBoolean
+    strToNum,
+    valiDirectory, 
+    valiFileName,
+    valiRedirectLocation,
+
+    numberFormat, 
+    strFormatedToNum,
+    numToFormatedStr,
+    strNumberToDate, 
+    dateToNumberStr, 
+    dateFormat, 
+    strFormatedToDate, 
+    dateToFormatedStr,
+    strToBoolean
 
 }

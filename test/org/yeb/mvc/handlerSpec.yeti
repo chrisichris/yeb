@@ -159,7 +159,7 @@ specificationsFor "org.yeb.mvc.handler" \(
                 var p1 = -1;
                 var p2 = "";
                 rh = regexHandler '(\d+)/(.+)' (toHandler do c:
-                    p1 := param c "_1" |> (strToNum 0 10000);
+                    p1 := param c "_1" |> (valiNum 0 1000 . strToNum);
                     p2 := param c "_2";
                 done);
                 r = rh (mockCtxt [Get "23/foo"]);

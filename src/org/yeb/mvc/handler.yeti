@@ -52,9 +52,11 @@ typedef handlerAdapterType<a> = handlerType<a> -> handlerType<a>;
 handledStatusCode = 0;
 goonStatusCode = -1;
 skipStatusCode = -2;
+asyncStatusCode = -3;
 goonResult = {status = goonStatusCode};
 skipResult = {status = skipStatusCode};
 handledResult = {status = handledStatusCode};
+asyncResult = {status = asyncStatusCode};
 
 
 makeNewCtxt sctxt req res =
@@ -63,11 +65,46 @@ makeNewCtxt sctxt req res =
      res is ~HttpServletResponse};
 
      
-newAsyncCtxt sctxt asyncCtxt =
-    {sctxt is ~ServletContext,
-     get req () = asyncCtxt#getRequest(),
-     get res () = asyncCtxt#getResponse(),
-     asyncCtxt is ~AsyncContext};
+asyncCtxt ctxt =
+   (requ = request ctxt;
+    asyncCtxt = if not requ#isAsyncSupported() then
+        failWith "asynch is not supported on this request"
+    elif requ#isAsyncStarted() then
+        requ#getAsyncContext()
+    else
+        requ#startAsync(requ, response ctxt);
+    fi;
+        
+    ctxt with {
+        sctxt is ~ServletContext = ctxt.sctxt,
+        get req () = 
+            asyncCtxt#getRequest() unsafely_as ~HttpServletRequest,
+        get res () = 
+            asyncCtxt#getResponse() unsafely_as ~HttpServletResponse,
+        actxt is ~AsyncContext = asyncCtxt,
+        complete () = asyncCtxt#complete()
+    });
+     
+asyncListener fn =
+   (import javax.servlet:AsyncListener, AsyncEvent;
+    class TAsyncListener extends AsyncListener
+        void onComplete(AsyncEvent ev)
+            fn (OnComplete ev),
+        void onError(AsyncEvent ev)
+            fn (OnError ev),
+        void onStartAsync(AsyncEvent ev)
+            fn (OnStartAsync ev),
+        void onTimeout(AsyncEvent ev)
+            fn (OnTimeout ev)
+    end;
+    new TAsyncListener());
+    
+asyncHandler opts asyncHandler ctxt =
+   (ac = asyncCtxt ctxt;
+    _ = async opts \(asyncHandler ac);
+    asyncResult);    
+         
+     
 
 resultTH = threadLocal handledResult;
 
@@ -460,6 +497,7 @@ filterHandler sctxt filter params
     handledStatusCode, 
     goonStatusCode,
     skipStatusCode,
+    asyncStatusCode,
     goonResult,
     skipResult,
     handledResult,
@@ -468,7 +506,9 @@ filterHandler sctxt filter params
     rootCtxt,
     mockCtxt,
 
-
+    asyncHandler,
+    asyncListener,
+    
     request,
     response,
     locale, 

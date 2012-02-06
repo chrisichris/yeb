@@ -97,7 +97,7 @@ specificationsFor "org.yeb.validation"\(
         );
 
         should "strToNum" \(
-            checkConv (strToNum 0 100) "23" "sy" 23;
+            checkConv (valiNum 0 100 . strToNum) "23" "sy" 23;
         );
 
         should "strFormatedToNum" \(

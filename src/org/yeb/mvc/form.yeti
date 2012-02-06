@@ -23,6 +23,7 @@ import javax.servlet.http:HttpServletRequest;
 
 load org.yeb.std;
 load org.yeb.mvc.webutils;
+load org.yeb.validation;
 
 
 handlerModule = load org.yeb.mvc.handler;
