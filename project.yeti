@@ -16,7 +16,7 @@ project.description := "some apis for yeti";
 
 deployRepository.url :="file:///${basedir}/../../chrisis-maven-repo/snapshots/";
 
-dependency "org.yeti" "yeti" "0.9.3" [];
+dependency "org.yeti" "yeti" "0.9.4" [];
 dependency "javax.servlet" "javax.servlet-api" "3.0.1" [ProvidedScope ()];
 //dependency "org.yeti" "yeticl" "0.1-SNAPSHOT" [];
 dependency "jline" "jline" "0.9.94" [ProvidedScope()];
