@@ -133,7 +133,8 @@ reactor opts =
     lock = new Object();
     var queue = array [];
     
-    flusher () = toRunnable \(
+    class FlushRunnable extends Runnable 
+        void run()
             buffer = synchronized lock \(
                 ((empty? queue) and linkable.alive#get()) loop
                     lock#wait();
@@ -157,11 +158,13 @@ reactor opts =
             
                 if synchronized lock \(not empty? queue) then
                     if flushing#compareAndSet(false,true) then
-                        executor#execute(flusher ());
+                        executor#execute(this);
                     fi
                 fi
-            fi);
+            fi
+    end;
     
+    flushRunnable = new FlushRunnable();    
    
     execute fn =
         if linkable.alive#get() then
@@ -169,7 +172,7 @@ reactor opts =
                 push queue fn;
                 lock#notify());
             if flushing#compareAndSet(false,true) then
-                executor#execute(flusher());
+                executor#execute(flushRunnable);
             fi
         fi;
     p = linkable with {
