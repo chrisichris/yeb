@@ -138,7 +138,8 @@ class YebFilter extends javax.servlet.Filter
             if nmf > mainWebModuleModified then
                 mainWebModuleModified := nmf;
                 log#debug("Reloading yeti-code in directory: \(yebWebDir)");
-                ycl = new YetiClassLoader(mainModuleClassLoader, array [string yebWebDir], false);
+                ycl = new YetiClassLoader(mainModuleClassLoader, 
+                    array [string yebWebDir], false);
                 loadWebModule ycl
             fi),
 
@@ -166,14 +167,21 @@ class YebFilter extends javax.servlet.Filter
         mainWebModuleClassLoader := mainModuleClassLoader;
 
         withClassLoader mainModuleClassLoader \(
-            mcl = try _ = mainModuleClassLoader#loadClass(mainModuleName); Some mainModuleClassLoader catch ClassNotFoundException: none yrt;
+            mcl = try 
+                _ = mainModuleClassLoader#loadClass(mainModuleName); 
+                Some mainModuleClassLoader 
+            catch ClassNotFoundException: 
+                none 
+            yrt;
+            
             case mcl of
-                None _: log#info("No yebMain module - starting without");
-                Some cL:
-                    (mmod = (YebUtils#moduleLoad(cL, mainModuleName)) unsafely_as mainModuleType;
-                    log#info("Initializing yebMain module");
-                    mmod.init (filterConfig is ~FilterConfig);
-                    mainModule := mmod);
+            None _: log#info("No yebMain module - starting without");
+            Some cL:
+               (mmod = (YebUtils#moduleLoad(cL, mainModuleName)) 
+                    unsafely_as mainModuleType;
+                log#info("Initializing yebMain module");
+                mmod.init (filterConfig is ~FilterConfig);
+                mainModule := mmod);
              esac;
         );
 

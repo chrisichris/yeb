@@ -489,7 +489,70 @@ filterHandler sctxt filter params
     filter#init(cfg);
     initializedFilterHandler filter);
 
-
+serviceHandler params service =
+    case peekObject (service is {}) of
+    Struct {fields, value}:
+       (serviceFuns = fields
+            |> concatMap do field: 
+                import yeti.lang.Fun;
+                fun = value field;
+                if fun instanceof Fun then
+                    if field =~ "(^any_.*)|(^get_.*)|(^post_.*)|(^put_.*)|(^delete_.*)" then
+                        []
+                    else
+                        [{field,
+                          fun = value unsafely_as ~Object }]
+                    fi
+                else
+                    []
+                fi
+            done;
+        
+        services = [:];
+        for serviceFuns do {field, fun}:
+            fn = do ctxt arg:
+                res = ((fun unsafely_as ~Object) unsafely_as 'a -> 'b) arg;
+                resstr = if res instanceof yeti.lang.Struct then
+                    (response ctxt)#setContentType("text/json;utf-8");
+                    (load org.yeb.json).writeJSON [] res;
+                else
+                    (response ctxt)#setContentType("text/plain;utf-8");
+                    string res;
+                fi;
+                (response ctxt)#getWriter()#print(resstr);
+                {status=200};
+            done;
+            services.[field] := fn;
+        done;
+        
+        defaultFn = do x y: goonResult done;
+        setHashDefault services \defaultFn;
+        
+        do ctxt:
+            import java.util.HashMap;
+            import yeti.lang.GenericStruct;
+            
+            req = request ctxt;
+            path = (strLower req#getPathInfo());
+            fs = (strLower req#getMethod()) ^ '_' ^ path;
+            sfun = if fs in services then
+                    services.[fs];
+                else
+                    services.["any_"^path];
+                fi;
+            jm = new HashMap();
+            forJavaMap req#getParameterMap() do k v:
+                if defined? (v is ~Object) then
+                    value = array (v unsafely_as ~String[]);
+                    jm#put(k, E value)
+                fi;
+                ()
+            done;
+            arg = new GenericStruct(jm);
+            sfun ctxt arg;
+        done);    
+    _ : failWith "service must be a struct with service functions";
+    esac;
 
 
 {
@@ -538,6 +601,7 @@ filterHandler sctxt filter params
     handlers,
     localHandler,
     flashHandler,
+    //fooServiceHandler = serviceHandler,
 
     initializedFilterHandler,
     filterConfig, 

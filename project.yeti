@@ -5,6 +5,8 @@
 //                      [exclusion "junit" "junit", 
 //                       exclusion "org.apache.ant" "ant"];
 
+//@buildDependency "org.eclipse.jetty" "jetty-webapp" "8.1.0.RC5";
+
 
 load ybuilder.core.base;
 

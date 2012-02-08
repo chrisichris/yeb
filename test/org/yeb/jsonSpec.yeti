@@ -9,19 +9,6 @@ load org.yeb.json;
 
 specificationsFor "org.yeb.json"\(
 
-    describe "make a json string" \(
-        should "transfer a struct to json string and return the value again" \(
-            customer = {name="John", age=3, items=[1,2,3]};
-            str = writeJSON customer [];
-            wr = parseJSON str;
-            assertEquals (wr.str "name") "John";
-            assertEquals (wr.num "age") 3;
-            //foo;
-            r = wr.list "items" jsonNum;
-            //head r;
-            assertEquals r [1,2,3];
-        )
-    );
 
     describe "to yeti conversation" \(
         customer = {name="John",
@@ -33,7 +20,7 @@ specificationsFor "org.yeb.json"\(
                     father={name="Paul",age=40},
                     children= map do c : {name="child\(c)",age=c} done [1 .. 5],
                    };
-        str = writeJSON customer [];
+        str = writeJSON [] customer;
         jmap = parseJSON str;
 
         should "make struct from string" \(

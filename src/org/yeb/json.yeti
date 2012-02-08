@@ -92,7 +92,7 @@ fromJSON jsonStr =
     r unsafely_as 'a);
 
 
-writeJSON stru opts = 
+writeJSON opts stru  = 
    (stb = new StringBuilder();
     var style = JSONStyle#NO_COMPRESS;
     for opts do x: () done;
