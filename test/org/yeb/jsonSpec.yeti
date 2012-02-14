@@ -21,10 +21,9 @@ specificationsFor "org.yeb.json"\(
                     children= map do c : {name="child\(c)",age=c} done [1 .. 5],
                    };
         str = writeJSON [] customer;
-        jmap = parseJSON str;
+        stru = parseJSON str;
 
         should "make struct from string" \(
-            stru = fromJSON str;
             assertEquals "John" stru.name;
             assertEquals 23 stru.age;
             assertEquals 3.2 stru.price;
@@ -35,48 +34,6 @@ specificationsFor "org.yeb.json"\(
             assertEquals "Paul" stru.father.name;
             assertNone (maybeDefined \none Some stru.nofield);
         );
-            
-        
-        should "unpeek a string" \(
-            assertEquals "John" (jmap.str "name");
-        );
-
-        should "unpeek a int" \(
-            assertEquals 23 (jmap.num "age");
-        );
-
-        should "unpeek a double" \(
-            assertEquals 3.2 (jmap.num "price");
-        );
-
-        should "unpeek a boolean" \(
-            assertEquals true (jmap.bool "male");
-        ); 
-
-
-        should "unpeek a struct" \(
-            r = {name = (jmap.obj "father").str "name",
-                 age = (jmap.obj "father").num "age"};
-            
-            assertEquals {name="Paul",age=40} r;
-        );
-
-        should "unpeek a list" \(
-            assertEquals [1 .. 20] (jmap.list "items" jsonNum);
-        );
-
-        should "unpeek a hash" \(
-            ns = jmap.hash "names" jsonStr jsonNum;
-            assertEquals ["chris":1,"paul":2,"elis":3] ns;
-        );
-
-        should "unpeek a list of structs"  \(
-            r = jmap.list "children" jsonObj 
-                |> map do obj:
-                    {name = obj.str "name", age = obj.num "age"}
-                done;
-            assertEquals r customer.children;
-        ); 
     );
 
 )

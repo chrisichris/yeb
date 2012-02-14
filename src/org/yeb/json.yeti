@@ -39,9 +39,8 @@ jsonFactory = new org.codehaus.jackson.JsonFactory();
     jsonFactory#configure(JsonParser$Feature#ALLOW_NUMERIC_LEADING_ZEROS, true);
     jsonFactory#configure(JsonParser$Feature#ALLOW_BACKSLASH_ESCAPING_ANY_CHARACTER, true));
     
-    
 
-fromJSON jsonStr = 
+parseJSON jsonStr = 
    (import org.codehaus.jackson: JsonParser, JsonToken, JsonFactory, JsonGenerator,JsonEncoding;
     jp = jsonFactory#createJsonParser((jsonStr) is string);
     readToken token =
@@ -91,202 +90,67 @@ fromJSON jsonStr =
     r = readToken (jp#nextToken());    
     r unsafely_as 'a);
 
-
-writeJSON opts stru  = 
-   (stb = new StringBuilder();
-    var style = JSONStyle#NO_COMPRESS;
-    for opts do x: () done;
-    
-    append str = (stb#append(str is string); ());
+writeJSON opts stru = 
+   (import java.io:StringWriter;
+    writer = new StringWriter();
+    gen = jsonFactory#createJsonGenerator(writer);
     
     peekedWrite p = 
-       (writeKV k v =
-            (if not defined? k then append "null"
-            elif not style#mustProtectKey(k) then append k
-            else
-                append '"';
-                JSONValue#escape(k,stb,style);
-                append '"';
-            fi;
-            append ":";
-            peekedWrite(v));
-            
-                
-       
-        case p of
-        Number num: append (string num); 
-        String str : JSONValue#writeJSONString(str, stb, style);
-        Boolean bo:
-            append (if bo then "true" else "false" fi);
-                
-        List l: 
-            if empty? l then
-                append "null";
-            else
-                append "[";
-                var first = true;
-                for l do e:
-                    if first then first := false else append "," fi;
-                    peekedWrite e;
-                done;
-                append "]";
-            fi;
-        Hash o:
-            if empty? o then
-                append "null";
-            else
-                var first = true;
-                append "{";
+        if not defined? p then
+            gen#writeNull();
+        //elif p instanceof ~byte[] then
+            //gen#writeBinary(p unsafely_as byte[]);
+        else
+            case p of
+            Number num: gen#writeRawValue(string num); 
+            String str : gen#writeString(string str);
+            Boolean bo: gen#writeBoolean(bo);
+                    
+            List l: 
+               (gen#writeStartArray();
+                for l peekedWrite;
+                gen#writeEndArray());
+            Hash o:
+               (gen#writeStartObject();
                 forHash o do k v:
-                    if first then first := false else append "," fi;
-                    ke = case k of
+                    field = case k of
                     Number n: string n;
                     String s: s;
                     Boolean b: string b;
                     _ : failWith "Only number, string or boolean types are supported as keys in hash";
                     esac;
-                    writeKV ke v;
+                    gen#writeFieldName(string field);
+                    peekedWrite v;
                 done;
-                append "}";
-            fi;
-            
-        Struct {fields, value}: 
-            if empty? fields then
-                append "null";
-            else
-                var first = true;
-                append "{";
-                for fields do f:
-                    if first then first := false else append "," fi;
-                    writeKV f (value f);
+                gen#writeEndObject());
+                
+            Struct {fields, value}: 
+               (gen#writeStartObject();
+                for fields do field:
+                    gen#writeFieldName(string field);
+                    peekedWrite (value field);
                 done;
-                append "}"
-            fi;
-            
-        Variant {tag="None"}:
-            append "null";
-        Variant {tag="Some", value}:
-            peekedWrite value;
-        Variant {tag="Unpeeked", value}:
-            peekedWrite value;
-        o : failWith "Can not write \(o)";
-        esac);
-    peekedWrite (peekObject stru);
-    string stb#toString());
-
-
-    
-//+++++++++++++++Parsing Json ++++++++++++++++++++++++++++++++++++++++
-
-failUnpeek reason = std.failWithMessage (std.plainMessage reason);
-
-jsonStr obj =
-    if (obj is ~Object) instanceof String then 
-        (obj unsafely_as string);
-    else 
-        failUnpeek "\(obj) is no string"
-    fi;
-
-jsonNum obj =     
-    case std.objectMaybeNum obj of
-    None _ : failUnpeek "\(obj) is no number";
-    Some n : n;
-    esac;
-    
-jsonBool obj =
-    if (obj is ~Object) instanceof Boolean then  
-        (obj unsafely_as boolean);
-    else 
-        failUnpeek "\(obj) is no boolean"
-    fi;
-
-jsonList fn obj =
-    if nullptr? (obj is ~Object) then
-        []
-    elif obj instanceof java.util.List then
-        mapJavaList fn (obj unsafely_as ~java.util.List);
-    elif obj instanceof java.util.Iterator then
-        it = obj unsafely_as ~java.util.Iterator;
-        itfn () =
-            if it#hasNext() then 
-                (fn it#next()) :. itfn
-            else
-                []
-            fi;
-        itfn ();
-    else
-        failUnpeek "\(obj) is no list"
-    fi;
-
-jsonHash kfn vfn obj =
-    if nullptr? (obj is ~Object) then
-        [:]
-    elif obj instanceof java.util.Map then
-        ret = [:];
-        forJavaMap (obj unsafely_as ~java.util.Map) do k v:
-            ret.[kfn k] := vfn v;
-        done;
-        ret;
-    else
-        failUnpeek "\(obj) is no map";
-    fi;
-
-jsonAt name obj=     
-    if (obj is ~Object) instanceof java.util.Map then
-        jma = (obj unsafely_as ~java.util.Map);
-        jma#get(name);
-    else
-        failUnpeek "\(obj) is no map";
-    fi;
- 
-jsonMAt name fn obj=
-    if (obj is ~Object) instanceof java.util.Map then
-        jma = (obj unsafely_as ~java.util.Map);
-        r = jma#get(name);
-        if nullptr? r then
-            none;
-        else
-            Some (fn r);
-        fi
-    else
-        failUnpeek "\(obj) is no map";
-    fi;
-    
-jsonObj obje = {
-    jmap = obje,
-    at name = jsonAt name obje,
-    str name = jsonAt name obje |> jsonStr,
-    num name = jsonAt name obje |> jsonNum,
-    bool name = jsonAt name obje |> jsonBool,
-    obj name = jsonAt name obje |> jsonObj,
-    hash name kfn vfn  = jsonAt name obje |> jsonHash kfn vfn,
-    list name fn = jsonAt name obje |> jsonList fn,
-
-    maybeAt name = jsonMAt name id obje,
-    maybeStr name = jsonMAt name jsonStr obje,
-    maybeNum name = jsonMAt name jsonNum obje,
-    maybeBool name = jsonMAt name jsonBool obje,
-    maybeObj name = jsonMAt name jsonObj obje,
-    
-    path name fn = 
-        fn JsonPath#read(obje is ~Object, name is string)
-};
-    
+                gen#writeEndObject());
+                
+            Variant {tag="None"}:
+                gen#writeNull();
+            Variant {tag="Some", value}:
+                peekedWrite value;
+            o : failWith "Can not write \(o)";
+            esac
+        fi;
         
+    peekedWrite (peekObject stru);
+    string writer#toString());
+
+
+
 
 
 {
 
     writeJSON,
-    fromJSON,
+    parseJSON,
 
-
-    parseJSON jsonString = 
-       jsonObj JSONValue#parseWithException(jsonString is string),
-    
-    parseJSONStrict jsonString =
-       jsonObj JSONValue#parseStrict(jsonString is string),
-
-    jsonStr, jsonNum, jsonBool, jsonList, jsonObj, jsonHash    
 
 }
