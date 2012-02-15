@@ -1,5 +1,7 @@
 module org.yeb.test;
 
-r = load org.yeb.test1;
+_ = load org.yeb.test1;
+
+
 
 "test"

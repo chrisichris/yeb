@@ -18,62 +18,12 @@ specificationsFor "org.yeb.mvc.handler" \(
         describe "handler with user" \(
             should "get the right user" \(
                 ha ctxt = (_ = ctxt.user;skipResult);
-                rh = regexHandler "/foo" ha;
+                rh = regexHandler "all" "/foo" ha;
                 rh (ct with {user = "foo"});
             );
         );
     );
 
-    specification "of url pattern to regex in YebUtils.patternToRegex" \(
-        describe "no pattern" \(
-            should "return exactly same string" \(
-                assertEquals '\Qsome/pattern/here\E' (urlPatternToRegex "some/pattern/here"));
-            should "does not escape regex" \(
-                assertEquals '\Qsome.do\E' (urlPatternToRegex "some.do"));
-        );
-
-        describe "in curly patterns" \(
-            should "{*} pattern lead to all regex" \(
-                assertEquals "\\Qsome/pattern/\\E(.*)" (urlPatternToRegex "some/pattern/{*}"));
-            should "{} pattern lead to + regex" \(
-                assertEquals  "\\Qsome/\\E([^/]+)\\Q/pattern/\\E" (urlPatternToRegex "some/{}/pattern/"));
-            should "{d} pattern lead to number regex" \(
-                assertEquals "\\Qsome/\\E([\\d^/]+)\\Q/pattern/\\E"  (urlPatternToRegex "some/{d}/pattern/"));
-            should "{w} pattern lead to word regex" \(
-                assertEquals "\\Qsome/\\E([\\w^/]+)\\Q/pattern/\\E" (urlPatternToRegex "some/{w}/pattern/"));
-        );
-
-        describe "corner brackets " \(
-            should "to normal regex" \(
-                assertEquals "\\Qsome/\\E(fooregex)\\Q/pattern\\E" (urlPatternToRegex "some/<fooregex>/pattern"));
-            should "not to regex if not closed" \(
-                assertException \(urlPatternToRegex "some/<fooregex/pattern"));
-            should "escape full string" \(
-                assertEquals "(.mehr)" (urlPatternToRegex "<.mehr>"));
-        );
-        describe "corner cases" \(
-            should "add single {" \(
-                assertException \(urlPatternToRegex "some/{/hier"));
-            should "add single {{" \(
-                assertException \(urlPatternToRegex "some/{{}/hier"));
-            should "add work last <" \(
-                assertException \(urlPatternToRegex "some/<"));
-        );
-        describe "combined" \(
-            should "regexes" \(
-                assertEquals "\\Qsome/./\\E([^/]+)\\Q/\\E([\\d^/]+)\\Q/\\E(reg)\\Q/\\E(.*)"
-                    (urlPatternToRegex "some/./{}/{d}/<reg>/{*}"));
-        );
-
-        describe "splitoff until ::" \(
-            should "split off and put together" \(
-                assertEquals "get::\\Qsome\\E" (urlPatternToRegex "get::some"));
-            should "split off and make pattern" \(
-                assertEquals "get::\\Qsome/\\E(.*)" (urlPatternToRegex "get::some/{*}"));
-            should "split off and make single pattern" \(
-                assertEquals "get::(.*)" (urlPatternToRegex "get::{*}"));
-        );
-    );
 
     specification "of smale handleradapters" \(
         describe "goon handler sould return gootnResult" \(
@@ -96,30 +46,6 @@ specificationsFor "org.yeb.mvc.handler" \(
                 assertSame skipResult (h (mockCtxt []));
                 assertTrue executed;
             );
-        );
-        describe "toHandler" \(
-            should "set have the called context as thread local" \(
-                var called = false;
-                ctx = mockCtxt [];
-                handler = toHandler do c:
-                    called := true;
-                    assertSame (request ctx) (request c);
-                    assertSame (response ctx) (response c);
-                    assertSame ctx c;
-                done;
-                r = handler ctx;
-                assertTrue called;
-            );
-            should "return handledResult if no explicit return" \(
-                r = (toHandler \()) (mockCtxt []);
-                assertEquals r handledResult;
-            );
-            should "return result of handler which is seth on resultTH" \(
-                res = {status = 3};
-                r = (toHandler \(resultTH.value := res)) (mockCtxt []);
-                assertSame r res;
-            );
-
         );
 
         describe "runHandler" \(
@@ -158,10 +84,11 @@ specificationsFor "org.yeb.mvc.handler" \(
             should "match a regex and put parameters in request" \(
                 var p1 = -1;
                 var p2 = "";
-                rh = regexHandler '(\d+)/(.+)' (toHandler do c:
-                    p1 := param c "_1" |> (valiNum 0 1000 . strToNum);
-                    p2 := param c "_2";
-                done);
+                rh = regexHandler "all" ":num/*" do c:
+                    p1 := param c "num" |> (valiNum 0 1000 . strToNum);
+                    p2 := param c "rest";
+                    handledResult;
+                done;
                 r = rh (mockCtxt [Get "23/foo"]);
                 assertEquals handledResult r;
                 assertEquals 23 p1;
@@ -171,14 +98,18 @@ specificationsFor "org.yeb.mvc.handler" \(
 
             should "not call handler and return goonResult if no match" \(
                 var called = false;
-                rh = regexHandler 'index' (toHandler \(called := true));
+                rh = regexHandler "all" "index" 
+                    do: called := true; handledResult done;
                 assertEquals goonResult (rh (mockCtxt [Get "/"]));
                 assertFalse called;
             );
 
-            should "take method seperated with :: " \(
+            should "respect method " \(
                 var called = false;
-                rh = regexHandler 'post::index' (toHandler \(called := true));
+                rh = regexHandler "post" "index" do:
+                    called := true;
+                    handledResult
+                done;
 
                 assertEquals goonResult (rh (mockCtxt [Get "index"]));
                 assertFalse called;
@@ -188,9 +119,12 @@ specificationsFor "org.yeb.mvc.handler" \(
 
             );
 
-            should "take any method if no method given" \(
+            should "take any method if all method given" \(
                 var called = false;
-                rh = regexHandler 'index' (toHandler \(called := true));
+                rh = regexHandler "all" 'index' do:
+                    called := true;
+                    handledResult;
+                done;
 
                 assertEquals handledResult (rh (mockCtxt [Get "index"]));
                 assertTrue called;
@@ -201,17 +135,14 @@ specificationsFor "org.yeb.mvc.handler" \(
 
             );
 
-           
-        );
-
-        describe "subRegexHandler" \(
             should "set as servletPath the unmatched part" \(
                 var sp = "";
                 var pi = "";
-                rh = subRegexHandler 'index/' (toHandler do c:
+                rh = regexHandler "all" 'index/*' do c:
                     sp := (request c)#getServletPath();
                     pi := (request c)#getPathInfo();
-                done);
+                    handledResult;
+                done;
 
                 _ = rh (mockCtxt [Get "index/foo"]);
                 assertEquals sp "index/";
@@ -221,10 +152,10 @@ specificationsFor "org.yeb.mvc.handler" \(
                 assertEquals sp "index/";
                 assertEquals pi "";
             );
+           
         );
+
      );
-
-
 
 )
 

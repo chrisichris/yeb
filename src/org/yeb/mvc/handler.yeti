@@ -106,7 +106,6 @@ asyncHandler opts asyncHandler ctxt =
          
      
 
-resultTH = threadLocal handledResult;
 
 flashKey = "org.yeb.session.flash";
 
@@ -210,76 +209,106 @@ urlPatternToRegex pat =
     //:a-z? is optional
     //* at end means rest
     //$marks start regex $ marks end regex
-    reg = matchAll ':\(w+)(\^[^\^]+\^)?(\?)?' 
-            (Token . tail) Text pat
+    
+    import java.util.regex.Pattern;
+    
+    paS = if strEnds? pat "/*" then 
+                    strLeft pat (strLength pat - 2)
+               else
+                    pat;
+               fi;
+               
+    tokens = matchAll '(/?\.?):(\w+)(\$([^\$]+)\$)?(\?)?' (Token . tail) Text paS;
+    
+    names = tokens 
+        |> map do t:
+            case t of
+            Token [leading, name, foo, regex, mark]: Some name;
+            _ : none;
+            esac
+        done
+        |> catSome
+        |> array;
+    
+    reg = tokens
     |> map do x:
         case x of
-        Token [name, regex, mark]:
-           (reg = if defined? regex then 
+        Token [leading, name, foo, regex, mark]:
+           (reg = if defined? regex and (strLength regex > 0) then 
                     regex;
                   else
-                    '[^/]+'
+                    '[^/\.]+'
                   fi;
-            reg2 = '(?<'^'name'>'^reg^')';
+            reg2 = "(?<\(name)>\(reg))";
+            
             if defined? mark then
-                reg2^'?';
+                if defined? leading then
+                    "(?:\(Pattern#quote(leading))" ^ reg2 ^ ")?" ;
+                else
+                    reg2 ^ "?";
+                fi;
             else
-                reg2
+                if defined? leading then
+                    Pattern#quote(leading) ^ reg2
+                else
+                    reg2;
+                fi;
             fi);
         Text tx:
-           (import java.util.regex.Pattern;
-            Pattern#quote(tx));
-    |> strJoin "";        
-    if strEnds? pat "*" then
-        reg ^ '(?<rest>.*)'
+           (Pattern#quote(tx));
+        _ : failWith "should not happen";
+        esac
+    done
+    |> strJoin "";
+    
+    regex = if strEnds? pat "/*" then
+        push names "rest";
+        reg ^ '(?:/(?<rest>.*))?'
     else
         reg
-    fi);
+    fi;
+    
+    {
+        names = nub names,
+        regex
+    }
+    );
 
-_regexHandler addLast? methodRegex handler is boolean -> string -> handlerAdapterType<'a> = (
-    methodCut = strIndexOf methodRegex "::" 0;
-    method = if methodCut == -1 then 
-                "" 
-             else 
-                strUpper (strLeft methodRegex methodCut) 
-             fi;
-    method? = method != "";
-
-    regex = if methodCut == -1 then 
-                methodRegex 
-            else 
-                strRight methodRegex (methodCut +2) 
-            fi;
+    
+regexHandler requestMethod regexPattern handler = (
+    meth = strUpper requestMethod;
+    {names, regex} = urlPatternToRegex regexPattern;
     pattern = Pattern#compile(regex);
+    checkMethod? = meth != "ALL";
 
     do octxt:
         oreq = request octxt;
-        if method? and (method != (strUpper oreq#getMethod() )) then
+        if checkMethod? and (meth != (strUpper oreq#getMethod())) then
             goonResult
         else
-            //mp is ~java.lang.String = (octxt.req)#getPathInfo();
-            //matcher = pattern#matcher(mp as ~CharSequence);
             matcher = pattern#matcher(oreq#getPathInfo() as ~java.lang.String);
-            matches? = if addLast? then 
-                            matcher#lookingAt() 
-                       else 
-                            matcher#matches() 
-                       fi; 
-            if matches? then
+            if matcher#matches() then
                 nreq = new YebHttpServletRequestWrapper(true,oreq);
 
                 //add the paramters
+                urlParams = array [];
                 for [0..matcher#groupCount()] do c:
-                    gn = "_\(c)";
-                    nreq#putParameter(gn, matcher#group(c));
+                    push urlParams matcher#group(c);
+                done;
+                nreq#putParameters("urlParams", array urlParams);
+                
+                //add the named parameters
+                for names do name:
+                    nreq#putParameter(name, matcher#group(name));
                 done;
 
                 //set the new pathInfo and servletPath
-                if addLast? then
-                    nsp = matcher#group();
-                    nreq#setServletPath((oreq#getServletPath()) ^ nsp);
-                    nreq#setPathInfo(
-                        strRight (oreq#getPathInfo()) (strLength nsp));
+                if (contains? "rest" names) and (defined? matcher#group("rest")) then
+                    rest = matcher#group("rest");
+                    matched = strLeft oreq#getPathInfo() 
+                            ((strLength oreq#getPathInfo()) - (strLength rest)); 
+                    nreq#setServletPath((oreq#getServletPath()) ^ matched);
+                    nreq#setPathInfo(rest);
                 else
                     nreq#setPathInfo("");
                     newServletPath = 
@@ -295,9 +324,6 @@ _regexHandler addLast? methodRegex handler is boolean -> string -> handlerAdapte
     done;
 );
 
-regexHandler regex = _regexHandler false regex;
-
-subRegexHandler regex = _regexHandler true regex;
 
 
 
@@ -310,19 +336,6 @@ ifHandler condition handler ctxt =
 
 
 
-toHandler ac ctxt is ( 'b -> 'a) -> handlerType<'b> = (
-    oldR = resultTH.value;
-    resultTH.value := handledResult;
-    try
-        ac ctxt;
-        resultTH.value;
-       
-    catch ValidationException e:
-        goonResult
-    finally
-        resultTH.value := oldR;
-    yrt;
-);
 
 runHandlers handlers ctxt is list<handlerType<'a>> -> 'a -> resultType =
     if empty? handlers then
@@ -364,24 +377,21 @@ handlersFact oldVhs =
     {
         add handler =
             push vhs handler,
+        
+        _get regex handler = add ((regexHandler "get" regex) handler),
+        post regex handler = add ((regexHandler "post" regex) handler),
+        put regex handler = add ((regexHandler "put" regex) handler),
+        delete regex handler = add ((regexHandler "delete" regex) handler),        
+        all regex handler add = ((regexHandler "all" regex) handler),        
 
-        r regex handler = add $ (regexHandler regex) handler,
-        rsub regex handler = add $ (subRegexHandler regex) handler,
-        rlazy regex moduleName = 
-            add $ (subRegexHandler regex) (lazyHandler moduleName),
-        p regex handler = 
-            add $ (regexHandler (urlPatternToRegex regex)) handler,
-        psub regex handler = 
-            add $ (subRegexHandler (urlPatternToRegex regex)) handler,
-        plazy regex moduleName = 
-            add $ (subRegexHandler (urlPatternToRegex regex)) 
-                    (lazyHandler moduleName),
+        lazy regex moduleName = 
+            add $ (regexHandler "all" regex) (lazyHandler moduleName),
 
         get handler () =
-            runHandlers ((reverse vhs) ++ oldVhs),
+            runHandlers (vhs ++ oldVhs),
 
         get sub () =
-            handlersFact ((reverse vhs) ++ oldVhs),
+            handlersFact (vhs ++ oldVhs),
     });
 
 handlers () = handlersFact [];
@@ -615,7 +625,6 @@ serviceHandler params service =
     flashPut,
     flashGetAndKeep,
 
-    resultTH,
 
     urlPatternToRegex,
 
@@ -623,8 +632,6 @@ serviceHandler params service =
     goonHandler, 
     ifHandler,
     regexHandler,
-    subRegexHandler,
-    toHandler,
     runHandlers,
     sessionHandler,
     handlers,
