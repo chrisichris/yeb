@@ -33,8 +33,16 @@ end;
 
 logger = getLogger "sql";
 
+dataSource driverClassName connectionUri userName password =
+   (import org.apache.commons.dbcp.BasicDataSource;
+    ds = new BasicDataSource();
+    ds#setDriverClassName(driverClassName);
+    ds#setUsername(userName);
+    ds#setPassword(password);
+    ds#setUrl(connectionUri);
+    ds);
 
-sqlWarningExceptionString warning is ~SQLWarning -> string = (
+warningExceptionString warning is ~SQLWarning -> string = (
     if defined? warning then
         stb = new StringBuilder();
         stb#append("\n----SQLWarning----\n");
@@ -210,7 +218,7 @@ withConnection dataSource fn =
                             r is ~Object = statementHandler ps;
 
                             if defined? ps#getWarnings() then
-                                logger#info(sqlWarningExceptionString(ps#getWarnings()))
+                                logger#info(warningExceptionString(ps#getWarnings()))
                             fi;
                             r
                         finally
@@ -242,13 +250,13 @@ withConnection dataSource fn =
         fi
     yrt);
 
-sqlUpdate sql params cp =
+update sql params cp =
    (handler st is ~PreparedStatement -> ~Object =
         st#executeUpdate() unsafely_as ~Object;
     r is ~Object = cp.operateStatement sql params handler;
     r unsafely_as number);    
 
-sqlBaseQuery sql params resultSetHandler cp =
+baseQuery sql params resultSetHandler cp =
     (cp.operateStatement sql params  
         do st: 
             r = (resultSetHandler is 'a -> 'b) 
@@ -282,7 +290,7 @@ withTLConnection dataSource fn =
 ///////////////////////////////////////////
 //update helpers
 
-sqlInsertEntity  tableName stru cP =
+insertEntity  tableName stru cP =
    (import yeti.lang: Struct;
 
     ist = (stru:!) unsafely_as ~Struct;
@@ -306,10 +314,10 @@ sqlInsertEntity  tableName stru cP =
     //the values list will be expanded to ? by sql update
     stb#append(") VALUES (?)"); 
 
-    sqlUpdate stb#toString() [(list values):!] cP;
+    update stb#toString() [(list values):!] cP;
 );
 
-sqlUpdateEntity tableName stru whereClause whereParams db = 
+updateEntity tableName stru whereClause whereParams db = 
     (import yeti.lang: Struct;
 
     ist = (stru:!) unsafely_as ~Struct;
@@ -334,10 +342,10 @@ sqlUpdateEntity tableName stru whereClause whereParams db =
     stb#append(whereClause);
 
     params = values ++ whereParams;
-    sqlUpdate stb#toString() params db);
+    update stb#toString() params db);
 
     
-sqlUpdateById tableName stru db = 
+updateById tableName stru db = 
    (import yeti.lang: Struct;
 
     ist = (stru:!) unsafely_as ~Struct;
@@ -372,7 +380,7 @@ sqlUpdateById tableName stru db =
     Some n : 
        (stb#append(" WHERE \(n) = ?");
         push values idValue;
-        sqlUpdate stb#toString() (list values) db);
+        update stb#toString() (list values) db);
     esac);
 
 //value getters
@@ -419,7 +427,7 @@ _structHandler rs =
     
 
 sqlList sql setters rowHandler ds =
-    sqlBaseQuery sql setters 
+    baseQuery sql setters 
         do rs:
             ret = array [];
             ((rs.resultSet) is ~ResultSet)#next() loop push ret (rowHandler rs);
@@ -427,8 +435,8 @@ sqlList sql setters rowHandler ds =
         done
         ds;
 
-sqlListStruct sql setters ds =
-    sqlBaseQuery sql setters do rs:
+listStruct sql setters ds =
+    baseQuery sql setters do rs:
         strH = _structHandler rs.resultSet;
         ret = array [];
         rs.resultSet#next() loop push ret (strH ());
@@ -436,7 +444,7 @@ sqlListStruct sql setters ds =
     done ds;
 
 sqlMaybe sql setters noneHandler rowHandler ds =
-    sqlBaseQuery sql setters 
+    baseQuery sql setters 
         do rs:
             if ((rs.resultSet) is ~ResultSet)#next() then
                 rowHandler rs
@@ -446,7 +454,7 @@ sqlMaybe sql setters noneHandler rowHandler ds =
         done
         ds;
 
-sqlMaybeStruct sql setters noneHandler dataHandler ds =
+maybeStruct sql setters noneHandler dataHandler ds =
     sqlMaybe sql setters noneHandler do rs: 
         v = (_structHandler rs.resultSet) ();
         dataHandler v;
@@ -455,7 +463,7 @@ sqlMaybeStruct sql setters noneHandler dataHandler ds =
 
 //Helpers for handling datasource exception etc
 
-sqlExceptionString seq is ~SQLException -> string = (
+exceptionString seq is ~SQLException -> string = (
     ib ex sb is ~SQLException -> ~StringBuilder -> () = (
         _ = sb#append("SQLState: [\(ex#getSQLState())] | Error Code: [\(ex#getErrorCode())] | Message: [\(ex#getMessage())]\n");
         var t = ex#getCause();
@@ -479,31 +487,33 @@ sqlExceptionString seq is ~SQLException -> string = (
 {
 
 
-cDB () = 
-    case _tlConnection.value of
-    None _ : failWith "No current connection";
-    Some v : v;
-    esac,
+    cDB () = 
+        case _tlConnection.value of
+        None _ : failWith "No current connection";
+        Some v : v;
+        esac,
 
-withConnection,
-withTLConnection,
-sqlUpdate,
-sqlBaseQuery,
-sqlInsertEntity,
-sqlUpdateEntity,
-sqlUpdateById,
-sqlList,
-sqlMaybe,
-sqlListStruct,
-sqlMaybeStruct,
-sqlExceptionString,
+    dataSource,
+        
+    withConnection,
+    withTLConnection,
+    update,
+    baseQuery,
+    insertEntity,
+    updateEntity,
+    updateById,
+    list = sqlList,
+    maybe =sqlMaybe,
+    listStruct,
+    maybeStruct,
+    exceptionString,
 
 
-nullString = new DBValue((),Types#VARCHAR),
-nullInt = new DBValue((),Types#BIGINT),
-nullDouble = new DBValue((),Types#DOUBLE),
-nullBoolean = new DBValue((),Types#BOOLEAN),
-nullTimestamp = new DBValue((),Types#TIMESTAMP),
+    nullString = new DBValue((),Types#VARCHAR),
+    nullInt = new DBValue((),Types#BIGINT),
+    nullDouble = new DBValue((),Types#DOUBLE),
+    nullBoolean = new DBValue((),Types#BOOLEAN),
+    nullTimestamp = new DBValue((),Types#TIMESTAMP),
 
 
 

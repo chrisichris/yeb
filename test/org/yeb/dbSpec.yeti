@@ -8,7 +8,7 @@ import org.springframework.jdbc.datasource.embedded:EmbeddedDatabaseBuilder;
 import org.mockito:Mockito;
 
 load org.yeb.yebspec;
-load org.yeb.db;
+sql = load org.yeb.db;
 load org.yeb.std;
 
 withDS code = 
@@ -19,7 +19,7 @@ withDS code =
     finally ds#shutdown() yrt);
 
 withDSCon code =
-    withDS do ds: withConnection ds code done;
+    withDS do ds: sql.withConnection ds code done;
 
 specificationsFor "org.yeb.db"\(
 
@@ -68,7 +68,7 @@ specificationsFor "org.yeb.db"\(
             con = Mockito#mock(loadClass "java.sql.Connection") 
                 unsafely_as ~java.sql.Connection;
             Mockito#when(ds#getConnection())#thenReturn(con);
-            ch = withConnection ds do ch:
+            ch = sql.withConnection ds do ch:
                 assertSame con ch.connection;
                 ch done;
             assertFalse ch.rollbackOnly?;
@@ -85,7 +85,7 @@ specificationsFor "org.yeb.db"\(
                 unsafely_as ~java.sql.Connection;
             Mockito#when(ds#getConnection())#thenReturn(con);
             
-            ch = withConnection ds do ch:
+            ch = sql.withConnection ds do ch:
                 assertSame con ch.connection;
                 ch.rollbackOnly ();
                 ch done;
@@ -104,7 +104,7 @@ specificationsFor "org.yeb.db"\(
             Mockito#when(ds#getConnection())#thenReturn(con);
             
             assertFailWith \( 
-                withConnection ds do ch:
+                sql.withConnection ds do ch:
                     assertSame con ch.connection;
                     failWith "some excption";
                 done;
@@ -121,7 +121,7 @@ specificationsFor "org.yeb.db"\(
     describe "select a list" \(
         should "normal select by name" \(
             withDSCon do ds:
-                result = sqlList 
+                result = sql.list 
                     "select USER_ID, USER_NAME from users" [] 
                     do rs:
                         rs.str "USER_NAME"
@@ -132,7 +132,7 @@ specificationsFor "org.yeb.db"\(
         );
         should "select with wehere" \(
             withDSCon do ds:
-                result = sqlList 
+                result = sql.list 
                     "select USER_ID, USER_NAME from users where USER_ID = ?" 
                     [1:!] 
                     do rs:
@@ -148,7 +148,7 @@ specificationsFor "org.yeb.db"\(
     describe "select a list struct" \(
         should "normal select by name" \(
             withDSCon do ds:
-                result = sqlListStruct 
+                result = sql.listStruct 
                     "select USER_ID, USER_NAME from users" [] ds;
                 assertEquals 3 (length result);
                 ls = result |> map (.user_name);
@@ -160,7 +160,7 @@ specificationsFor "org.yeb.db"\(
         );
         should "select with where" \(
             withDSCon do ds:
-                result = sqlListStruct 
+                result = sql.listStruct 
                     "select USER_ID, USER_NAME from users where USER_ID = ?" 
                     [1:!] 
                     ds;
@@ -174,7 +174,7 @@ specificationsFor "org.yeb.db"\(
     describe "select a option" \(
         should "select some" \(
             withDSCon do ds:
-                result = sqlMaybe 
+                result = sql.maybe 
                     "select USER_ID, USER_NAME from users where USER_ID = ?" 
                     [1:!]
                     \none    
@@ -188,7 +188,7 @@ specificationsFor "org.yeb.db"\(
             
         should "select none" \(
             withDSCon do ds:
-                result = sqlMaybe 
+                result = sql.maybe 
                     "select USER_ID, USER_NAME from users where USER_ID = ?" 
                     [100:!]
                     \none
@@ -205,7 +205,7 @@ specificationsFor "org.yeb.db"\(
     describe "select a struct" \(
         should "select some" \(
             withDSCon do ds:
-                result = sqlMaybeStruct 
+                result = sql.maybeStruct 
                     "select USER_ID, USER_NAME from users where USER_ID = ?" 
                     [1:!]
                     \none    
@@ -217,7 +217,7 @@ specificationsFor "org.yeb.db"\(
             
         should "select none" \(
             withDSCon do ds:
-                result = sqlMaybeStruct 
+                result = sql.maybeStruct 
                     "select USER_ID, USER_NAME from users where USER_ID = ?" 
                     [100:!]
                     \none
@@ -233,8 +233,8 @@ specificationsFor "org.yeb.db"\(
         should "insert one db value" \(
             withDSCon do ds:
                 u = {userId = 4, userName="chrisi", password="foo"};
-                _ = sqlInsertEntity "users" u ds;
-                r = sqlMaybe 
+                _ = sql.insertEntity "users" u ds;
+                r = sql.maybe 
                         "select USER_ID , USER_NAME, PASSWORD from users WHERE USER_ID = ? "
                         [4:!] 
                         \none
@@ -250,8 +250,8 @@ specificationsFor "org.yeb.db"\(
         should "update one db value where" \(
             withDSCon do ds:
                 u = {password="foo"};
-                _ = sqlUpdateEntity "users" u "WHERE USER_ID=?" [1:!] ds;
-                r = sqlMaybe 
+                _ = sql.updateEntity "users" u "WHERE USER_ID=?" [1:!] ds;
+                r = sql.maybe 
                         "select PASSWORD from users WHERE USER_ID = ? "
                         [1:!] 
                         \none
@@ -263,8 +263,8 @@ specificationsFor "org.yeb.db"\(
         should "update one db value with struct" \(
             withDSCon do ds:
                 u = {userId=1,password="foo"};
-                _ = sqlUpdateById "users" u ds;
-                r = sqlMaybe
+                _ = sql.updateById "users" u ds;
+                r = sql.maybe
                         "select PASSWORD from users WHERE USER_ID = ? "
                         [1:!]
                         \none
