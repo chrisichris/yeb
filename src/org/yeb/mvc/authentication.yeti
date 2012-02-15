@@ -59,8 +59,7 @@ storeRememberMe user password maxAge opts ctxt =
         clearToken = "\(user.name is string)|\(password is string)";
         expiry = ESAPI#encryptor()#getRelativeTimeStamp(maxAge * 1000);
         cryptToken = string (ESAPI#encryptor()#seal(clearToken, expiry));
-        cookie = newCookie rememberMeCookieName cryptToken (opts ++ [MaxAge maxAge]);
-        (response ctxt)#addCookie(cookie);
+        setCookie (opts ++ [MaxAge maxAge]) rememberMeCookieName cryptToken ctxt;
     fi);
 
 rememberMeAuthenticator userService nextAuthenticator ctxt =

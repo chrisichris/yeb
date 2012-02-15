@@ -313,7 +313,7 @@ ptag name params content is string -> hash<string,string> -> list<string> -> str
     maybeParam, 
     isAjax,
 
-    newCookie name value opts =
+    newCookie opts name value  =
         (cookie = new Cookie(name is string,value is string);
          for opts do opt: case opt of
             Comment c: cookie#setComment(c is string);
@@ -324,9 +324,25 @@ ptag name params content is string -> hash<string,string> -> list<string> -> str
             Version v: cookie#setVersion(v is number);
          esac done;
          cookie),
-
-
+    
+    
     addCookie cookie ctxt = ESAPI#httpUtilities()#addCookie(response ctxt, cookie),
+
+    setCookie opts name value ctxt = addCookie (newCookie opts name value) ctxt, 
+
+    maybeCookie nofn somefn name ctxt = 
+       (cs = (request ctxt)#getCookies();
+        if not defined? cs then
+            nofn()
+        else
+            ar = wrapArray cs;
+            if empty? ar then
+                nofn();
+            else
+                somefn (head ar);
+            fi
+        fi),
+    
     addHeader name value ctxt = ESAPI#httpUtilities()#addHeader(response ctxt, name is string, value is string),
     assertSecureChannel ctxt = ESAPI#httpUtilities()#assertSecureChannel(request ctxt),
     changeSessionIdentifier ctxt = ESAPI#httpUtilities()#changeSessionIdentifier(request ctxt),
