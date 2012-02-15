@@ -19,13 +19,14 @@ module org.yeb.mvc.config;
 
 import java.lang.Thread;
 
-_production? = false;
+std = load org.yeb.std;
+
 
 {
     var staticPrefix = "/static/",
     var messageBundles = ["yeb"],
-    var production? = _production?,
     ///whter the YebFilter will reload the changes to yeti sourcefiles
     var webDynamicReload? =
-        (not _production?) and (nullptr? Thread#currentThread()#getContextClassLoader()#getResource("yebWebMain.class")),
+        (not std.enviroment.production?) 
+         and (nullptr? Thread#currentThread()#getContextClassLoader()#getResource("yebWebMain.class")),
 }

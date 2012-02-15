@@ -368,6 +368,18 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> =
 
 {       
 
+    enviroment = 
+       (var v is Production string 
+                  | Development string
+                  | Test string = Development "default";
+        {
+            set value vb = v := vb,
+            get value () = v,
+            production? = case v of Production _ : true; _ : false esac,
+            test? = case v of Test _ : true; _ : false esac,
+            development? = case v of Development _ : true; _ : false esac,
+        }),
+    
     
 
     ($) x y = x y,
