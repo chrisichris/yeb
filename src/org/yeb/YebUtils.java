@@ -112,63 +112,6 @@ public class YebUtils {
         return stb.toString();
     }
 
-    public static String patternToRegex(String pattern) {
-        //tested in handlerSpec
-        int prefixCut = pattern.indexOf("::");
-        StringBuilder result = new StringBuilder(pattern.length() + 8);
-        char[] chars = null;
-        if(prefixCut != - 1) {
-            result.append(pattern.substring(0, prefixCut+2));
-            chars = pattern.substring(prefixCut+2).toCharArray();
-        }else {
-            chars = pattern.toCharArray();
-        };
-
-        int i = 0;
-        while (i < chars.length) {
-            char c = chars[i];
-            if (c == '{' && (i+1) <chars.length && chars[i+1] == '}') {
-                result.append("([^/]+)");
-                i = i + 2;
-            }else if (c == '{' && (i + 2) < chars.length && chars[i+2] == '}') {
-                c = chars[i];
-                switch(chars[i+1]){
-                    case '*': result.append("(.*)"); break;
-                    case 'd': result.append("([\\d^/]+)"); break;
-                    case 'w': result.append("([\\w^/]+)"); break;
-                    default: throw new IllegalArgumentException("Pattern is not valid at char "+i+" must only contain curly braces where appropriate: "+pattern);
-                }
-                i = i + 3;
-            }else if (c == '{') {
-                throw new IllegalArgumentException("Pattern is not valid at char "+i+" must only contain curly braces where appropriate: "+pattern);
-            }else if (c == '<') {
-                int oi = i;
-                while (i < chars.length && chars[i] != '>')
-                    i = i +1;
-
-                if(chars[i] == '>') {//we have a regex
-                    result.append('(').append(chars, oi + 1, i - (oi+1)).append(')');
-                    i = i +1; //consume '>'
-                }else {
-                    throw new IllegalArgumentException("Pattern is not valid at char "+i+" must only contain < braces where appropriate: "+pattern);
-                }
-
-            } else {
-                int oi = i;
-                i = i + 1;
-                while (i < chars.length && chars[i] != '<' && chars[i] != '{')
-                    i = i +1;
-                result.append(quoteRegex(chars,oi, i - oi));
-            }
-        }
-        return result.toString();
-    }
-
-    private static String quoteRegex(char[] chars, int start, int length) {
-        String str = new String(chars,start,length);
-        str = Pattern.quote(str);
-        return str;
-    }
 
 
 

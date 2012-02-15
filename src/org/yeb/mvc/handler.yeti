@@ -205,7 +205,36 @@ idHandler handler is handlerAdapterType<'a> = handler;
 
 goonHandler ctxt is handlerType<'a> = goonResult;
 
-urlPatternToRegex pat = YebUtils#patternToRegex((pat is string));
+urlPatternToRegex pat = 
+   (//:a-z is name
+    //:a-z? is optional
+    //* at end means rest
+    //$marks start regex $ marks end regex
+    reg = matchAll ':\(w+)(\^[^\^]+\^)?(\?)?' 
+            (Token . tail) Text pat
+    |> map do x:
+        case x of
+        Token [name, regex, mark]:
+           (reg = if defined? regex then 
+                    regex;
+                  else
+                    '[^/]+'
+                  fi;
+            reg2 = '(?<'^'name'>'^reg^')';
+            if defined? mark then
+                reg2^'?';
+            else
+                reg2
+            fi);
+        Text tx:
+           (import java.util.regex.Pattern;
+            Pattern#quote(tx));
+    |> strJoin "";        
+    if strEnds? pat "*" then
+        reg ^ '(?<rest>.*)'
+    else
+        reg
+    fi);
 
 _regexHandler addLast? methodRegex handler is boolean -> string -> handlerAdapterType<'a> = (
     methodCut = strIndexOf methodRegex "::" 0;

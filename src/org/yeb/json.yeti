@@ -25,7 +25,6 @@ import java.util: Iterator, Map;
 import yeti.lang: Num,FloatNum,IntNum,BigNum,TagCon,Fun;
 import org.apache.commons.jxpath:JXPathContext;
 
-std = load org.yeb.std;
 
 
 //++++++++++++++++++++++++JSON Things +++++++++++++++++++++++++++++++++
