@@ -44,7 +44,7 @@ parseJSON jsonStr =
     jp = jsonFactory#createJsonParser((jsonStr) is string);
     readToken token =
         if nullptr? (token is ~JsonToken) then
-            failWith "null token should not happen";
+            failWith "no json token either input is empty or not properyl formed";
         elif token == JsonToken#VALUE_TRUE then
             Boolean#TRUE unsafely_as ~Object;
         elif token == JsonToken#VALUE_FALSE then
@@ -91,8 +91,19 @@ parseJSON jsonStr =
 
 writeJSON opts stru = 
    (import java.io:StringWriter;
+    import org.codehaus.jackson.util:DefaultPrettyPrinter;
+
     writer = new StringWriter();
     gen = jsonFactory#createJsonGenerator(writer);
+   
+    for opts do opt:
+        case opt of
+        Pretty bo: 
+            if bo then 
+                _ = gen#setPrettyPrinter(new DefaultPrettyPrinter());
+            fi;
+        esac;
+    done;
     
     peekedWrite p = 
         if not defined? p then
@@ -101,7 +112,8 @@ writeJSON opts stru =
             //gen#writeBinary(p unsafely_as byte[]);
         else
             case p of
-            Number num: gen#writeRawValue(string num); 
+            Number num: 
+                gen#writeRawValue(string num); 
             String str : gen#writeString(string str);
             Boolean bo: gen#writeBoolean(bo);
                     
@@ -140,6 +152,7 @@ writeJSON opts stru =
         fi;
         
     peekedWrite (peekObject stru);
+    gen#close();
     string writer#toString());
 
 
