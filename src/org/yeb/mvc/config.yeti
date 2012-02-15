@@ -18,11 +18,13 @@
 module org.yeb.mvc.config;
 
 import java.lang.Thread;
+import javax.servlet:FilterConfig;
 
 std = load org.yeb.std;
 
 
 {
+    var filterConfig is ~FilterConfig = () unsafely_as ~FilterConfig, 
     var staticPrefix = "/static/",
     var messageBundles = ["yeb"],
     ///whter the YebFilter will reload the changes to yeti sourcefiles

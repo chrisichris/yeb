@@ -5,8 +5,14 @@ module yebWebModule;
 load org.yeb.mvc.handler;
 config = load org.yeb.mvc.config;
 
+config.staticPrefix := "initTest";
+
+if not defined? config.filterConfig then 
+    failWith "No filterConfig set";
+fi;
+
+
 {
-    init _ = (config.staticPrefix := "initTest"),
     destroy _ = (),
     handler = \(config.staticPrefix := "called"; skipResult)
 }

@@ -5,7 +5,12 @@ module org.yeb.mvc.filterSpecMainModule;
 load org.yeb.mvc.handler;
 config = load org.yeb.mvc.config;
 
+config.messageBundles := ["init yebMain"];
+
+if not defined? config.filterConfig then 
+    failWith "No filterConfig set";
+fi;
+
 {
-    init _ = (config.messageBundles := ["init yebMain"]),
     destroy _ = (),
 }
