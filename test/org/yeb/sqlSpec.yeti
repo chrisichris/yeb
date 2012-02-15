@@ -1,6 +1,6 @@
 /// put module documentation here
 
-module org.yeb.dbSpec;
+module org.yeb.sqlSpec;
 
 import java.lang:Thread;
 import java.sql.Connection;
@@ -8,7 +8,7 @@ import org.springframework.jdbc.datasource.embedded:EmbeddedDatabaseBuilder;
 import org.mockito:Mockito;
 
 load org.yeb.yebspec;
-sql = load org.yeb.db;
+sql = load org.yeb.sql;
 load org.yeb.std;
 
 withDS code = 

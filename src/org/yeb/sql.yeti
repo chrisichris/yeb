@@ -14,7 +14,7 @@
  * and limitations under the License.
  */
 
-module org.yeb.db;
+module org.yeb.sql;
 
 import java.lang: StringBuilder, ThreadLocal,Throwable;
 import java.sql:Connection, SQLException, SQLWarning, Statement,PreparedStatement, Types,ResultSet,Timestamp;
@@ -33,13 +33,18 @@ end;
 
 logger = getLogger "sql";
 
-dataSource driverClassName connectionUri userName password =
+dataSource driverClassName connectionUri opts =
    (import org.apache.commons.dbcp.BasicDataSource;
     ds = new BasicDataSource();
-    ds#setDriverClassName(driverClassName);
-    ds#setUsername(userName);
-    ds#setPassword(password);
     ds#setUrl(connectionUri);
+    ds#setDriverClassName(driverClassName);
+    
+    for opts do opt:
+        case opt of
+        User n : ds#setUsername(n is string);
+        Password pwd: ds#setPassword( pwd is string);
+        esac
+    done;
     ds);
 
 warningExceptionString warning is ~SQLWarning -> string = (
