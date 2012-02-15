@@ -66,7 +66,7 @@ maybeParam ctxt name vali =
 isAjax ctxt = 
     (request ctxt)#getHeader("X-Requested-With") == "XMLHttpRequest";
 
-redirectView ctx path = (
+redirectView path ctx = (
     (response ctx)#sendRedirect(path);
     {status = 302}
 );
