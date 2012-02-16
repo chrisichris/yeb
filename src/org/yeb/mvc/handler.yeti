@@ -382,6 +382,9 @@ handlersFact oldVhs =
         post regex handler = add ((regexHandler "post" regex) handler),
         put regex handler = add ((regexHandler "put" regex) handler),
         delete regex handler = add ((regexHandler "delete" regex) handler),        
+        options regex handler = add ((regexHandler "options" regex) handler),
+        head regex handler = add ((regexHandler "head" regex) handler),
+        
         all regex handler add = ((regexHandler "all" regex) handler),        
 
         lazy regex moduleName = 
@@ -393,6 +396,7 @@ handlersFact oldVhs =
         get sub () =
             handlersFact (vhs ++ oldVhs),
     });
+    
 
 handlers () = handlersFact [];
 
