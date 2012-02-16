@@ -502,7 +502,7 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> =
 
     getLogger,
     composeToRight fn1 fn2 = do a: fn2 (fn1 a) done,
-    andThenEither,
+    //andThenEither,
     maybeHead,
     maybeAt,
     maybeDefined,
