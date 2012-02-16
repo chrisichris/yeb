@@ -294,12 +294,6 @@ async opts fn   =
 getLogger name is string -> ~Logger = LoggerFactory#getLogger(name);
 
 
-andThenEither fn fn2 a =
-    case fn a of
-    Left m: Left m;
-    Right b: fn2 b;
-    esac;
-
 
 maybeHead noHead headF li =
     if empty? li then (noHead ()) else headF (head li) fi;
