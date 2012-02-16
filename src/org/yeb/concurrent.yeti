@@ -201,56 +201,8 @@ asyncPipe asyncFn receiverFn =
     esac;
 
     
-future opts fn = 
-   (import java.util.concurrent.atomic:AtomicMarkableReference;
-    import java.util.concurrent:TimeoutException;
-    
-    var timeout = 0;
-    for opts do opt:
-        case opt of
-        Timeout nu: timeout := nu;
-        esac
-    done;
-    
-    ref = new AtomicMarkableReference(() as ~Object, false);
-    lock = new Object();
-    
-    (fn is ( 'a -> () ) -> () ) do v :
-        if ref#isMarked() then
-            failWith "value already set only set once";
-        fi;
-        synchronized lock \(
-            _ = ref#set((v is 'a) unsafely_as ~Object,true);
-            lock#notifyAll());
-        ()
-    done;
-            
-    do:
-        if ref#isMarked() then
-            ref#getReference() unsafely_as 'a;
-        else
-            if timeout < 1 then
-                synchronized lock \(
-                    ref#isMarked() loop lock#wait());
-            else
-                synchronized lock \(lock#wait(timeout));
-            fi;
-            if ref#isMarked() then
-                ref#getReference() unsafely_as 'a;
-            else 
-                throw new TimeoutException();
-            fi;
-        fi
-    done); 
-    
-reactRsp opts reactor fn =     
-    future opts do rfn: 
-        reactor.execute do: rfn fn done
-    done;            
- 
-        
+     
 {
-    (|~>) fn1 fn2 = asyncPipe fn1 fn2,
 
     newLinkable,
     shutdownLinkable,
@@ -258,7 +210,5 @@ reactRsp opts reactor fn =
     killLinkable,
     
     reactor,
-    reactRsp,
     asyncPipe,
-    future,
 }

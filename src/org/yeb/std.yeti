@@ -59,6 +59,109 @@ plainMessage text = message "" text [];
 
 failWithMessage msg = throw new MessageException(msg);
 
+//+++++++++++Future things ++++++++++++++++++++++
+newPromise () = 
+   (import java.util.concurrent.atomic:AtomicReference;
+    import java.util.concurrent:TimeoutException;
+    
+    lock = new Object();
+    var valueVar = none;
+    
+    setValue v = 
+        synchronized lock \(
+            case valueVar of
+            Fn fn : 
+                (fn (v is Value 'a | Exception ~Throwable);
+                 valueVar := Value v;
+                 lock#notifyAll());
+            None _ : 
+                (valueVar := Value v;
+                 lock#notifyAll());
+            Value _ : failWith "Can not set double";
+            esac);
+
+    value timeout =
+        synchronized lock \(
+            case valueVar of
+            Value v:
+                case v of 
+                Value v1 : v1;
+                Exception ex: throw (ex is ~Throwable);
+                esac;
+            _ :
+               (lock#wait(max 0 timeout);
+                case valueVar of
+                Value v:
+                    case v of
+                    Value v1 : v1;
+                    Exception ex : throw (ex is ~Throwable);
+                    esac;
+                _ :     
+                    throw new TimeoutException();
+                esac);
+            esac);
+            
+    callback fn =
+        synchronized lock \(
+            case valueVar of
+            None _ : valueVar := Fn fn; 
+            Value v : fn v;
+            Fn _ : failWith "Can not register two functions";
+            esac);
+    
+    {
+        setValue,        
+        future = {
+            value,
+            cbex fn = callback fn,
+            cb fn = 
+                callback do v:
+                    case v of
+                    Value v1: fn v1;
+                    Exception ex: ();
+                    esac;
+                done
+        }
+    });
+
+
+mapExFuture fn future = 
+   (prom = newPromise ();
+    future.cbex (prom.setValue fn);
+    prom);
+
+flatMapExFuture fn future = 
+   (prom = newPromise();
+    future.cbex do v:
+        fut2 = fn v;
+        fut2.cbex prom.setValue; 
+    done);       
+ 
+mapFuture fn future =
+   (prom = newPromise();
+    future.cbex do v:
+        case v of
+        Exception ex: prom.setValue (Exception ex);
+        Value v1: prom.setValue (Value (fn v1));
+        esac;
+    done);
+
+
+flatMapFuture fn future =
+   (prom = newPromise();
+    future.cbex do v:
+        case v of
+        Exception ex: prom.setValue (Exception ex);
+        Value fv:
+            fv.cbex do v1:
+                case v1 of
+                Exception ex: prom.setValue (Exception ex);
+                Value v2: prom.setValue (Value (fn v2));
+                esac;
+            done;
+        esac;
+    done);    
+
 
 stringWriter () = 
    (stB = new StringBuilder();
@@ -163,30 +266,28 @@ defaultExecutor =
     exec);
 
 async opts fn   =
-  (import java.util.concurrent:TimeUnit, Callable;
-   var executor = defaultExecutor;
+  (import java.lang.Runnable;
+   import java.util.concurrent:TimeUnit, Callable, Executor;
+   var executor = defaultExecutor as ~Executor;
     for opts do opt:
         case opt of
         Executor ex: executor := ex;
         esac
     done;
     
-    fn2 is () -> 'a = fn;
+    prom = newPromise ();
     
-    class Ca extends Callable
-        Object call()
-            (fn2()) unsafely_as ~Object 
+    class AsyncRunnable extends Runnable
+        void run()
+            try
+                prom.setValue (Value (fn ()))
+            catch Throwable ex:
+                prom.setValue (Exception ex)
+            yrt
     end;
     
-    future = executor#submit(new Ca());
-    do timeout:
-        r = if timeout < 1 then
-            future#get();
-        else
-            future#get(timeout,TimeUnit#MILLISECONDS);
-        fi;
-        (r unsafely_as ~Object) unsafely_as 'a;
-    done);
+    executor#execute(new AsyncRunnable());
+    prom.future);
 
 
 
@@ -367,6 +468,12 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> =
 
 
 {       
+
+    newPromise, 
+    mapExFuture, 
+    flatMapExFuture, 
+    mapFuture, 
+    flatMapFuture,
 
     enviroment = 
        (var v is Production string 
