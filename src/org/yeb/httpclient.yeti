@@ -16,118 +16,162 @@
 
 module org.yeb.httpclient;
 
-import org.apache.commons.httpclient:MultiThreadedHttpConnectionManager,
-        HttpClient,DefaultHttpMethodRetryHandler,HttpStatus;
-import org.apache.commons.httpclient.methods:GetMethod;
-import org.apache.commons.httpclient.params.HttpMethodParams;
 
 load org.yeb.std;
 
-log = getLogger "org.yeb.httpclient.module";
+oauthHandlers scribeOAuthService tokenHandler =
+   (import org.scribe.model:Verfifier;
+    import org.scribe.oauth:OAuthService;
+    import org.scribe.model:Verifier,Token; 
+    
+    webutils = load org.yeb.mvc.webutils;
+    
+    service is ~OAuthService = scribeOAuthService;
+    
+    initHandler ctxt = 
+       (token = service#getRequestToken();
+        (webutils.session ctxt)#setAttribute("oauth.request_token", token);
+        confirmURL = service#getAuthorizationUrl(token);
+        webutils.redirectView confirmURL ctxt);
 
-httpClient = try
-        cM = new MultiThreadedHttpConnectionManager();
-        new HttpClient(cM);
-    catch Exception ex:
-        log#error("Exception creating httpclient {}",ex);
-        throw ex;
-    yrt;
+    callbackHandler ctxt =
+       (oauth_token = webutils.param ctxt "oauth_token";
+        oauth_verifier = webutils.param ctxt "oauth_verifier";
+        username = webutils.param ctxt "username";
+        
+        verifier = new Verifier(oauth_verifier);
+        requestToken = 
+            (webutils.session ctxt)#getAttribute("oauth.request_token")
+                unsafely_as ~Token;
+        
+        accessToken = 
+            service#getAccessToken(requestToken, verifier);
+        
+        user_key = string accessToken#getToken();
+        user_secret = string accessToken#getSecret();
+        
+        tokenHandler {user_key, user_secret} ctxt);
+    
+    {initHandler, callbackHandler});
+    
 
-withHttpMethod method f =
-    try
-        statusCode = httpClient#executeMethod(method);
-        f method statusCode;
-    catch Exception ex:
-        log#debug("Exception in executing method of http method {}:{}",method,ex);
-        throw ex;
-    finally
-        method#releaseConnection();
-    yrt;
+    
 
-httpOptions = {
-    retries = -1,
-    headers is list<string> = [],
-    maxLength = -1,
-};
-
-
-httpGet  {retries, headers} url f = (
-
-    method = new GetMethod(url);
-    if retries > -1 then
-        method#getParams()#setParameter(HttpMethodParams#RETRY_HANDLER,
-                                    new DefaultHttpMethodRetryHandler(retries, false));
-    fi;
-
-    try
-        _ = fold do k v: case k of
-                        Key kv: (
-                            method#addRequestHeader(kv,v);
-                            Value ());
-                        Value _: Key v;
-                     esac;
-             done
-            (Value ()) headers;
-
-        statusCode = httpClient#executeMethod(method);
-        /*
-        if log#isTraceEnabled then
-            str = "Request for url [\(url)]:
-request-headers:\n\(strJoin "\n" (mapHash do k v = "\(k)=\(v)" done headers))
-response-statuscode:\(statusCode)
-response-charset: \(method#getResponseCharSet())
-response-content-length: \(method#getResponseContentLength())
-response-headers:\n\(method#getResponseHeaders())
-method: \(method)\n";
-        fi;*/
-
-        if statusCode == HttpStatus#SC_OK then
-            r = f method;
-            Some r;
-        else
-            log#debug("Bad status code for request[{}]: {}", url, statusCode);
-            method#getResponseBody();
-            None(Some statusCode);
-        fi;
-    catch Exception ex:
-        log#debug("Exception in execution of get {} : {}", url, ex);
-        None (None ex);
-    finally
-        method#releaseConnection();
-    yrt;
-);
-
-
-{
-    httpGetString options url = (
-        httpGet options url do getMethod:
-            s = if options.maxLength < 0 then
-                    getMethod#getResponseBodyAsString();
-                else
-                    getMethod#getResponseBodyAsString(options.maxLength);
-                fi;
-            if not defined? s then "" else s fi;
-        done;
-    ),
-
-    httpGetBody options url = (
-        httpGet options url do getMethod:
-                 getMethod#getResponseBodyAsStream();
-        done;
-    ),
-
-    httpGetJson options url = (
-        load org.yeb.json;
-
-        opt = httpGetString options url ;
-        maybe' None do str:
-                    Right (parseJSON str);
-                  done opt;
-    ),
+client opts =
+   (import com.ning.http.client:AsyncHttpClient,
+                Realm, Realm$RealmBuilder,
+                Realm$AuthScheme,
+                AsyncHttpClientConfig$Builder,
+                SignatureCalculator;
+    import com.ning.http.client.oauth:ConsumerKey, RequestToken,
+                                      OAuthSignatureCalculator;
+    
+    
+    var config  = none;
+    applyConfig fn = 
+        case config of
+        None () : 
+            (b = new AsyncHttpClientConfig$Builder();
+             config := Some b;
+             _ = fn b;
+             ());
+        Some b : (_ = fn b; ());
+        esac;
+    
+    var signature = none; 
+    
+    for opts do opt:
+        case opt of
+        Config fn: applyConfig fn;
+        Realm fn:
+           (realm is ~Realm = fn (new Realm$RealmBuilder());
+            applyConfig do b: b#setRealm(realm) done);
+        BasicAuth {principal, password}:
+           (realm = (new Realm$RealmBuilder())
+                #setPrincipal(principal is string)
+                #setPassword(password is string)
+                #setUsePreemptiveAuth(true)
+                #setScheme(Realm$AuthScheme#BASIC)#build();
+            applyConfig do b: b#setRealm(realm) done);
+        Oauth {api_key, api_secret, user_key, user_secret} :
+           (consumer = new ConsumerKey(api_key is string, api_secret is string);
+            user = new RequestToken(user_key is string, user_secret is string);
+            calc = new OAuthSignatureCalculator(consumer,user);
+            
+            signature := Some (calc as ~SignatureCalculator));
+        esac
+    done;
+    
+    client = case config of
+        Some b: new AsyncHttpClient(
+                (b is ~AsyncHttpClientConfig$Builder)#build());
+        None _: new AsyncHttpClient ();
+        esac;
+    
+    case signature of
+    Some s: client#setSignatureCalculator(s as ~SignatureCalculator);
+    None _: client;
+    esac);
 
 
-    httpClient,
-    httpGet,
-    withHttpMethod,
-    httpOptions
-}
+request opts url httpClient =
+   (import com.ning.http.client:AsyncHttpClient, Response,
+                AsyncCompletionHandler, SignatureCalculator;
+    import com.ning.http.client.oauth:ConsumerKey, RequestToken,
+                                      OAuthSignatureCalculator;
+    import java.util.concurrent:TimeUnit;
+    import java.lang.Throwable;   
+    
+    var configFn = \();
+    var signature = none;
+    var handlerOpt = none;
+    
+    for opts do opt:
+        case opt of
+        Config fn : configFn := fn;
+        Handler fn: handlerOpt := Some fn;
+        Oauth {api_key, api_secret, user_key, user_secret} :
+           (consumer = new ConsumerKey(api_key is string, api_secret is string);
+            user = new RequestToken(user_key is string, user_secret is string);
+            calc = new OAuthSignatureCalculator(consumer,user);
+            
+            signature := Some (calc as ~SignatureCalculator));
+        esac
+    done;
+    
+    builder = case url of
+    Get us: (httpClient is ~AsyncHttpClient)#prepareGet(us);
+    Post us: httpClient#preparePost(us);
+    Put us: httpClient#preparePut(us);
+    Delete us: httpClient#prepareDelete(us);
+    Options us: httpClient#prepareOptions(us);
+    Head us: httpClient#prepareHead(us);
+    Connect us: httpClient#prepareConnect(us);
+    Request us: httpClient#prepareRequest(us);
+    esac;
+    
+    _ = case signature of
+    Some s: builder#setSignatureCalculator(s);
+    None _: builder;
+    esac;
+    
+    _ = configFn builder;
+    
+    prom = newPromise();
+    
+    class MyAsyncCompletitionHandler extends AsyncCompletionHandler 
+            Object onCompleted(Response resp)
+                prom.setValue (Value resp),
+            void onThrowable(Throwable ta)
+                prom.setValue (Exception ta),
+    end;
+    
+    builder#execute(new MyAsyncCompletitionHandler());
+    
+    prom);
+
+{    
+    oauthHandlers,
+    client,
+    request,    
+}    
