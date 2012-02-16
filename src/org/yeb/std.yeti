@@ -515,7 +515,8 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> =
     async,
     
     isString x = x ^ "",
-    isNumber' x = x + 0,
+    isNumber x = x + 0,
+    isBoolean x = if x then x else x fi,
     
     
     withThreadLocal,
