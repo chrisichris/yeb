@@ -165,11 +165,9 @@ defaultExecutor =
 async opts fn   =
   (import java.util.concurrent:TimeUnit, Callable;
    var executor = defaultExecutor;
-    var timeout = 1000;
     for opts do opt:
         case opt of
         Executor ex: executor := ex;
-        Timeout tm: timeout := tm;
         esac
     done;
     
@@ -181,12 +179,14 @@ async opts fn   =
     end;
     
     future = executor#submit(new Ca());
-    r = if timeout < 1 then
-        do (): future#get() done;
-    else
-        do ():future#get(timeout,TimeUnit#MILLISECONDS) done;
-    fi;
-    (r unsafely_as ~Object) unsafely_as () -> 'a);
+    do timeout:
+        r = if timeout < 1 then
+            future#get();
+        else
+            future#get(timeout,TimeUnit#MILLISECONDS);
+        fi;
+        (r unsafely_as ~Object) unsafely_as 'a;
+    done);
 
 
 

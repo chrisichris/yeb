@@ -58,7 +58,7 @@ specificationsFor "org.yeb.std"\(
     describe "async invocation" \(
         should "execute and return the future" \(
             future = async [] \2;
-            assertTrue ((future()) == 2);
-            assertEquals 2 (future ()));
+            assertTrue ((future(0)) == 2);
+            assertEquals 2 (future (0)));
     );
 );
