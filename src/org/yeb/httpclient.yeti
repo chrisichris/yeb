@@ -19,14 +19,35 @@ module org.yeb.httpclient;
 
 load org.yeb.std;
 
-oauthHandlers scribeOAuthService =
+
+oauthHandlers provider apiKey apiSecret callbackUrl serviceBuilderOpt =
    (import org.scribe.model:Verfifier;
     import org.scribe.oauth:OAuthService;
     import org.scribe.model:Verifier,Token; 
-    
+    import org.scribe.builder:ServiceBuilder;
+
     webutils = load org.yeb.mvc.webutils;
+    mvc = load org.yeb.mvc.handler;
     
-    service is ~OAuthService = scribeOAuthService;
+    providerCl = case provider of
+        Twitter () : classOf org.scribe.builder.api.TwitterApi;
+        Google () : classOf org.scribe.builder.api.GoogleApi;
+        Facebook () : classOf org.scribe.builder.api.FacebookApi;
+        Yahoo () : classOf org.scribe.builder.api.YahooApi;
+        Other cl : (cl is ~java.lang.Class);
+        esac;
+    
+    builder = (new ServiceBuilder())
+        #provider(providerCl)
+        #callback(callbackUrl)
+        #apiKey(apiKey)
+        #apiSecret(apiSecret);
+    
+    service is ~OAuthService = case serviceBuilderOpt of
+        None _ : builder#build();
+        Some fn : fn builder;
+        esac;
+    
     
     initHandler ctxt = 
        (token = service#getRequestToken();
@@ -34,7 +55,7 @@ oauthHandlers scribeOAuthService =
         confirmURL = service#getAuthorizationUrl(token);
         webutils.redirectView confirmURL ctxt);
 
-    callbackHandler tokenHandler ctxt =
+    _callbackInnerHandler tokenHandler ctxt =
        (oauth_token = webutils.param ctxt "oauth_token";
         oauth_verifier = webutils.param ctxt "oauth_verifier";
         username = webutils.param ctxt "username";
@@ -52,7 +73,11 @@ oauthHandlers scribeOAuthService =
         
         tokenHandler {user_key, user_secret} ctxt);
     
-    {initHandler, callbackHandler});
+    callbackHandler tokenHandler = 
+        mvc.regexHandler "all" callbackUrl
+            (_callbackInnerHandler tokenHandler);
+    
+    {initHandler, callbackHandler, service, apiKey, apiSecret});
     
 
     
