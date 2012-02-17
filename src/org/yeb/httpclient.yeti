@@ -19,7 +19,7 @@ module org.yeb.httpclient;
 
 load org.yeb.std;
 
-oauthHandlers scribeOAuthService tokenHandler =
+oauthHandlers scribeOAuthService =
    (import org.scribe.model:Verfifier;
     import org.scribe.oauth:OAuthService;
     import org.scribe.model:Verifier,Token; 
@@ -34,7 +34,7 @@ oauthHandlers scribeOAuthService tokenHandler =
         confirmURL = service#getAuthorizationUrl(token);
         webutils.redirectView confirmURL ctxt);
 
-    callbackHandler ctxt =
+    callbackHandler tokenHandler ctxt =
        (oauth_token = webutils.param ctxt "oauth_token";
         oauth_verifier = webutils.param ctxt "oauth_verifier";
         username = webutils.param ctxt "username";

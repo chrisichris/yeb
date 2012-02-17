@@ -398,7 +398,7 @@ handlersFact oldVhs =
     });
     
 
-handlers () = handlersFact [];
+newCollection () = handlersFact [];
 
 localHandler locales handler is list<~Locale> -> handlerAdapterType<'a> = 
    (if empty? locales then
@@ -638,7 +638,7 @@ serviceHandler params service =
     regexHandler,
     runHandlers,
     sessionHandler,
-    handlers,
+    newCollection,
     localHandler,
     flashHandler,
     //fooServiceHandler = serviceHandler,
