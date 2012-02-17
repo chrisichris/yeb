@@ -124,6 +124,18 @@ newPromise () =
         }
     });
 
+futureValue valueIn = 
+        {value timeout is number -> 'a = 
+            case valueIn of
+            Exception ex: throw (ex is ~Throwable);
+            Value v: v;
+            esac,
+         cbex fn = fn valueIn,
+         cb fn = case valueIn of
+                 Exception ex: ();
+                 Value v: fn v;
+                 esac
+        };
 
 mapExFuture fn future = 
    (prom = newPromise ();
@@ -277,16 +289,15 @@ async opts fn   =
     
     prom = newPromise ();
     
-    class AsyncRunnable extends Runnable
-        void run()
+    runnable = toRunnable do:
             try
                 prom.setValue (Value (fn ()))
             catch Throwable ex:
                 prom.setValue (Exception ex)
             yrt
-    end;
-    
-    executor#execute(new AsyncRunnable());
+        done;
+        
+    executor#execute(runnable);
     prom.future);
 
 
@@ -464,6 +475,7 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> =
 {       
 
     newPromise, 
+    futureValue,
     mapExFuture, 
     flatMapExFuture, 
     mapFuture, 
