@@ -406,12 +406,12 @@ handlersFact oldVhs =
         get handler () =
             runHandlers (vhs ++ oldVhs),
 
-        newSubCollection () =
+        newSubRouter () =
             handlersFact (vhs ++ oldVhs),
     });
     
 
-newCollection () = handlersFact [];
+newRouter () = handlersFact [];
 
 localHandler locales handler is list<~Locale> -> handlerAdapterType<'a> = 
    (if empty? locales then
@@ -651,7 +651,7 @@ serviceHandler params service =
     regexHandler,
     runHandlers,
     sessionHandler,
-    newCollection,
+    newRouter,
     localHandler,
     flashHandler,
     //fooServiceHandler = serviceHandler,
