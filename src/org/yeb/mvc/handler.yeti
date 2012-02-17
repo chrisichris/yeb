@@ -275,11 +275,23 @@ urlPatternToRegex pat =
     );
 
     
-regexHandler requestMethod regexPattern handler = (
-    meth = strUpper requestMethod;
+regexHandler requestUrl handler = (
+    var checkMethod? = true;    
+
+    {fst = meth , snd = regexPattern} = case requestUrl of
+        Get us: pair "GET" us;
+        Post us: pair "POST" us;
+        Put us: pair "PUT" us;
+        Delete us: pair "DELETE" us;
+        Options us: pair "OPTIONS" us;
+        Head us: pair "HEAD" us;
+        All us: 
+            (checkMethod? := false;
+            pair "ALL" us);
+        esac;
+    
     {names, regex} = urlPatternToRegex regexPattern;
     pattern = Pattern#compile(regex);
-    checkMethod? = meth != "ALL";
 
     do octxt:
         oreq = request octxt;
@@ -378,22 +390,23 @@ handlersFact oldVhs =
         add handler =
             push vhs handler,
         
-        _get regex handler = add ((regexHandler "get" regex) handler),
-        post regex handler = add ((regexHandler "post" regex) handler),
-        put regex handler = add ((regexHandler "put" regex) handler),
-        delete regex handler = add ((regexHandler "delete" regex) handler),        
-        options regex handler = add ((regexHandler "options" regex) handler),
-        head regex handler = add ((regexHandler "head" regex) handler),
+        pattern regex handler = add ((regexHandler regex) handler),
+        _get regex handler = add ((regexHandler (Get regex)) handler),
+        post regex handler = add ((regexHandler (Post regex)) handler),
+        put regex handler = add ((regexHandler (Put regex)) handler),
+        delete regex handler = add ((regexHandler (Delete regex)) handler),        
+        options regex handler = add ((regexHandler (Options regex)) handler),
+        head regex handler = add ((regexHandler (Head regex)) handler),
         
-        all regex handler add = ((regexHandler "all" regex) handler),        
+        all regex handler add = ((regexHandler (All regex)) handler),        
 
         lazy regex moduleName = 
-            add $ (regexHandler "all" regex) (lazyHandler moduleName),
+            add $ (regexHandler (All regex)) (lazyHandler moduleName),
 
         get handler () =
             runHandlers (vhs ++ oldVhs),
 
-        get sub () =
+        newSubCollection () =
             handlersFact (vhs ++ oldVhs),
     });
     

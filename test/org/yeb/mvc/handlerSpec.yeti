@@ -18,7 +18,7 @@ specificationsFor "org.yeb.mvc.handler" \(
         describe "handler with user" \(
             should "get the right user" \(
                 ha ctxt = (_ = ctxt.user;skipResult);
-                rh = regexHandler "all" "/foo" ha;
+                rh = regexHandler (All "/foo") ha;
                 rh (ct with {user = "foo"});
             );
         );
@@ -84,7 +84,7 @@ specificationsFor "org.yeb.mvc.handler" \(
             should "match a regex and put parameters in request" \(
                 var p1 = -1;
                 var p2 = "";
-                rh = regexHandler "all" ":num/*" do c:
+                rh = regexHandler (All ":num/*") do c:
                     p1 := param c "num" |> (valiNum 0 1000 . strToNum);
                     p2 := param c "rest";
                     handledResult;
@@ -98,7 +98,7 @@ specificationsFor "org.yeb.mvc.handler" \(
 
             should "not call handler and return goonResult if no match" \(
                 var called = false;
-                rh = regexHandler "all" "index" 
+                rh = regexHandler (All "index") 
                     do: called := true; handledResult done;
                 assertEquals goonResult (rh (mockCtxt [Get "/"]));
                 assertFalse called;
@@ -106,7 +106,7 @@ specificationsFor "org.yeb.mvc.handler" \(
 
             should "respect method " \(
                 var called = false;
-                rh = regexHandler "post" "index" do:
+                rh = regexHandler (Post "index") do:
                     called := true;
                     handledResult
                 done;
@@ -121,7 +121,7 @@ specificationsFor "org.yeb.mvc.handler" \(
 
             should "take any method if all method given" \(
                 var called = false;
-                rh = regexHandler "all" 'index' do:
+                rh = regexHandler (All 'index') do:
                     called := true;
                     handledResult;
                 done;
@@ -138,7 +138,7 @@ specificationsFor "org.yeb.mvc.handler" \(
             should "set as servletPath the unmatched part" \(
                 var sp = "";
                 var pi = "";
-                rh = regexHandler "all" 'index/*' do c:
+                rh = regexHandler (All 'index/*') do c:
                     sp := (request c)#getServletPath();
                     pi := (request c)#getPathInfo();
                     handledResult;
