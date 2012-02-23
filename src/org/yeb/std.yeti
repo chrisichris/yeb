@@ -60,7 +60,25 @@ plainMessage text = message "" text [];
 failWithMessage msg = throw new MessageException(msg);
 
 //+++++++++++Future things ++++++++++++++++++++++
-newPromise () = 
+
+_callbackMap fn cba is ('a -> 'b) -> (('a -> 'c) -> 'd) -> (('b -> 'c) -> 'd)  = 
+    do cb:
+        cba do a:
+            cb case a of
+                Exception ex: Excption ex;
+                Value v: Value (fn a);
+            esac
+        done;
+    done;
+    
+_callbackFlatten cba is (('a -> (('b -> 'c) -> 'd) -> 'd)) = 
+    do cb:
+        cba do cba2:
+            cba2 cb
+        done
+    done;
+
+_newPomise () = 
    (import java.util.concurrent.atomic:AtomicReference;
     import java.util.concurrent:TimeoutException;
     
@@ -123,56 +141,21 @@ newPromise () =
                 done
         }
     });
-
-futureValue valueIn = 
-        {value timeout is number -> 'a = 
-            case valueIn of
-            Exception ex: throw (ex is ~Throwable);
-            Value v: v;
-            esac,
-         cbex fn = fn valueIn,
-         cb fn = case valueIn of
-                 Exception ex: ();
-                 Value v: fn v;
-                 esac
-        };
-
-mapExFuture fn future = 
-   (prom = newPromise ();
-    future.cbex (prom.setValue fn);
-    prom);
-
-flatMapExFuture fn future = 
-   (prom = newPromise();
-    future.cbex do v:
-        fut2 = fn v;
-        fut2.cbex prom.setValue; 
-    done);       
- 
-mapFuture fn future =
-   (prom = newPromise();
-    future.cbex do v:
-        case v of
-        Exception ex: prom.setValue (Exception ex);
-        Value v1: prom.setValue (Value (fn v1));
-        esac;
-    done);
+    
+callback = {
+    map fn cba = callbackMap fn cba,
+    flatten cba = callbackFlatten cba,
+    bind fn cba = 
+        _callbackFlatten (_callbackMap fn cba),
+    newPromise () = _newPromise (),
+    toFuture cba = 
+       (prom = _newPromise ();
+        cba do v: prom.setValue v done;
+        prom)
+};
 
 
-flatMapFuture fn future =
-   (prom = newPromise();
-    future.cbex do v:
-        case v of
-        Exception ex: prom.setValue (Exception ex);
-        Value fv:
-            fv.cbex do v1:
-                case v1 of
-                Exception ex: prom.setValue (Exception ex);
-                Value v2: prom.setValue (Value (fn v2));
-                esac;
-            done;
-        esac;
-    done);    
+
 
 
 stringWriter () = 
@@ -474,13 +457,7 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> =
 
 {       
 
-    newPromise, 
-    futureValue,
-    mapExFuture, 
-    flatMapExFuture, 
-    mapFuture, 
-    flatMapFuture,
-
+    callback,
     enviroment = 
        (var v is Production string 
                   | Development string
