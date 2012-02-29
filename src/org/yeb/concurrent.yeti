@@ -200,10 +200,104 @@ asyncPipe asyncFn receiverFn =
         _ =receiverFn (asyncFn ());
     esac;
 
+//+++++++++++Future things ++++++++++++++++++++++
+
+_callbackMap fn cba is ('a -> 'b) -> (('a -> 'c) -> 'd) -> (('b -> 'c) -> 'd)  = 
+    do cb:
+        cba do a:
+            cb case a of
+                Exception ex: Excption ex;
+                Value v: Value (fn a);
+            esac
+        done;
+    done;
+    
+_callbackFlatten cba is (('a -> (('b -> 'c) -> 'd) -> 'd)) = 
+    do cb:
+        cba do cba2:
+            cba2 cb
+        done
+    done;
+
+_newPomise () = 
+   (import java.util.concurrent.atomic:AtomicReference;
+    import java.util.concurrent:TimeoutException;
+    
+    lock = new Object();
+    var valueVar = none;
+    
+    setValue v = 
+        synchronized lock \(
+            case valueVar of
+            Fn fn : 
+                (fn (v is Value 'a | Exception ~Throwable);
+                 valueVar := Value v;
+                 lock#notifyAll());
+            None _ : 
+                (valueVar := Value v;
+                 lock#notifyAll());
+            Value _ : failWith "Can not set double";
+            esac);
+
+    value timeout =
+        synchronized lock \(
+            case valueVar of
+            Value v:
+                case v of 
+                Value v1 : v1;
+                Exception ex: throw (ex is ~Throwable);
+                esac;
+            _ :
+               (lock#wait(max 0 timeout);
+                case valueVar of
+                Value v:
+                    case v of
+                    Value v1 : v1;
+                    Exception ex : throw (ex is ~Throwable);
+                    esac;
+                _ :     
+                    throw new TimeoutException();
+                esac);
+            esac);
+            
+    callback fn =
+        synchronized lock \(
+            case valueVar of
+            None _ : valueVar := Fn fn; 
+            Value v : fn v;
+            Fn _ : failWith "Can not register two functions";
+            esac);
+    
+    {
+        setValue,        
+        future = {
+            value,
+            cbex fn = callback fn,
+            cb fn = 
+                callback do v:
+                    case v of
+                    Value v1: fn v1;
+                    Exception ex: ();
+                    esac;
+                done
+        }
+    });
+    
+callback = {
+    map fn cba = callbackMap fn cba,
+    flatten cba = callbackFlatten cba,
+    bind fn cba = 
+        _callbackFlatten (_callbackMap fn cba),
+    newPromise () = _newPromise (),
+    toFuture cba = 
+       (prom = _newPromise ();
+        cba do v: prom.setValue v done;
+        prom)
+};
     
      
 {
-
+	callback,
     newLinkable,
     shutdownLinkable,
     linkLinkable,
