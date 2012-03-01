@@ -128,7 +128,7 @@ toRunnable fn =
    (import java.lang.Runnable;
     class StdRunnable extends Runnable
         void run () 
-            fn (),
+            _ = fn (),
     end;
     new StdRunnable() as ~Runnable);
 withThreadLocal threadLocal newValue ac = 
@@ -168,98 +168,18 @@ defaultExecutor =
 
 async opts fn   =
   (import java.lang.Runnable;
-   import java.util.concurrent:TimeUnit, Callable, Executor;
-   var executor = defaultExecutor as ~Executor;
+   import java.util.concurrent:TimeUnit, Callable, ExecutorService;
+   var executor = defaultExecutor as ~ExecutorService;
     for opts do opt:
         case opt of
         Executor ex: executor := ex;
         esac
     done;
     
-    prom = newPromise ();
-    
-    runnable = toRunnable do:
-            try
-                prom.setValue (Value (fn ()))
-            catch Throwable ex:
-                prom.setValue (Exception ex)
-            yrt
-        done;
+    runnable = toRunnable fn;
         
-    executor#execute(runnable));
+    executor#submit(runnable));
 	
-_newTaskStruct task converter = 
-	   (import java.util.concurrent.ForkJoinTask;
-		{
-			task is ~ForkJoinTask,
-			converter is ~Object -> 'a
-		});
-
-forkJoin = {
-	pool = 
-	   (import java.util.concurrent.ForkJoinPool;
-		new ForkJoinPool()),
-		
-		
-	recursiveTask fn = 
-	   (import java.util.concurrent.RecursiveTask;
-		class StdRecursiveTask extends RecursiveTask
-			Object compute()
-				res = ((fn is () -> 'a) ()) unsafely_as ~Object;
-				res,
-		end;
-		_newTaskStruct (new StdRecursiveTask ()) 
-				do x: x unsafely_as 'a done),
-
-	asyncTask converter =
-	   (import java.util.concurrent.ForkJoinTask;
-		class StdAsyncForkJoinTask extends ForkJoinTask
-			var result = () unsafely_as ~Object,
-			
-			boolean exec()
-				false,
-			
-			void setRawResult(Object res)
-				result := res,
-			void getRawResult()
-				result
-		end;
-		task = new AsyncForkJoinTask();
-		_newTaskStruct 
-			(task unsafely_as ~ForkJoinTask)
-			converter),
-			
-	executeTask opts fn is (() -> 'a) -> 'b=
-	   (ta = asyncTask do x: x unsafely_as 'a done;
-	    async opts do: 
-			try
-				ta.task#complete((fn ()) unsafely_as ~Object);
-			catch Throwable th:
-				ta.task#completeExceptional(th);
-			yrt
-		done;
-		ta),
-	execute taskStruct = 
-		taskStruct.converter (pool#invoke(taskStruct.task))
-};	
-
-   
-invoke taskStruct = 
-   (import java.util.concurrent.ForkJoinTask;
-    taskStruct.converter 
-		((taskStruct.task is ~ForkJoinTask)#invoke()));
-
-invokeAll taskStructs =
-   (import java.util.concurrent.ForkJoinTask;
-	toexec = taskStructs |> map do stru:
-		stru.task is ~ForkJoinTask
-	done;
-	ForkJoinTask#invokeAll(array toexec);
-	taskStructs |> map do stru:
-		r = stru.task#get();
-		stru.converter r;
-	done);
-		
     
 
 

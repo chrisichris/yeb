@@ -182,18 +182,20 @@ request opts url httpClient =
     
     _ = configFn builder;
     
-    prom = newPromise();
+	forkjoin = load org.yeb.forkjoin;
+	
+    asyncTask = forkjoin.newAsyncTask do o: o unsafely_as ~Response done;
     
     class MyAsyncCompletitionHandler extends AsyncCompletionHandler 
             Object onCompleted(Response resp)
-                prom.setValue (Value resp),
+                asyncTask.task#complete(resp),
             void onThrowable(Throwable ta)
-                prom.setValue (Exception ta),
+                asyncTask.task#completeExceptionally(ta),
     end;
     
     builder#execute(new MyAsyncCompletitionHandler());
     
-    prom);
+    asyncTask);
 
 {    
     oauthHandlers,

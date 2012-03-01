@@ -1,0 +1,112 @@
+/*
+ * Copyright 2011 Christian Essl
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions
+ * and limitations under the License.
+ */
+
+module org.yeb.forkjoin;
+
+import java.util.concurrent:ForkJoinTask,
+							ForkJoinPool,
+							RecursiveTask,
+							Future;
+							
+import java.lang.Throwable;
+
+load org.yeb.std;
+
+
+pool = new ForkJoinPool();
+	
+
+newTaskStruct task converter = 
+	   (import java.util.concurrent.ForkJoinTask;
+		{
+			task is ~ForkJoinTask,
+			converter is ~Object -> 'a
+		});
+	
+recursiveTask fn = 
+   (class StdRecursiveTask extends RecursiveTask
+		Object compute()
+			res = ((fn is () -> 'a) ()) unsafely_as ~Object;
+			res,
+	end;
+	newTaskStruct (new StdRecursiveTask ()) 
+			do x: x unsafely_as 'a done);
+
+newAsyncTask converter =
+   (class StdAsyncForkJoinTask extends ForkJoinTask
+		var result = () unsafely_as ~Object,
+		
+		boolean exec()
+			false,
+		
+		void setRawResult(Object res)
+			result := res,
+		Object getRawResult()
+			result
+	end;
+	task = new StdAsyncForkJoinTask();
+	newTaskStruct 
+		(task unsafely_as ~ForkJoinTask)
+		converter);
+		
+asyncTask opts fn is 'o -> (() -> 'a) -> 'b=
+   (ta = newAsyncTask do x: x unsafely_as 'a done;
+	_ = async opts do: 
+		try
+			ta.task#complete((fn ()) unsafely_as ~Object);
+		catch Throwable th:
+			ta.task#completeExceptionally(th);
+		yrt
+	done;
+	ta);
+	
+execute taskStruct = 
+	taskStruct.converter (pool#invoke(taskStruct.task));
+
+   
+invoke taskStruct = 
+    if ForkJoinTask#inForkJoinPool() then
+		taskStruct.converter 
+			((taskStruct.task is ~ForkJoinTask)#invoke());
+	else
+		taskStruct.converter
+			(pool#invoke(taskStruct.task))
+	fi;
+	
+invokeAll taskStructs =
+	if ForkJoinTask#inForkJoinPool() then
+		toexec = taskStructs |> map do stru:
+			stru.task is ~ForkJoinTask
+		done;
+		ForkJoinTask#invokeAll(array toexec);
+		taskStructs |> map do stru:
+			r = (stru.task is ~ForkJoinTask)#get();
+			stru.converter r;
+		done;
+	else
+		taskStructs |> map do {task, converter}: 
+				{
+					future = pool#submit(task is ~ForkJoinTask),
+					converter
+				}
+			done
+		|> map do {future, converter}:
+				converter ((future is ~ForkJoinTask)#get());
+			done;
+	fi;		
+
+{pool, recursiveTask, newAsyncTask, asyncTask, execute, invoke, invokeAll} 
+	
