@@ -28,7 +28,6 @@ load org.yeb.std;
 
 pool = new ForkJoinPool();
 	
-
 newTaskStruct task converter = 
 	   (import java.util.concurrent.ForkJoinTask;
 		{
@@ -108,5 +107,13 @@ invokeAll taskStructs =
 			done;
 	fi;		
 
-{pool, recursiveTask, newAsyncTask, asyncTask, execute, invoke, invokeAll} 
+{
+	pool, 
+	recursiveTask, 
+	newAsyncTask, 
+	asyncTask, 
+	execute, 
+	invoke, 
+	invokeAll,
+} 
 	

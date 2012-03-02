@@ -22,6 +22,7 @@ import javax.sql:DataSource;
 import java.util.regex.Pattern;
 
 load org.yeb.std;
+forkjoin = load org.yeb.forkjoin;
 
 
 
@@ -487,7 +488,8 @@ exceptionString seq is ~SQLException -> string = (
     string (stb#toString());
 );
 
-
+task db fn =
+	forkjoin.asyncTask [] ( withConnection db fn);
 
 {
 
@@ -499,7 +501,8 @@ exceptionString seq is ~SQLException -> string = (
         esac,
 
     dataSource,
-        
+    
+    
     withConnection,
     withTLConnection,
     update,
@@ -512,6 +515,8 @@ exceptionString seq is ~SQLException -> string = (
     listStruct,
     maybeStruct,
     exceptionString,
+	task,
+	invoke db fn = forkjoin.invoke (task db fn),
 
 
     nullString = new DBValue((),Types#VARCHAR),
