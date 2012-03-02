@@ -19,6 +19,8 @@ module org.yeb.httpclient;
 
 load org.yeb.std;
 
+forkjoin = load org.yeb.forkjoin;
+
 
 oauthHandlers provider apiKey apiSecret callbackUrl serviceBuilderOpt =
    (import org.scribe.model:Verfifier;
@@ -182,7 +184,6 @@ request opts url httpClient =
     
     _ = configFn builder;
     
-	forkjoin = load org.yeb.forkjoin;
 	
     asyncTask = forkjoin.newAsyncTask do o: o unsafely_as ~Response done;
     
@@ -200,5 +201,7 @@ request opts url httpClient =
 {    
     oauthHandlers,
     client,
-    request,    
+    request,
+    invoke opts url httpClient = 
+		forkjoin.invoke (request opts url httpClient),
 }    
