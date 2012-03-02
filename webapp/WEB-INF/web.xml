@@ -8,6 +8,7 @@
     <filter-mapping>
         <filter-name>yeb-filter</filter-name>
         <url-pattern>*</url-pattern>
+		<async-supported>true</async-supported>
     </filter-mapping>
     <session-config>
         <session-timeout>

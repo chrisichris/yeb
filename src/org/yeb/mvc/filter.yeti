@@ -123,9 +123,22 @@ class YebFilter extends javax.servlet.Filter
 
         withClassLoader mainWebModuleClassLoader \(
             log#info("loading \(mainWebModuleName) yebWebMain module with classLoader \(cl)");
-            mainWebModule := (YebUtils#moduleLoad(cl, mainWebModuleName)) unsafely_as mainWebModuleType;
-            log#info("new \(mainWebModuleName) yebWebMain module initialized");
-            mainWebHandler := mainWebModule.handler;
+            try
+				_ = cl#loadClass(mainWebModuleName);
+			catch ClassNotFoundException ex:
+				s = ("Could not load yebMainModule. Please make sure that \(mainWebModuleName) is in directory \(yebWebDir)");
+				log#error(s);
+				throw ex;
+			yrt;
+			
+			try
+				mainWebModule := (YebUtils#moduleLoad(cl, mainWebModuleName)) unsafely_as mainWebModuleType;
+				log#info("new \(mainWebModuleName) yebWebMain module initialized");
+			catch ClassNotFoundException ex:
+				log#error("Error loading yebWebModule \(mainWebModuleName)",ex);
+				throw ex;
+			yrt;
+			mainWebHandler := mainWebModule.handler;
         );
     ),
 

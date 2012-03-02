@@ -4,6 +4,8 @@
         <description>The filter for the yeb application</description>
         <filter-name>yeb-filter</filter-name>
         <filter-class>org.yeb.mvc.YebFilter</filter-class>
+		<async-supported>true</async-supported>
+
     </filter>
     <filter-mapping>
         <filter-name>yeb-filter</filter-name>
