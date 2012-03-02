@@ -18,8 +18,10 @@ module org.yeb.mvc.handler;
 
 
 
-import java.lang:Thread, System, ClassLoader, Character, CharSequence;
-import java.util: Locale, Date;
+import java.lang: Thread, System, 
+				  ClassLoader, Character, CharSequence,
+				  Runnable;
+import java.util: Locale, Date, Collection;
 import java.util.regex:Pattern;
 import java.util.concurrent.ConcurrentHashMap;
 import java.text:NumberFormat, DecimalFormat, DateFormat, SimpleDateFormat;
@@ -27,9 +29,11 @@ import java.net: URLEncoder, URLDecoder;
 import java.io:File;
 
 import javax.servlet: ServletContext, FilterChain,ServletException,
-                      AsyncContext;
-import javax.servlet: Filter,FilterConfig,ServletRequest,ServletResponse;
-import javax.servlet.http: HttpServletRequest, HttpServletResponse,HttpSession;
+                      AsyncContext, ServletRequest, AsyncListener;
+import javax.servlet: Filter,FilterConfig,ServletRequest,ServletResponse,
+					  DispatcherType;
+import javax.servlet.http: HttpServletRequest, HttpServletResponse,HttpSession,
+							Part;
 
 import org.springframework.mock.web: MockFilterConfig, MockServletContext, 
     MockHttpServletRequest, MockHttpServletResponse,MockFilterChain;
@@ -37,32 +41,23 @@ import org.springframework.web.util.WebUtils;
 
 import yeti.lang: Fun, Struct;
 import org.yeb:ValidationException, YebUtils;
+
 load org.yeb.std;
 load org.yeb.mvc.webutils;
 load org.yeb.validation;
 
-typedef resultType = {status is number};
 
-typedef handlerType<a> = a -> resultType;
+typedef handlerType<a> = a -> boolean;
 typedef handlerAdapterType<a> = handlerType<a> -> handlerType<a>;
 
 
 
 
-handledStatusCode = 0;
-goonStatusCode = -1;
-skipStatusCode = -2;
-asyncStatusCode = -3;
-goonResult = {status = goonStatusCode};
-skipResult = {status = skipStatusCode};
-handledResult = {status = handledStatusCode};
-asyncResult = {status = asyncStatusCode};
 
 
-makeNewCtxt sctxt req res =
+makeNewCtxt sctxt asyncContext =
     {sctxt is ~ServletContext,
-     req is ~HttpServletRequest,
-     res is ~HttpServletResponse};
+     asyncContext is ~AsyncContext};
 
      
 asyncCtxt ctxt =
@@ -99,10 +94,6 @@ asyncListener fn =
     end;
     new TAsyncListener());
     
-asyncHandler opts asyncHandler ctxt =
-   (ac = asyncCtxt ctxt;
-    _ = async opts \(asyncHandler ac);
-    asyncResult);    
          
      
 
@@ -142,9 +133,56 @@ flashGetAndKeep ctx key =
 rootCtxt pathInfo sctxt req res  = 
    (reqn = new YebHttpServletRequestWrapper(() as ~Locale, "",
                                         pathInfo,() as ~java.util.Map, req);
-    makeNewCtxt sctxt reqn res);
+	async = reqn#startAsync(reqn, res);
+    makeNewCtxt sctxt async);
 
+class YebMockAsyncContext(ServletRequest req, ServletResponse res) extends AsyncContext
+	
+	var timeout = 1000,
+	
+	void addListener(AsyncListener lis)
+		(),
+	void addListener(AsyncListener lis, ServletRequest req, ServletResponse res)
+		(),
+	
+	void complete() (),
+	
+	AsyncListener createListener(Class cl)
+		failWith "Not supported",
+	
+	void dispatch() (),
+	
+	void dispatch(ServletContext ctxt, String path) (),
+	void dispatch(String path) (),
+	ServletRequest getRequest() req,
+	ServletResponse getResponse() res,
+	long getTimeout() timeout,
+	void setTimeout(long t) timeout := t,
+	boolean hasOriginalRequestAndResponse() true,
+	void start(Runnable ra) failWith "Not supported"
+end;
 
+class YebMockHttpServletRequest(MockServletContext ctxt, String reqMethod, String reqPath, MockHttpServletResponse resp) extends MockHttpServletRequest(ctxt,reqMethod, reqPath)
+	asyncContext = new YebMockAsyncContext((),resp),
+	
+	AsyncContext getAsyncContext() asyncContext,
+	boolean isAsyncStarted() true,
+	boolean isAsyncSupported() true,
+	AsyncContext startAsync() asyncContext,
+	AsyncContext startAsync(ServletRequest req, ServletResponse res)
+		asyncContext,
+	Collection getParts () failWith "Not implemented",
+	Part getPart(String name) failWith "Not implemented",
+	boolean authenticate(HttpServletResponse resp) failWith "Not implemented",
+	void logout() (),
+	DispatcherType getDispatcherType() failWith "Not implemented",
+	void login(String name, String pwd) failWith "Not implemented"
+	
+	
+end;
+	
+
+		
 
 mockCtxt opts = 
    (var reqMethod = "GET";
@@ -177,8 +215,8 @@ mockCtxt opts =
 
 
     mockServletCtxt = new MockServletContext(resourcePath);
-    mockReq = new MockHttpServletRequest(mockServletCtxt,reqMethod, reqPath);
     mockRes = new MockHttpServletResponse();
+    mockReq = new YebMockHttpServletRequest(mockServletCtxt,reqMethod, reqPath,mockRes);
 
     forHash params do k v:
         mockReq#addParameter(k,v);
@@ -188,6 +226,8 @@ mockCtxt opts =
     done;
 
     ctxt = rootCtxt reqPath mockServletCtxt mockReq mockRes;
+	
+	
     nc = ctxt with {
         mockServletCtxt,
         mockReq,
@@ -201,8 +241,6 @@ mockCtxt opts =
 
 
 idHandler handler is handlerAdapterType<'a> = handler;
-
-goonHandler ctxt is handlerType<'a> = goonResult;
 
 urlPatternToRegex pat = 
    (//:a-z is name
@@ -296,7 +334,7 @@ regexHandler requestUrl handler = (
     do octxt:
         oreq = request octxt;
         if checkMethod? and (meth != (strUpper oreq#getMethod())) then
-            goonResult
+            false
         else
             matcher = pattern#matcher(oreq#getPathInfo() as ~java.lang.String);
             if matcher#matches() then
@@ -327,10 +365,10 @@ regexHandler requestUrl handler = (
                         (oreq#getServletPath()) ^ (oreq#getPathInfo());
                     nreq#setServletPath(newServletPath);
                 fi;
-                nctxt = octxt with {req = (nreq as ~HttpServletRequest)};
+                nctxt = octxt with {asyncContext = nreq#startAsync(nreq,response octxt)};
                 handler nctxt
             else
-                goonResult
+                false
             fi;
         fi;
     done;
@@ -339,23 +377,17 @@ regexHandler requestUrl handler = (
 
 
 
-ifHandler condition handler ctxt =
-    if condition ctxt then
-       handler ctxt
-    else
-       goonResult
-    fi;
 
 
 
 
-runHandlers handlers ctxt is list<handlerType<'a>> -> 'a -> resultType =
+
+runHandlers handlers ctxt is list<handlerType<'a>> -> 'a -> boolean =
     if empty? handlers then
-        goonResult
+        false
     else
-        r = (head handlers) ctxt;
-        if r.status != goonStatusCode then
-            r;
+        if (head handlers) ctxt then
+            true;
         else
             runHandlers (tail handlers) ctxt;
         fi
@@ -427,7 +459,7 @@ localHandler locales handler is list<~Locale> -> handlerAdapterType<'a> =
                     nreq = 
                         new YebHttpServletRequestWrapper(false, (request ctxt));
                     nreq#setLocale(defaultL);
-                    ctxt with {req = (nreq as ~HttpServletRequest)};
+                    ctxt with {asyncContext = nreq#startAsync(nreq,response ctxt)};
                 fi;
         done;
     fi);
@@ -483,7 +515,7 @@ sessionHandler synchOnSession handler ctxt =
 
 initializedFilterHandler filter handler ctxt 
         is ~Filter -> handlerAdapterType<'a> = 
-   (var res = goonResult;
+   (var res = false;
    
     class MyChain extends FilterChain
         void doFilter(ServletRequest sreq, ServletResponse sres)
@@ -497,7 +529,9 @@ initializedFilterHandler filter handler ctxt
                        and (same? res (response ctxt)) then
                         handler ctxt
                     else
-                        handler (ctxt with {req,res}) 
+                        handler (ctxt with {
+									asyncContext = req#startAsync(req,res)
+								}) 
                     fi
                 else
                     failWith "Filter did not transfer HttpServletRequest or HttpServletResponse";
@@ -545,6 +579,7 @@ filterHandler sctxt filter params
     filter#init(cfg);
     initializedFilterHandler filter);
 
+	
 serviceHandler params service =
     case peekObject (service is {}) of
     Struct {fields, value}:
@@ -576,12 +611,12 @@ serviceHandler params service =
                     string res;
                 fi;
                 (response ctxt)#getWriter()#print(resstr);
-                {status=200};
+                true;
             done;
             services.[field] := fn;
         done;
         
-        defaultFn = do x y: goonResult done;
+        defaultFn = do x y: false done;
         setHashDefault services \defaultFn;
         
         do ctxt:
@@ -613,19 +648,11 @@ serviceHandler params service =
 
 {
 
-    handledStatusCode, 
-    goonStatusCode,
-    skipStatusCode,
-    asyncStatusCode,
-    goonResult,
-    skipResult,
-    handledResult,
 
     //makeNewCtxt,
     rootCtxt,
     mockCtxt,
 
-    asyncHandler,
     asyncListener,
     
     request,
@@ -646,8 +673,6 @@ serviceHandler params service =
     urlPatternToRegex,
 
     idHandler, 
-    goonHandler, 
-    ifHandler,
     regexHandler,
     runHandlers,
     sessionHandler,
@@ -659,5 +684,6 @@ serviceHandler params service =
     initializedFilterHandler,
     filterConfig, 
     filterHandler,
+	serviceHandler,
 }
 

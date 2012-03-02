@@ -33,13 +33,13 @@ log = getLogger "org.yeb.filter";
 
 mvc = load org.yeb.mvc.handler;
 configModule = load org.yeb.mvc.config;
+forkjoin = load org.yeb.forkjoin;
 
 
 //helper to invoke with classloader
-typedef resultType = {status is number};
 
 typedef ctxtType = {req is ~HttpServletRequest, res is ~HttpServletResponse, sctxt is ~ServletContext};
-typedef handlerType = ctxtType -> resultType;
+typedef handlerType = ctxtType -> boolean;
 
 
 typedef mainWebModuleType = {   destroy is () -> (),
@@ -96,6 +96,7 @@ class YebFilter extends javax.servlet.Filter
     var mainModuleName = "yebMain",
     var mainWebModuleName = "yebWebMain",
     var yebWebDir = "yebwebsrc",
+	var staticPathPrefix = "/static/",
     
 
     pathHelper = new org.springframework.web.util.UrlPathHelper(),
@@ -107,9 +108,9 @@ class YebFilter extends javax.servlet.Filter
     var mainModule is mainModuleType= {init _ = (), destroy _ = ()},
     var mainModuleClassLoader = () as ~ClassLoader,
 
-    var mainWebModule is mainWebModuleType = { init _ = (), destroy _ = (), handler = \(mvc.goonResult)},
+    var mainWebModule is mainWebModuleType = { init _ = (), destroy _ = (), handler = \false},
     var mainWebModuleModified = -1,
-    var mainWebHandler is handlerType = \(mvc.goonResult),
+    var mainWebHandler is handlerType = \false,
     var mainWebModuleClassLoader = () as ~ClassLoader,
 
 
@@ -214,54 +215,64 @@ class YebFilter extends javax.servlet.Filter
             req = sreq unsafely_as ~HttpServletRequest;
             res = sres unsafely_as ~HttpServletResponse;
 
-            development = (configModule.webDynamicReload?) and (strLength yebWebDir > 0);
-            if development then
-                //relaod the mainmodule if necessery (this method checks for last modified
-                loadWebModuleFromSource ();
-            fi;
+			pathInfo = (
+				p = pathHelper#getPathWithinApplication(req);
+				if strStarts? p "/" then strRight p 1 else p fi
+			);
+			
+			if strStarts? pathInfo staticPathPrefix then
+				filterChain#doFilter(req,res);				
+			else
 
-            var cl = mainWebModuleClassLoader;
-            var handler = mainWebHandler;
-            if development then
-                synchronized loadMutex \(
-                    cl := mainWebModuleClassLoader;
-                    handler := mainWebHandler;
-                );
-            fi;
+				development = (configModule.webDynamicReload?) and (strLength yebWebDir > 0);
+				if development then
+					//relaod the mainmodule if necessery (this method checks for last modified
+					loadWebModuleFromSource ();
+				fi;
 
-            //invoke the mainhandler here but with the main class loader
-            //lookup the subhandlers
-            status = withClassLoader mainWebModuleClassLoader \(
+				var cl = mainWebModuleClassLoader;
+				var handler = mainWebHandler;
+				if development then
+					synchronized loadMutex \(
+						cl := mainWebModuleClassLoader;
+						handler := mainWebHandler;
+					);
+				fi;
 
-                pathInfo = (
-                    p = pathHelper#getPathWithinApplication(req);
-                    if strStarts? p "/" then strRight p 1 else p fi
-                );
-                ctxt = mvc.rootCtxt pathInfo servletContext req res;
+				//invoke the mainhandler here but with the main class loader
+				//lookup the subhandlers
+				withClassLoader mainWebModuleClassLoader \(
 
-                log#debug("handling context for path: {}",pathInfo);
-                r = try
-                    handler ctxt;
-                catch Exception ex:
-                    if development then
-                        printError ex ["src",yebWebDir] res;
-                        //{status = 500};
-                        throw ex;
-                    else
-                        throw ex;
-                    fi;
-                yrt;
-                log#debug("handled context with status: {} for path: {}",r.status,pathInfo);
-                r.status
-            );
-            //depending on the result do further filter or skip
-            if status == mvc.asyncStatusCode then
-                ()
-            elif status < 0 then
-                filterChain#doFilter(req,res);
-            else 
-                () 
-            fi;
+					ctxt = mvc.rootCtxt pathInfo servletContext req res;
+					
+					forkjoin.execute (forkjoin.recursiveTask do:
+						log#debug("handling context for path: {}",pathInfo);
+						r = try
+							handler ctxt;
+						catch Exception ex:
+							if development then
+								printError ex ["src",yebWebDir] res;
+								//{status = 500};
+								throw ex;
+							else
+								throw ex;
+							fi;
+						yrt;
+						();
+						
+						if not r then
+							log#debug("could not handle path {}",pathInfo);
+							res#setStatus(404);
+							res#getWriter()#println("Resouce not found");
+						else
+							log#debug("handled context path: {}",pathInfo);
+						fi
+					done);
+					()
+				);
+				()
+
+			fi
         else
             filterChain#doFilter(sreq,sres)
         fi;

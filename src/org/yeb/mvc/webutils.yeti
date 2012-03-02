@@ -18,16 +18,20 @@ module org.yeb.mvc.webutils;
 
 import java.lang:Character;
 import java.net:URLEncoder, URLDecoder;
+import javax.servlet.AsyncContext;
 import javax.servlet.http:HttpServletRequest, 
-                          HttpServletResponse, Cookie, HttpSession;
+                          HttpServletResponse, 
+						  Cookie, 
+						  HttpSession;
 import org.owasp.esapi:ESAPI,HTTPUtilitiess;
 
 load org.yeb.std;
 load org.yeb.validation;
 
-request c = (r is ~HttpServletRequest = c.req; r);
-response c = (r is ~HttpServletResponse = c.res; r);
-servletContext c = (r is ~ServletContext = c.sctxt; r);
+asyncContext c = (c.asyncContext) is ~AsyncContext;
+request c = (asyncContext c)#getRequest() unsafely_as ~HttpServletRequest;
+response c = (asyncContext c)#getResponse() unsafely_as ~HttpServletResponse;
+servletContext c = (c.ctxt) is ~ServletContext;
 locale c = (request c)#getLocale();
 
 

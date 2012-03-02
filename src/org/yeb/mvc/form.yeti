@@ -19,6 +19,7 @@ module org.yeb.mvc.form;
 //+++++++++++++++++++++Form+++++++++++++++++++++++++++++
 
 import org.yeb.Message;
+import javax.servlet:AsyncContext;
 import javax.servlet.http:HttpServletRequest;
 
 load org.yeb.std;
@@ -37,7 +38,7 @@ typedef optionType<a> = None () | Some a;
 
 typedef valiType<a, b> = a -> b;
 
-typedef ctxtType = {req is ~HttpServletRequest};
+typedef ctxtType = {asyncContext is ~AsyncContext};
 
 typedef fieldType<a> = {
     name is string,
