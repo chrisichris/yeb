@@ -2,7 +2,7 @@
 
 module org.yeb.mvc.filterSpec;
 
-import org.springframework.mock.web:MockServletContext, MockHttpServletRequest, MockHttpServletResponse, MockFilterChain;
+import org.springframework.mock.web:MockServletContext, MockHttpServletResponse, MockFilterChain;
 
 load org.yeb.yebspec;
 
@@ -46,7 +46,8 @@ specificationsFor "org.yeb.mvc.filter" \(
         filter = initFilter ();
         cf = load org.yeb.mvc.config;
 
-        filter#doFilter(new MockHttpServletRequest(), new MockHttpServletResponse(), new MockFilterChain());
+		
+        filter#doFilter(h.newMockHttpServletRequest "GET" "foo", new MockHttpServletResponse(), new MockFilterChain());
         assertEquals "called" cf.staticPrefix;
 
     );

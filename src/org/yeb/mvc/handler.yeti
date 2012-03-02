@@ -139,7 +139,7 @@ rootCtxt pathInfo sctxt req res  =
 class YebMockAsyncContext(ServletRequest req, ServletResponse res) extends AsyncContext
 	
 	var timeout = 1000,
-	
+	var request = req,
 	void addListener(AsyncListener lis)
 		(),
 	void addListener(AsyncListener lis, ServletRequest req, ServletResponse res)
@@ -154,7 +154,8 @@ class YebMockAsyncContext(ServletRequest req, ServletResponse res) extends Async
 	
 	void dispatch(ServletContext ctxt, String path) (),
 	void dispatch(String path) (),
-	ServletRequest getRequest() req,
+	ServletRequest getRequest() request,
+	void setRequest(ServletRequest req) request := req,
 	ServletResponse getResponse() res,
 	long getTimeout() timeout,
 	void setTimeout(long t) timeout := t,
@@ -163,14 +164,21 @@ class YebMockAsyncContext(ServletRequest req, ServletResponse res) extends Async
 end;
 
 class YebMockHttpServletRequest(MockServletContext ctxt, String reqMethod, String reqPath, MockHttpServletResponse resp) extends MockHttpServletRequest(ctxt,reqMethod, reqPath)
-	asyncContext = new YebMockAsyncContext((),resp),
+	var asyncContext = new YebMockAsyncContext((),resp),
+	
+	//void init() asyncContext#setRequest(this),
 	
 	AsyncContext getAsyncContext() asyncContext,
 	boolean isAsyncStarted() true,
 	boolean isAsyncSupported() true,
-	AsyncContext startAsync() asyncContext,
-	AsyncContext startAsync(ServletRequest req, ServletResponse res)
+	AsyncContext startAsync() 
+		asyncContext := new YebMockAsyncContext(this, resp);
 		asyncContext,
+		
+	AsyncContext startAsync(ServletRequest req, ServletResponse res)
+		asyncContext := new YebMockAsyncContext(req,res);
+		asyncContext,
+		
 	Collection getParts () failWith "Not implemented",
 	Part getPart(String name) failWith "Not implemented",
 	boolean authenticate(HttpServletResponse resp) failWith "Not implemented",
@@ -181,7 +189,8 @@ class YebMockHttpServletRequest(MockServletContext ctxt, String reqMethod, Strin
 	
 end;
 	
-
+newMockHttpServletRequest method path =
+	new YebMockHttpServletRequest(new MockServletContext(), method is string, path is string, new MockHttpServletResponse());  
 		
 
 mockCtxt opts = 
@@ -652,6 +661,7 @@ serviceHandler params service =
     //makeNewCtxt,
     rootCtxt,
     mockCtxt,
+	newMockHttpServletRequest,
 
     asyncListener,
     
@@ -684,6 +694,6 @@ serviceHandler params service =
     initializedFilterHandler,
     filterConfig, 
     filterHandler,
-	serviceHandler,
+	//serviceHandler,
 }
 
