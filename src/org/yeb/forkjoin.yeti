@@ -28,24 +28,6 @@ load org.yeb.std;
 
 pool = new ForkJoinPool();
 
-mapCb fn cb = 
-	do cbfn:
-		cb do v:
-			cbfn (fn v)
-		done
-	done;
-
-flattenCb cb =
-	do cbfn:
-		cb do cb2:
-			cb2 cbfn
-		done
-	done;
-
-flatMapCb fn cb =
-	flattenCb (mapCb fn cb);
-	
-	
 newTaskStruct task converter = 
 	   (import java.util.concurrent.ForkJoinTask;
 		{
@@ -62,7 +44,7 @@ recursiveTask fn =
 	newTaskStruct (new StdRecursiveTask ()) 
 			do x: x unsafely_as 'a done);
 
-newAsyncTask cb =
+newAsyncTask converter =
    (class StdAsyncForkJoinTask extends ForkJoinTask
 		var result = () unsafely_as ~Object,
 		
@@ -75,14 +57,9 @@ newAsyncTask cb =
 			result
 	end;
 	task = new StdAsyncForkJoinTask();
-	(cb is ('v -> ()) -> ()) do v:
-		case v of
-			Value x: task#complete(x unsafely_as ~Object);
-			Exception ex: task#completeExceptionally(ex is ~Throwable);
-		esac;
 	newTaskStruct 
 		(task unsafely_as ~ForkJoinTask)
-		do v: v unsafely_as 'v);
+		converter);
 		
 asyncTask opts fn is 'o -> (() -> 'a) -> 'b=
    (ta = newAsyncTask do x: x unsafely_as 'a done;
@@ -94,6 +71,12 @@ asyncTask opts fn is 'o -> (() -> 'a) -> 'b=
 		yrt
 	done;
 	ta);
+
+_map fn task =
+	task with {
+		converter obj = fn (task.converter obj)
+	};
+	
 	
 execute taskStruct = 
 	taskStruct.converter (pool#invoke(taskStruct.task));
@@ -131,7 +114,8 @@ invokeAll taskStructs =
 	fi;		
 
 {
-	pool, 
+	pool,
+	map fn task = _map fn task,
 	recursiveTask, 
 	newAsyncTask, 
 	asyncTask, 

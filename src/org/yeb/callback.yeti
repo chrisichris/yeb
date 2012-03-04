@@ -1,0 +1,34 @@
+module org.yeb.callback;
+
+import java.lang.Throwable;
+
+_map fn cba s = 
+    do cb:
+        cba do a:
+            cb case a of
+                Exception ex: Exception ex;
+                Value v: 
+					try
+						Value (fn a)
+					catch Throwable th:
+						Exception th
+					yrt;
+            esac
+        done;
+    done;
+    
+flatten cba = 
+    do cb:
+        cba do cba2:
+            cba2 cb
+        done
+    done;
+
+bind fn cba = 
+	flatten (_map fn cba);
+
+{
+	map fn cba = _map fn cba,
+	flatten,
+	bind
+}
