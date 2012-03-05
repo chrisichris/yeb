@@ -73,7 +73,7 @@ oauthHandlers provider apiKey apiSecret callbackUrl serviceBuilderOpt =
         user_key = string accessToken#getToken();
         user_secret = string accessToken#getSecret();
         
-        tokenHandler {user_key, user_secret} ctxt);
+        tokenHandler {user_key, user_secret, apiKey, apiSecret} ctxt);
     
     callbackHandler tokenHandler = 
         mvc.regexHandler (All callbackUrl)

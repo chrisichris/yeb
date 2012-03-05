@@ -425,11 +425,12 @@ lazyHandler moduleName  is string -> handlerType<'b> =
         done;
     fi);
 
-handlersFact oldVhs = 
+handlersFact oldVhs adapter= 
    (vhs = array [];
     {
+		get adapter () = adapter,
         add handler =
-            push vhs handler,
+            push vhs (adapter handler),
         
         pattern regex handler = add ((regexHandler regex) handler),
         _get regex handler = add ((regexHandler (Get regex)) handler),
@@ -447,12 +448,12 @@ handlersFact oldVhs =
         get handler () =
             runHandlers (vhs ++ oldVhs),
 
-        newSubRouter () =
-            handlersFact (vhs ++ oldVhs),
+        newSubRouter adapter =
+            handlersFact (vhs ++ oldVhs) adapter,
     });
     
 
-newRouter () = handlersFact [];
+newRouter adapter = handlersFact [] adapter;
 
 localHandler locales handler is list<~Locale> -> handlerAdapterType<'a> = 
    (if empty? locales then
@@ -655,7 +656,7 @@ serviceHandler params service =
     esac;
 
 
-{
+(load org.yeb.mvc.webutils) with {
 
 
     //makeNewCtxt,

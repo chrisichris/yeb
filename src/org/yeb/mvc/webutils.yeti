@@ -72,24 +72,24 @@ isAjax ctxt =
 
 redirectView path ctx = (
     (response ctx)#sendRedirect(path);
-    {status = 302}
+    true
 );
 
 
 forwardView path ctx = (
     req = request ctx;
     (req#getRequestDispatcher(path))#forward(req,response ctx);
-    {status = 0};
+    true;
 );
 
 statusView status ctx = (
     (response ctx)#setStatus(status);
-    {status}
+    true
 );
 
 errorView errorCode ctx = (
     (response ctx)#sendError(errorCode);
-    {status = errorCode}
+    true
 );
 
 responseWriter ctx = (
@@ -104,6 +104,14 @@ contentType cT ctx = (
     (response ctx)#setContentType(c);
     responseWriter ctx;
 );
+
+writeView contentTypeStr text ctxt =
+	((contentType contentTypeStr ctxt) text;
+	 true);
+
+writeJSON struct ctxt =
+   (json = load org.yeb.json;
+	writeView "text/json" (json.writeJSON [] struct) ctxt); 
 
 headers hs ctx = (
     res = response ctx;
@@ -286,6 +294,9 @@ ptag name params content is string -> hash<string,string> -> list<string> -> str
     forwardView,
     statusView, 
     errorView, 
+	writeView,
+	writeJSON,
+
     contentType, 
     headers, 
     responseWriter, 
@@ -411,7 +422,5 @@ ptag name params content is string -> hash<string,string> -> list<string> -> str
     encodeForURL str = 
         ESAPI#encoder()#encodeForURL(str is string),
     encodeForXML str = 
-        ESAPI#encoder()#encodeForXML(str is string),
-
-
+        ESAPI#encoder()#encodeForXML(str is string)
 }
