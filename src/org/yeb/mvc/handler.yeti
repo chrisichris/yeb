@@ -440,7 +440,7 @@ handlersFact oldVhs adapter=
         options regex handler = add ((regexHandler (Options regex)) handler),
         head regex handler = add ((regexHandler (Head regex)) handler),
         
-        all regex handler add = ((regexHandler (All regex)) handler),        
+        all regex handler = add ((regexHandler (All regex)) handler),        
 
         lazy regex moduleName = 
             add $ (regexHandler (All regex)) (lazyHandler moduleName),

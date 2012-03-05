@@ -57,7 +57,7 @@ oauthHandlers provider apiKey apiSecret callbackUrl serviceBuilderOpt =
         confirmURL = service#getAuthorizationUrl(token);
         webutils.redirectView confirmURL ctxt);
 
-    _callbackInnerHandler tokenHandler ctxt =
+    callbackHandler tokenHandler ctxt =
        (oauth_token = webutils.param ctxt "oauth_token";
         oauth_verifier = webutils.param ctxt "oauth_verifier";
         username = webutils.param ctxt "username";
@@ -74,10 +74,6 @@ oauthHandlers provider apiKey apiSecret callbackUrl serviceBuilderOpt =
         user_secret = string accessToken#getSecret();
         
         tokenHandler {user_key, user_secret, apiKey, apiSecret} ctxt);
-    
-    callbackHandler tokenHandler = 
-        mvc.regexHandler (All callbackUrl)
-            (_callbackInnerHandler tokenHandler);
     
     {initHandler, callbackHandler, service, apiKey, apiSecret});
     
