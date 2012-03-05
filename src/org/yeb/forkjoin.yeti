@@ -23,7 +23,7 @@ import java.util.concurrent:ForkJoinTask,
 							
 import java.lang.Throwable;
 
-load org.yeb.std;
+std = load org.yeb.std;
 
 
 pool = new ForkJoinPool();
@@ -44,12 +44,12 @@ recursiveTask fn =
 	newTaskStruct (new StdRecursiveTask ()) 
 			do x: x unsafely_as 'a done);
 
-newAsyncTask converter =
+completableTask execFn converter =
    (class StdAsyncForkJoinTask extends ForkJoinTask
 		var result = () unsafely_as ~Object,
 		
 		boolean exec()
-			false,
+			(execFn this) is boolean,
 		
 		void setRawResult(Object res)
 			result := res,
@@ -60,17 +60,7 @@ newAsyncTask converter =
 	newTaskStruct 
 		(task unsafely_as ~ForkJoinTask)
 		converter);
-		
-asyncTask opts fn is 'o -> (() -> 'a) -> 'b=
-   (ta = newAsyncTask do x: x unsafely_as 'a done;
-	_ = async opts do: 
-		try
-			ta.task#complete((fn ()) unsafely_as ~Object);
-		catch Throwable th:
-			ta.task#completeExceptionally(th);
-		yrt
-	done;
-	ta);
+
 
 _map fn task =
 	task with {
@@ -111,14 +101,49 @@ invokeAll taskStructs =
 		|> map do {future, converter}:
 				converter ((future is ~ForkJoinTask)#get());
 			done;
-	fi;		
+	fi;	
+
+asyncTask opts fn is 'o -> (() -> 'a) -> 'b=
+    completableTask do task:
+			_ = std.async opts do: 
+				try
+					task#complete((((fn ()) is 'a)) unsafely_as ~Object);
+				catch Throwable th:
+					task#completeExceptionally(th);
+				yrt;
+			done;
+			false;
+		done
+		do x: x unsafely_as 'a done;
+	
+callbackTask cbfn is (((Value 'a | Exception 't) -> ()) -> 'r2) -> 'r=
+    completableTask 
+		do task:
+			_ = cbfn do ath:
+				case ath of
+					Value a: 
+						task#complete((a is 'a) unsafely_as ~Object);
+					Exception t:
+						task#completeExceptionally(t is ~Throwable);
+				esac;
+			done;
+			false
+		done
+		do x:x unsafely_as 'a done;
+		
+	
+
+async opts fn =
+	invoke (asyncTask opts fn);
 
 {
 	pool,
 	map fn task = _map fn task,
 	recursiveTask, 
-	newAsyncTask, 
-	asyncTask, 
+	completableTask, 
+	callbackTask,
+	asyncTask,
+	async,
 	execute, 
 	invoke, 
 	invokeAll,

@@ -488,8 +488,8 @@ exceptionString seq is ~SQLException -> string = (
     string (stb#toString());
 );
 
-task db fn =
-	forkjoin.asyncTask [] ( withConnection db fn);
+task mapFn db fn =
+	forkjoin.map mapFn (forkjoin.asyncTask [] ( withConnection db fn));
 
 {
 
@@ -516,7 +516,7 @@ task db fn =
     maybeStruct,
     exceptionString,
 	task,
-	invoke db fn = forkjoin.invoke (task db fn),
+	invoke db fn = forkjoin.invoke (task id db fn),
 
 
     nullString = new DBValue((),Types#VARCHAR),

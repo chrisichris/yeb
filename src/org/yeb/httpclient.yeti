@@ -141,7 +141,7 @@ client opts =
     esac);
 
 
-request opts url httpClient =
+request opts url httpClient cb =
    (import com.ning.http.client:AsyncHttpClient, Response,
                 AsyncCompletionHandler, SignatureCalculator;
     import com.ning.http.client.oauth:ConsumerKey, RequestToken,
@@ -185,23 +185,25 @@ request opts url httpClient =
     _ = configFn builder;
     
 	
-    asyncTask = forkjoin.newAsyncTask do o: o unsafely_as ~Response done;
-    
-    class MyAsyncCompletitionHandler extends AsyncCompletionHandler 
-            Object onCompleted(Response resp)
-                asyncTask.task#complete(resp),
-            void onThrowable(Throwable ta)
-                asyncTask.task#completeExceptionally(ta),
-    end;
-    
-    builder#execute(new MyAsyncCompletitionHandler());
-    
-    asyncTask);
-
+ 	class MyAsyncCompletitionHandler extends AsyncCompletionHandler 
+			Object onCompleted(Response resp)
+				cb (Value resp);
+				resp,
+			void onThrowable(Throwable ta)
+				cb (Exception ta),
+	end;
+	
+	builder#execute(new MyAsyncCompletitionHandler()));
+	
+requestTask mapFn opts url httpClient =
+	forkjoin.map mapFn
+		(forkjoin.callbackTask (request opts url httpClient));
+	
 {    
     oauthHandlers,
     client,
     request,
+	requestTask,
     invoke opts url httpClient = 
-		forkjoin.invoke (request opts url httpClient),
+		forkjoin.invoke (requestTask id opts url httpClient),
 }    
