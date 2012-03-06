@@ -52,9 +52,11 @@ oauthHandlers provider apiKey apiSecret callbackUrl serviceBuilderOpt =
     
     
     initHandler ctxt = 
-       (token = service#getRequestToken();
-        (webutils.session ctxt)#setAttribute("oauth.request_token", token);
-        confirmURL = service#getAuthorizationUrl(token);
+       (confirmURL = forkjoin.async [] \(
+            token = service#getRequestToken();
+            (webutils.session ctxt)#setAttribute("oauth.request_token", token);
+            service#getAuthorizationUrl(token));
+        numi = confirmURL + 2;    
         webutils.redirectView confirmURL ctxt);
 
     callbackHandler tokenHandler ctxt =
