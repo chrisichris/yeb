@@ -195,11 +195,18 @@ requestTask httpClient mapFn opts url =
 	forkjoin.map mapFn
 		(forkjoin.callbackTask (request  httpClient opts url));
 	
+invoke httpClient opts url = 
+    forkjoin.invoke (requestTask httpClient id opts url);
+
+getBody httpClient opts url =
+    string ((invoke httpClient opts url)#getResponseBody());
 {    
     oauthHandlers,
     client,
     request,
 	requestTask,
-    invoke httpClient opts url = 
-		forkjoin.invoke (requestTask httpClient id opts url),
+    invoke,
+    getBody,
+    getJson httpClient opts url =
+        (load org.yeb.json).parseJSON (getBody httpClient opts url),
 }    
