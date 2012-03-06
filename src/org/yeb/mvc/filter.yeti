@@ -108,8 +108,9 @@ class YebFilter extends javax.servlet.Filter
     var filterConfig = () as ~FilterConfig,
     var servletContext = () as ~ServletContext,
 
-    var mainModule is mainModuleType= {init _ = (), destroy _ = ()},
-    var mainModuleClassLoader = () as ~ClassLoader,
+    var mainModule is mainModuleType = {
+        destroy _ = ()
+        },
 
     var mainWebModule is mainWebModuleType = { init _ = (), destroy _ = (), handler = \mvc.notHandled},
     var mainWebModuleModified = -1,
@@ -125,7 +126,7 @@ class YebFilter extends javax.servlet.Filter
         log#info("yebWebMain module destroyed");
 
 
-        withClassLoader mainWebModuleClassLoader \(
+        withClassLoader cl \(
             log#info("loading \(mainWebModuleName) yebWebMain module with classLoader \(cl)");
             try
 				_ = cl#loadClass(mainWebModuleName);
@@ -146,24 +147,12 @@ class YebFilter extends javax.servlet.Filter
         );
     ),
 
-    loadWebModuleFromSource _ =
-        synchronized loadMutex \(
-            //check the last modified.
-            nmf = findLastModifiedFile mainWebModuleModified (new File(yebWebDir));
-            if nmf > mainWebModuleModified then
-                mainWebModuleModified := nmf;
-                log#debug("Reloading yeti-code in directory: \(yebWebDir)");
-                ycl = new YetiClassLoader(mainModuleClassLoader, 
-                    array [string yebWebDir], false);
-                loadWebModule ycl
-            fi),
 
 
     void init(FilterConfig fc)
         filterConfig := fc;
         configModule.filterConfig := fc;
         servletContext := fc#getServletContext();
-        
         
         
         if defined? fc#getInitParameter("yebMainModule") then
@@ -178,39 +167,29 @@ class YebFilter extends javax.servlet.Filter
             yebWebDir := strTrim (string fc#getInitParameter("yebWebDir"));
         fi;
 
-        mainModuleClassLoader := Thread#currentThread()#getContextClassLoader();
+        
+        mainWebModuleClassLoader := Thread#currentThread()#getContextClassLoader();
 
-        mainWebModuleClassLoader := mainModuleClassLoader;
-
-        withClassLoader mainModuleClassLoader \(
-            mcl = try 
-                _ = mainModuleClassLoader#loadClass(mainModuleName); 
-                Some mainModuleClassLoader 
-            catch ClassNotFoundException: 
-                none 
-            yrt;
-            
-            case mcl of
-            None _: log#info("No yebMain module - starting without");
-            Some cL:
-               (mmod = (YebUtils#moduleLoad(cL, mainModuleName)) 
-                    unsafely_as mainModuleType;
-                log#info("Initializing yebMain module");
-                mainModule := mmod);
-             esac;
-        );
-
+        //load the mainmodule form the standard classpaht
+        try 
+            _ = Thread#currentThread()#getContextClassLoader()#loadClass(mainModuleName); 
+            mainModule := YebUtils#moduleLoad(Thread#currentThread()#getContextClassLoader(), mainModuleName) 
+                unsafely_as mainModuleType;
+            log#info("yebMain module [\(mainModuleName)] initialized");
+        catch ClassNotFoundException: 
+            log#info("No yebMain module [\(mainModuleName)] found"); 
+        yrt;
+        
+        //load the webmodule if not development
         if (not configModule.webDynamicReload?) or (strLength yebWebDir == 0) then
-            loadWebModule mainModuleClassLoader;
-        else
-            loadWebModuleFromSource ();
+            loadWebModule Thread#currentThread()#getContextClassLoader();
         fi,
 
 
     void destroy()
         withClassLoader mainWebModuleClassLoader mainWebModule.destroy;
         log#info("yebWebMain destroyed");
-        withClassLoader mainModuleClassLoader mainModule.destroy;
+        mainModule.destroy ();
         log#info("yebMain destroyed"),
 
     void doFilter(ServletRequest sreq, ServletResponse sres, FilterChain filterChain)
@@ -230,7 +209,16 @@ class YebFilter extends javax.servlet.Filter
 				development = (configModule.webDynamicReload?) and (strLength yebWebDir > 0);
 				if development then
 					//relaod the mainmodule if necessery (this method checks for last modified
-					loadWebModuleFromSource ();
+                    synchronized loadMutex \(
+                        //check the last modified.
+                        nmf = findLastModifiedFile mainWebModuleModified (new File(yebWebDir));
+                        if nmf > mainWebModuleModified then
+                            mainWebModuleModified := nmf;
+                            log#debug("Reloading yeti-code in directory: \(yebWebDir)");
+                            ycl = new YetiClassLoader(Thread#currentThread()#getContextClassLoader(), 
+                                array [string yebWebDir], false);
+                            loadWebModule ycl
+                        fi)
 				fi;
 
 				var cl = mainWebModuleClassLoader;
@@ -244,7 +232,7 @@ class YebFilter extends javax.servlet.Filter
 
 				//invoke the mainhandler here but with the main class loader
 				//lookup the subhandlers
-				withClassLoader mainWebModuleClassLoader \(
+				withClassLoader cl \(
 
                     asyncContext = req#startAsync(req,res);
 					ctxt = mvc.rootCtxt pathInfo servletContext req res asyncContext;

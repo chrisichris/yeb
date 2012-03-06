@@ -36,11 +36,6 @@ specificationsFor "org.yeb.mvc.filter" \(
         _ = initFilter ();
     done;
 
-    should  "call init method on yebWebMain module" \(
-        _ = initFilter();
-        cf = load org.yeb.mvc.config;
-        assertEquals "initTest" cf.staticPrefix;
-    );
 
     should "invoke the handler method on access" \(
         filter = initFilter ();
