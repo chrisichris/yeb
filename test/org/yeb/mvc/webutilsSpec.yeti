@@ -17,26 +17,26 @@ specificationsFor "org.yeb.mvc.handler" \(
         ct = mockCtxt [Param ["foo":"2","str":"pstr"], Params ["faa":["1","2"], "mix":["name","2"]]];
         describe "reqParams" \(
             should "return a list with all" \(
-                assertEquals ["1","2"] (params 0  0 ct "faa");
+                assertEquals ["1","2"] (params "faa" ct);
             );
             should "return a list with one for one" \(
-                assertEquals ["2"] (params 0 0 ct "foo");
+                assertEquals ["2"] (params "foo" ct);
             );
             should "return a empty list with none" \(
-                assertEquals [] (params 0 0 ct "no-param");
+                assertEquals [] (params "no-param" ct);
             );
         );
 
         describe "reqParam" \(
             should "fail if no request" \(
-                assertException \(param ct "no-param");
+                assertException \(param "no-param" ct);
             );
             should "give one param" \(
-                assertEquals "2" (param ct "foo");
+                assertEquals "2" (param "foo" ct);
             );
 
             should "give one param if many" \(
-                assertEquals "1" (param ct "faa");
+                assertEquals "1" (param "faa" ct);
             );
 
         );

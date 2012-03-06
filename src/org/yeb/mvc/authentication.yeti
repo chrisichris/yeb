@@ -89,8 +89,7 @@ rememberMeAuthenticator userService nextAuthenticator ctxt =
 
 
 formAuthenticator loginHandler nextAuthenticator ctxt =
-        maybeParam ctxt "login_form" id |> maybe' \(nextAuthenticator ctxt)
-            do value:
+        ctxt |> maybeParam "login_form" \(nextAuthenticator ctxt) do value:
                 if value == "true" then
                     loginHandler ctxt
                 else

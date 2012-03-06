@@ -59,8 +59,8 @@ oauthHandlers provider apiKey apiSecret callbackUrl serviceBuilderOpt =
         webutils.redirectView confirmURL ctxt);
 
     callbackHandler tokenHandler ctxt =
-       (oauth_token = webutils.param ctxt "oauth_token";
-        oauth_verifier = webutils.param ctxt "oauth_verifier";
+       (oauth_token = webutils.param "oauth_token" ctxt;
+        oauth_verifier = webutils.param "oauth_verifier" ctxt;
         
         verifier = new Verifier(oauth_verifier);
         requestToken = 

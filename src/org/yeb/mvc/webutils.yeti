@@ -38,17 +38,16 @@ locale c = (request c)#getLocale();
 
 
 
-params min max ctx name = 
+params name ctx = 
  (ps = (request ctx)#getParameterValues(name);
   if defined? ps then
-    map' string (wrapArray ps) |> 
-        (load org.yeb.validation).valiListLength min max;
+    map' string (wrapArray ps);
   else
     []
   fi);
 
 
-param ctx name = 
+param name ctx = 
    (par = (request ctx)#getParameter(name);
     if defined? par then
         string par;
@@ -59,15 +58,21 @@ param ctx name =
     fi);
 
 
-maybeParam ctxt name vali =
+maybeParam name falseFn valiFn ctxt =
     (par = (request ctxt)#getParameter(name);
     if defined? par then
-        Some (vali (string par));
+        valiFn (string par);
     else
-        none
+        falseFn ()
     fi);
 
-
+allParams ctxt =
+   (jmap = (request ctxt)#getParameterMap();
+    res = [:];
+    forJavaMap jmap do k v:
+        res.[string k] := map string (wrapArray (v unsafely_as ~String[]))
+    done;
+    res);
 
 isAjax ctxt = 
     (request ctxt)#getHeader("X-Requested-With") == "XMLHttpRequest";
@@ -325,6 +330,7 @@ ptag name params content is string -> hash<string,string> -> list<string> -> str
     params, 
     param, 
     maybeParam, 
+    allParams,
     isAjax,
 
     newCookie opts name value  =

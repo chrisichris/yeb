@@ -61,8 +61,8 @@ specificationsFor "org.yeb.mvc.handler" \(
                 var p1 = -1;
                 var p2 = "";
                 rh = regexHandler (All ":num/*") do c:
-                    p1 := param c "num" |> (valiNum 0 1000 . strToNum);
-                    p2 := param c "rest";
+                    p1 := param "num" c |> (valiNum 0 1000 . strToNum);
+                    p2 := param "rest" c;
                     Completed "";
                 done;
                 r = rh (mockCtxt [Get "23/foo"]);
