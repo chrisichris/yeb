@@ -2,7 +2,10 @@
 
 do y:
     write x = println x;
-    writers = { e = write, u = write};
+    writer = {
+        escaped = write,
+        unescaped = write
+    };
 
 %>Write something here<%
 done

@@ -75,7 +75,7 @@ parseTeti src =
             if inCode then
                 compile true endToken rest ("<%=" :: result)
             else
-                result = "write (" :: endToken :: result;
+                result = "writer.escaped (" :: endToken :: result;
                 compile true ");" rest result;
             fi;
         "<%" :: rest :
@@ -86,7 +86,7 @@ parseTeti src =
             fi;
         "%>" :: rest :
             if inCode then
-                result = "write ('" :: endToken :: result; 
+                result = "writer.unescaped ('" :: endToken :: result; 
                 compile false "');" rest result
             else
                 compile false endToken rest ("%>" :: result);

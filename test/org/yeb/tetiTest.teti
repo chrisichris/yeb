@@ -7,6 +7,11 @@ stB = new StringBuffer();
 
 write str = (stB#append("\(str)"); ());
 
+writer = {
+    escaped = write,
+    unescaped = write
+};
+
 
 %>Hier kommt Kurt.<%
 

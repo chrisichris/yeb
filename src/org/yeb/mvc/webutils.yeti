@@ -77,6 +77,13 @@ allParams ctxt =
 isAjax ctxt = 
     (request ctxt)#getHeader("X-Requested-With") == "XMLHttpRequest";
 
+escape text =
+    (escapeT s =
+         "&\(Character#codePointAt(s.[0] is string, 0));";
+     strJoin '' (matchAll '[<>&"]' escapeT id "\(text)"));
+
+//"     
+    
 redirectView path ctx = 
    ((response ctx)#sendRedirect(path);
     Completed "");
@@ -95,12 +102,12 @@ errorView errorCode ctx =
    ((response ctx)#sendError(errorCode);
     Completed "");
 
-responseWriter ctx = (
-    resW = (response ctx)#getWriter();
-    do txt:
-        resW#print(string txt);
-    done;
-);
+responseWriter ctx = 
+   (resW = (response ctx)#getWriter();
+    {
+        escaped st = resW#print(escape st),
+        unescaped st = resW#print(st)
+    });
 
 contentType cT ctx = (
     c = if strEnds? cT ';utf-8' then cT else cT ^ ";utf-8" fi;
@@ -109,7 +116,7 @@ contentType cT ctx = (
 );
 
 writeView contentTypeStr text ctxt =
-	((contentType contentTypeStr ctxt) text;
+	((contentType contentTypeStr ctxt).unescaped text;
 	 Completed "");
 
 writeJSON struct ctxt =
@@ -140,8 +147,6 @@ cacheForSeconds seconds mustRevalidate ctx = (
 );
 
 
-
-
 htmlViewHelper () = {
     headers = array [],
     keywords = array [],
@@ -165,12 +170,6 @@ htmlViewHelper () = {
     style styles =
         ('<style type="text/css">/*<![CDATA[*/"'^styles^'/*]]>*/</style>'),
 
-    escape text =
-        (escapeI s =
-             "&\(Character#codePointAt(s.[0] is string, 0));";
-         strJoin '' (matchAll '[<>&"]' escapeI id "\(text)")),
-
-    (@) str = escape str,
 
     ifIE ieMarker content =
         ('<!--[if '^ieMarker^']>'^content^'<![endif]-->'),
@@ -187,6 +186,8 @@ htmlViewHelper () = {
         '<meta name="keywords" content="'^ (strJoin ", " kws)^'"/>',
     xhtmlDocType=
         '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">',
+        
+    escape
 };
 
 //+++++++++++++++++++++++Utils ++++++++++++++++++++++++++++
@@ -266,10 +267,6 @@ urlParam str name value = (
     string strb;
 );
 
-escape text =
-    (escapeT s =
-         "&\(Character#codePointAt(s.[0] is string, 0));";
-     strJoin '' (matchAll '[<>&"]' escapeT id "\(text)"));
 
 ptag name params content is string -> hash<string,string> -> list<string> -> string = (
     var strb = new java.lang.StringBuilder();
