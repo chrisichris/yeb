@@ -88,8 +88,14 @@ printError ex srcs resp =
                     // wr#print("\(i): \(line)<br>");
                     // i := i +1; done;
         // fi);
-    //for stacks printCode;    
-    (ex is ~Exception)#printStackTrace(wr));
+    //for stacks printCode;  
+    import java.io: PrintWriter, StringWriter;
+    strW = new StringWriter();
+    (ex is ~Exception)#printStackTrace(new PrintWriter(strW,true));
+    str = mvc.escape (string strW);
+    wr#print(str);
+    wr#print("</body></html>");
+    );
 
 
 
