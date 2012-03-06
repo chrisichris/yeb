@@ -73,7 +73,7 @@ oauthHandlers provider apiKey apiSecret callbackUrl serviceBuilderOpt =
         user_key = string accessToken#getToken();
         user_secret = string accessToken#getSecret();
         
-        tokenHandler {user_key, user_secret, apiKey, apiSecret} ctxt);
+        tokenHandler {user_key, user_secret, api_key = apiKey, api_secret = apiSecret} ctxt);
     
     {initHandler, callbackHandler, service, apiKey, apiSecret});
     
@@ -116,7 +116,7 @@ client opts =
                 #setUsePreemptiveAuth(true)
                 #setScheme(Realm$AuthScheme#BASIC)#build();
             applyConfig do b: b#setRealm(realm) done);
-        Oauth {api_key, api_secret, user_key, user_secret} :
+        OAuth {api_key, api_secret, user_key, user_secret} :
            (consumer = new ConsumerKey(api_key is string, api_secret is string);
             user = new RequestToken(user_key is string, user_secret is string);
             calc = new OAuthSignatureCalculator(consumer,user);
@@ -137,7 +137,7 @@ client opts =
     esac);
 
 
-request opts url httpClient cb =
+request httpClient opts url cb =
    (import com.ning.http.client:AsyncHttpClient, Response,
                 AsyncCompletionHandler, SignatureCalculator;
     import com.ning.http.client.oauth:ConsumerKey, RequestToken,
@@ -153,7 +153,7 @@ request opts url httpClient cb =
         case opt of
         Config fn : configFn := fn;
         Handler fn: handlerOpt := Some fn;
-        Oauth {api_key, api_secret, user_key, user_secret} :
+        OAuth {api_key, api_secret, user_key, user_secret} :
            (consumer = new ConsumerKey(api_key is string, api_secret is string);
             user = new RequestToken(user_key is string, user_secret is string);
             calc = new OAuthSignatureCalculator(consumer,user);
@@ -191,15 +191,15 @@ request opts url httpClient cb =
 	
 	builder#execute(new MyAsyncCompletitionHandler()));
 	
-requestTask mapFn opts url httpClient =
+requestTask httpClient mapFn opts url =
 	forkjoin.map mapFn
-		(forkjoin.callbackTask (request opts url httpClient));
+		(forkjoin.callbackTask (request  httpClient opts url));
 	
 {    
     oauthHandlers,
     client,
     request,
 	requestTask,
-    invoke opts url httpClient = 
-		forkjoin.invoke (requestTask id opts url httpClient),
+    invoke httpClient opts url = 
+		forkjoin.invoke (requestTask httpClient id opts url),
 }    
