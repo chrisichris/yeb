@@ -56,7 +56,6 @@ oauthHandlers provider apiKey apiSecret callbackUrl serviceBuilderOpt =
             token = service#getRequestToken();
             (webutils.session ctxt)#setAttribute("oauth.request_token", token);
             service#getAuthorizationUrl(token));
-        numi = confirmURL + 2;    
         webutils.redirectView confirmURL ctxt);
 
     callbackHandler tokenHandler ctxt =

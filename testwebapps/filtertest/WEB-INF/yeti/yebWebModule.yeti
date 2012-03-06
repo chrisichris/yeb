@@ -14,5 +14,5 @@ fi;
 
 {
     destroy _ = (),
-    handler = \(config.staticPrefix := "called"; false)
+    handler = \(config.staticPrefix := "called"; notHandled)
 }

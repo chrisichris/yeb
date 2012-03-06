@@ -17,7 +17,7 @@ specificationsFor "org.yeb.mvc.handler" \(
         ct = mockCtxt [Param ["foo":"2","str":"pstr"], Params ["faa":["1","2"], "mix":["name","2"]]];
         describe "handler with user" \(
             should "get the right user" \(
-                ha ctxt = (_ = ctxt.user;true);
+                ha ctxt = (_ = ctxt.user;Completed "");
                 rh = regexHandler (All "/foo") ha;
                 rh (ct with {user = "foo"});
             );
@@ -27,28 +27,28 @@ specificationsFor "org.yeb.mvc.handler" \(
 
     specification "of smale handleradapters" \(
         describe "id handler should return same handerl" \(
-			hd = do x: true done;
+			hd = do x: Completed "" done;
             assertSame hd (idHandler hd);
         );
 
         describe "runHandler" \(
             var c = array [false,false,false,false];
             resetC _ = c := array [false,false,false,false];
-            handlers = array [ \( c.[0] := true; false),
-                            \( c.[1] := true; false),
-                            \( c.[2] := true; false),
-                            \( c.[3] := true; false)];
+            handlers = array [ \( c.[0] := true; notHandled),
+                            \( c.[1] := true; notHandled),
+                            \( c.[2] := true; notHandled),
+                            \( c.[3] := true; notHandled)];
 
             should "continues run if goon" \(
                 r = runHandlers (list handlers) (mockCtxt []);
-                assertEquals false r;
+                assertEquals notHandled r;
                 assertEquals [true,true,true,true] (list c);
             );
             should "continue until handled" \(
                 resetC ();
-                handlers.[2] := \(c.[2] := true; true);
+                handlers.[2] := \(c.[2] := true; Completed "");
                 r = runHandlers (list handlers) (mockCtxt []);
-                assertEquals true r;
+                assertEquals (Completed "") r;
                 assertEquals [true,true,true,false] (list c);
             );
 
@@ -63,20 +63,20 @@ specificationsFor "org.yeb.mvc.handler" \(
                 rh = regexHandler (All ":num/*") do c:
                     p1 := param c "num" |> (valiNum 0 1000 . strToNum);
                     p2 := param c "rest";
-                    true;
+                    Completed "";
                 done;
                 r = rh (mockCtxt [Get "23/foo"]);
-                assertEquals true r;
+                assertEquals (Completed "") r;
                 assertEquals 23 p1;
                 assertEquals p2 "foo";
 
             );
 
-            should "not call handler and return goonResult if no match" \(
+            should "not call handler and return notHandled if no match" \(
                 var called = false;
                 rh = regexHandler (All "index") 
-                    do: called := true; true done;
-                assertEquals false (rh (mockCtxt [Get "/"]));
+                    do: called := true; Completed "" done;
+                assertEquals notHandled (rh (mockCtxt [Get "/"]));
                 assertFalse called;
             );
 
@@ -84,13 +84,13 @@ specificationsFor "org.yeb.mvc.handler" \(
                 var called = false;
                 rh = regexHandler (Post "index") do:
                     called := true;
-                    true
+                    Completed ""
                 done;
 
-                assertEquals false (rh (mockCtxt [Get "index"]));
+                assertEquals notHandled (rh (mockCtxt [Get "index"]));
                 assertFalse called;
 
-                assertEquals true (rh (mockCtxt [Post "index"]));
+                assertEquals (Completed "") (rh (mockCtxt [Post "index"]));
                 assertTrue called;
 
             );
@@ -99,14 +99,14 @@ specificationsFor "org.yeb.mvc.handler" \(
                 var called = false;
                 rh = regexHandler (All 'index') do:
                     called := true;
-                    true;
+                    Completed "";
                 done;
 
-                assertEquals true (rh (mockCtxt [Get "index"]));
+                assertEquals (Completed "") (rh (mockCtxt [Get "index"]));
                 assertTrue called;
 
                 called := false;
-                assertEquals true (rh (mockCtxt [Post "index"]));
+                assertEquals (Completed "") (rh (mockCtxt [Post "index"]));
                 assertTrue called;
 
             );
@@ -117,7 +117,7 @@ specificationsFor "org.yeb.mvc.handler" \(
                 rh = regexHandler (All 'index/*') do c:
                     sp := (request c)#getServletPath();
                     pi := (request c)#getPathInfo();
-                    true;
+                    Completed "";
                 done;
 
                 _ = rh (mockCtxt [Get "index/foo"]);
