@@ -9,7 +9,7 @@ specificationsFor "org.yeb.std"\(
         should "return a random list of doubles" \(
             ls = randomList () |> take 1000;
             assertEquals 1000 (length ls);
-            ls |> forEach do v: assertTrue (v > 0 and v < 1) done;
+            for ls do v: assertTrue (v > 0 and v < 1) done;
         );
     );
     describe "getSome" \(

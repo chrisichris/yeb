@@ -206,8 +206,6 @@ listStarts? start l =
 maybeDefined defaultFn valueFn x =
     if defined? x then valueFn x else defaultFn () fi;
 
-onDefined valueFn x = 
-    if defined? x then Some (valueFn x) else none fi;
     
 maybe' defaultFn fn opt =
     case opt of
@@ -384,7 +382,6 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> =
     maybeHead,
     maybeAt,
     maybeDefined,
-    onDefined,
     maybe',
     getSome,
     some,
@@ -423,7 +420,6 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> =
         f();
     ),
 
-    forEach fun ls = for ls fun,
 
     findCodeForException,
 
