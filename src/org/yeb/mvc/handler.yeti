@@ -46,8 +46,8 @@ load org.yeb.std;
 load org.yeb.mvc.webutils;
 load org.yeb.validation;
 
-
-typedef handlerType<a> = a -> boolean;
+typedef handlerResult = Completed string | NotHandled string | Handling string;
+typedef handlerType<a> = a -> handlerResult;
 typedef handlerAdapterType<a> = handlerType<a> -> handlerType<a>;
      
      
@@ -320,7 +320,7 @@ regexHandler requestUrl handler = (
     do octxt:
         oreq = request octxt;
         if checkMethod? and (meth != (strUpper oreq#getMethod())) then
-            false
+            notHandled
         else
             matcher = pattern#matcher(oreq#getPathInfo() as ~java.lang.String);
             if matcher#matches() then
@@ -354,29 +354,22 @@ regexHandler requestUrl handler = (
                 nctxt = octxt with {req = nreq as ~HttpServletRequest};
                 handler nctxt
             else
-                false
+                notHandled
             fi;
         fi;
     done;
 );
 
 
-
-
-
-
-
-
-
-runHandlers handlers ctxt is list<handlerType<'a>> -> 'a -> boolean =
+runHandlers handlers ctxt is list<handlerType<'a>> -> 'a -> handlerResult =
     if empty? handlers then
-        false
+        notHandled
     else
-        if (head handlers) ctxt then
-            true;
-        else
-            runHandlers (tail handlers) ctxt;
-        fi
+        case (head handlers) ctxt of
+            NotHandled x :
+                runHandlers (tail handlers) ctxt;
+            x : x;
+        esac;
     fi;
 
 lazyHandler moduleName  is string -> handlerType<'b> =
@@ -502,7 +495,7 @@ sessionHandler synchOnSession handler ctxt =
 
 initializedFilterHandler filter handler ctxt 
         is ~Filter -> handlerAdapterType<'a> = 
-   (var res = false;
+   (var res = notHandled;
    
     class MyChain extends FilterChain
         void doFilter(ServletRequest sreq, ServletResponse sres)
@@ -596,12 +589,12 @@ serviceHandler params service =
                     string res;
                 fi;
                 (response ctxt)#getWriter()#print(resstr);
-                true;
+                Completed "";
             done;
             services.[field] := fn;
         done;
         
-        defaultFn = do x y: false done;
+        defaultFn = do x y: notHandled done;
         setHashDefault services \defaultFn;
         
         do ctxt:
@@ -641,14 +634,6 @@ serviceHandler params service =
 
     asyncListener,
     
-    request,
-    response,
-    locale, 
-    servletContext,
-
-    params,
-    param,
-    isAjax,
 
     flashKey, 
     flashGet, 

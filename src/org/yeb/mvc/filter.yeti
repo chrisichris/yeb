@@ -39,7 +39,10 @@ forkjoin = load org.yeb.forkjoin;
 //helper to invoke with classloader
 
 typedef ctxtType = {req is ~HttpServletRequest, res is ~HttpServletResponse, sctxt is ~ServletContext};
-typedef handlerType = ctxtType -> boolean;
+
+typedef handlerResult = Completed string | NotHandled string | Handling string;
+
+typedef handlerType = ctxtType -> handlerResult;
 
 
 typedef mainWebModuleType = {   destroy is () -> (),
@@ -108,9 +111,9 @@ class YebFilter extends javax.servlet.Filter
     var mainModule is mainModuleType= {init _ = (), destroy _ = ()},
     var mainModuleClassLoader = () as ~ClassLoader,
 
-    var mainWebModule is mainWebModuleType = { init _ = (), destroy _ = (), handler = \false},
+    var mainWebModule is mainWebModuleType = { init _ = (), destroy _ = (), handler = \mvc.notHandled},
     var mainWebModuleModified = -1,
-    var mainWebHandler is handlerType = \false,
+    var mainWebHandler is handlerType = \mvc.notHandled,
     var mainWebModuleClassLoader = () as ~ClassLoader,
 
 
@@ -243,7 +246,8 @@ class YebFilter extends javax.servlet.Filter
 				//lookup the subhandlers
 				withClassLoader mainWebModuleClassLoader \(
 
-					ctxt = mvc.rootCtxt pathInfo servletContext req res (req#startAsync(req, res));
+                    asyncContext = req#startAsync(req,res);
+					ctxt = mvc.rootCtxt pathInfo servletContext req res asyncContext;
 					
 					forkjoin.execute (forkjoin.recursiveTask do:
 						log#debug("handling context for path: {}",pathInfo);
@@ -259,14 +263,18 @@ class YebFilter extends javax.servlet.Filter
 							fi;
 						yrt;
 						();
+						case r of
+							NotHandled x: 
+							   (log#debug("could not handle path {}",pathInfo);
+								res#setStatus(404);
+								res#getWriter()#println("Resouce not found"));
+							Completed x:
+							   (asyncContext#complete();
+								log#debug("completed context path: {}",pathInfo));
+							Handling x:
+								log#debug("handling context path: {}", pathInfo);
+						esac;
 						
-						if not r then
-							log#debug("could not handle path {}",pathInfo);
-							res#setStatus(404);
-							res#getWriter()#println("Resouce not found");
-						else
-							log#debug("handled context path: {}",pathInfo);
-						fi
 					done);
 					()
 				);

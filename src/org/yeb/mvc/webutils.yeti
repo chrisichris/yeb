@@ -28,6 +28,8 @@ import org.owasp.esapi:ESAPI,HTTPUtilitiess;
 load org.yeb.std;
 load org.yeb.validation;
 
+notHandled = NotHandled "";
+
 asyncContext c = (c.asyncContext) is ~AsyncContext;
 request c = c.req is ~HttpServletRequest;
 response c = c.res is ~HttpServletResponse;
@@ -70,27 +72,23 @@ maybeParam ctxt name vali =
 isAjax ctxt = 
     (request ctxt)#getHeader("X-Requested-With") == "XMLHttpRequest";
 
-redirectView path ctx = (
-    (response ctx)#sendRedirect(path);
-    true
-);
+redirectView path ctx = 
+   ((response ctx)#sendRedirect(path);
+    Completed "");
 
 
-forwardView path ctx = (
-    req = request ctx;
+forwardView path ctx = 
+   (req = request ctx;
     (req#getRequestDispatcher(path))#forward(req,response ctx);
-    true;
-);
+    Completed "");
 
-statusView status ctx = (
-    (response ctx)#setStatus(status);
-    true
-);
+statusView status ctx = 
+   ((response ctx)#setStatus(status);
+    Completed "");
 
-errorView errorCode ctx = (
-    (response ctx)#sendError(errorCode);
-    true
-);
+errorView errorCode ctx = 
+   ((response ctx)#sendError(errorCode);
+    Completed "");
 
 responseWriter ctx = (
     resW = (response ctx)#getWriter();
@@ -107,19 +105,18 @@ contentType cT ctx = (
 
 writeView contentTypeStr text ctxt =
 	((contentType contentTypeStr ctxt) text;
-	 true);
+	 Completed "");
 
 writeJSON struct ctxt =
    (json = load org.yeb.json;
 	writeView "text/json" (json.writeJSON [] struct) ctxt); 
 
-headers hs ctx = (
-    res = response ctx;
+headers hs ctx = 
+   (res = response ctx;
     forHash hs do k v:
         res#setHeader(k,v);
     done;
-    ();
-);
+    ());
 
 cacheForSeconds seconds mustRevalidate ctx = (
     res = response ctx;
@@ -289,6 +286,8 @@ ptag name params content is string -> hash<string,string> -> list<string> -> str
     HEADER_PRAGMA = "Pragma",
     HEADER_EXPIRES = "Expires",
     HEADER_CACHE_CONTROL = "Cache-Control",
+	
+	notHandled,
 
     redirectView, 
     forwardView,
