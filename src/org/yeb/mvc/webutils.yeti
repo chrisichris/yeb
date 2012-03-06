@@ -29,8 +29,8 @@ load org.yeb.std;
 load org.yeb.validation;
 
 asyncContext c = (c.asyncContext) is ~AsyncContext;
-request c = (asyncContext c)#getRequest() unsafely_as ~HttpServletRequest;
-response c = (asyncContext c)#getResponse() unsafely_as ~HttpServletResponse;
+request c = c.req is ~HttpServletRequest;
+response c = c.res is ~HttpServletResponse;
 servletContext c = (c.ctxt) is ~ServletContext;
 locale c = (request c)#getLocale();
 

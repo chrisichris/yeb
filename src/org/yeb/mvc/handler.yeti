@@ -49,36 +49,7 @@ load org.yeb.validation;
 
 typedef handlerType<a> = a -> boolean;
 typedef handlerAdapterType<a> = handlerType<a> -> handlerType<a>;
-
-
-
-
-
-
-makeNewCtxt sctxt asyncContext =
-    {sctxt is ~ServletContext,
-     asyncContext is ~AsyncContext};
-
      
-asyncCtxt ctxt =
-   (requ = request ctxt;
-    asyncCtxt = if not requ#isAsyncSupported() then
-        failWith "asynch is not supported on this request"
-    elif requ#isAsyncStarted() then
-        requ#getAsyncContext()
-    else
-        requ#startAsync(requ, response ctxt);
-    fi;
-        
-    ctxt with {
-        sctxt is ~ServletContext = ctxt.sctxt,
-        get req () = 
-            asyncCtxt#getRequest() unsafely_as ~HttpServletRequest,
-        get res () = 
-            asyncCtxt#getResponse() unsafely_as ~HttpServletResponse,
-        actxt is ~AsyncContext = asyncCtxt,
-        complete () = asyncCtxt#complete()
-    });
      
 asyncListener fn =
    (import javax.servlet:AsyncListener, AsyncEvent;
@@ -130,11 +101,17 @@ flashGetAndKeep ctx key =
     esac;
     r);
 
-rootCtxt pathInfo sctxt req res  = 
+rootCtxt pathInfo sctxt req res asyncContext = 
    (reqn = new YebHttpServletRequestWrapper(() as ~Locale, "",
                                         pathInfo,() as ~java.util.Map, req);
-	async = reqn#startAsync(reqn, res);
-    makeNewCtxt sctxt async);
+	{
+		asyncContext is ~AsyncContext,
+		req = reqn as ~HttpServletRequest,
+		res is ~HttpServletResponse,
+		sctxt is ~ServletContext
+	});
+		
+
 
 class YebMockAsyncContext(ServletRequest req, ServletResponse res) extends AsyncContext
 	
@@ -234,7 +211,7 @@ mockCtxt opts =
         mockReq#addHeader(k,v);
     done;
 
-    ctxt = rootCtxt reqPath mockServletCtxt mockReq mockRes;
+    ctxt = rootCtxt reqPath mockServletCtxt mockReq mockRes mockReq#startAsync();
 	
 	
     nc = ctxt with {
@@ -374,7 +351,7 @@ regexHandler requestUrl handler = (
                         (oreq#getServletPath()) ^ (oreq#getPathInfo());
                     nreq#setServletPath(newServletPath);
                 fi;
-                nctxt = octxt with {asyncContext = nreq#startAsync(nreq,response octxt)};
+                nctxt = octxt with {req = nreq as ~HttpServletRequest};
                 handler nctxt
             else
                 false
@@ -469,7 +446,7 @@ localHandler locales handler is list<~Locale> -> handlerAdapterType<'a> =
                     nreq = 
                         new YebHttpServletRequestWrapper(false, (request ctxt));
                     nreq#setLocale(defaultL);
-                    ctxt with {asyncContext = nreq#startAsync(nreq,response ctxt)};
+                    ctxt with {req = nreq as ~HttpServletRequest};
                 fi;
         done;
     fi);
@@ -539,9 +516,7 @@ initializedFilterHandler filter handler ctxt
                        and (same? res (response ctxt)) then
                         handler ctxt
                     else
-                        handler (ctxt with {
-									asyncContext = req#startAsync(req,res)
-								}) 
+                        handler (ctxt with {req}) 
                     fi
                 else
                     failWith "Filter did not transfer HttpServletRequest or HttpServletResponse";

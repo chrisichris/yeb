@@ -243,7 +243,7 @@ class YebFilter extends javax.servlet.Filter
 				//lookup the subhandlers
 				withClassLoader mainWebModuleClassLoader \(
 
-					ctxt = mvc.rootCtxt pathInfo servletContext req res;
+					ctxt = mvc.rootCtxt pathInfo servletContext req res (req#startAsync(req, res));
 					
 					forkjoin.execute (forkjoin.recursiveTask do:
 						log#debug("handling context for path: {}",pathInfo);
