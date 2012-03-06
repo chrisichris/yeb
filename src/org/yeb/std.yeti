@@ -240,7 +240,7 @@ ensure cond msg =
 findCodeForException linesSourround sourceDirs ex =
     (prov = (load org.yeb.yeticlassloadermodule).sourceReader 
                     sourceDirs false
-                    Thread#currentThread()#getContextClassLoader();
+                    none;
 
     exStack = 
         (rf exp exls = if nullptr? (exp is ~Throwable) then 

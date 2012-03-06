@@ -189,8 +189,10 @@ tetiSourceReader reader arg =
         r
     fi);
 
-sourceReader sourceDirs readFromClassPath parentClassLoader =
-   (r = if readFromClassPath then
+sourceReader sourceDirs readFromClassPath parentClassLoaderOpt =
+   (parentClassLoader = maybe Thread#currentThread()#getContextClassLoader() id
+        parentClassLoaderOpt;
+    r = if readFromClassPath then
         if empty? sourceDirs then 
             classSourceReader parentClassLoader;
         else 
@@ -210,7 +212,11 @@ class YetiClassLoader(ClassLoader parentOrNull, String[] sourceDirsA, boolean re
     parent = if nullptr? parentOrNull then 
                 Thread#currentThread()#getContextClassLoader() 
              else parentOrNull fi,
-    sr = sourceReader (if nullptr? sourceDirsA then [] else map string (list (wrapArray sourceDirsA)) fi) readFromClassPath parent,
+    sr = sourceReader 
+        (if nullptr? sourceDirsA then [] else map string (list (wrapArray sourceDirsA)) fi) 
+        readFromClassPath 
+        (Some parent),
+        
     reader = classParentLimitedSourceReader sr parent,
     classes = [:],
 

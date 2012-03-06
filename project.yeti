@@ -55,7 +55,7 @@ compileForWeb =
            do p:
                 srCode = 
                     "SourceReader (ym = load org.yeb.yeticlassloadermodule;"
-                    ^ "ym.sourceReader ['yebwebsrc'] false (() as ~java.lang.ClassLoader);)";
+                    ^ "ym.sourceReader ['yebwebsrc'] false none;)";
                 println srCode;
                 if (build.file "yebwebsrc")#exists() then
                     yeticTask 
