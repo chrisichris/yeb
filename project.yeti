@@ -9,6 +9,7 @@
 
 
 load ybuilder.core.base;
+build = load ybuilder.core.build;
 
 project.name := "yeb";
 project.groupId :="org.yeb";
@@ -49,6 +50,23 @@ dependency "org.hsqldb" "hsqldb" "2.0.0" [TestScope ()];
 dependency "org.springframework" "spring-jdbc" "3.0.5.RELEASE" [TestScope ()];
 
 
+compileForWeb = 
+    build.target "compileWebSrc" [InLivecycle livecycleTargets.generateTestResources] 
+           do p:
+                srCode = 
+                    "SourceReader (ym = load org.yeb.yeticlassloadermodule;"
+                    ^ "ym.sourceReader ['yebwebsrc'] false (() as ~java.lang.ClassLoader);)";
+                println srCode;
+                if (build.file "yebwebsrc")#exists() then
+                    yeticTask 
+                        dir.targetClasses 
+                        "yebwebsrc" 
+                        [Include "**/*.yeti", Include "**/*.teti"] 
+                        (Some srCode)
+                        pathes.compile 
+                        p;
+                fi
+           done;
 
 
 

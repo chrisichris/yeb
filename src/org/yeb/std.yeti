@@ -389,7 +389,7 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> =
     defaultExecutor,
     async,
     
-    onDefined v = if defined? v then Some v else none,
+    onDefined v = if defined? v then Some v else none fi,
     isString x = x ^ "",
     isNumber x = x + 0,
     isBoolean x = if x then x else x fi,
