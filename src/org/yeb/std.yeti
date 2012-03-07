@@ -237,49 +237,33 @@ ensure cond msg =
     throw new java.lang.IllegalStateException("\(msg)");
   fi;
 
-findCodeForException linesSourround sourceDirs ex =
-    (prov = (load org.yeb.yeticlassloadermodule).sourceReader 
+  
+findCodeAtLine sourceDirs fileName lineNumber linesSourround =
+   (prov = (load org.yeb.yeticlassloadermodule).sourceReader 
                     sourceDirs false
                     none;
-
-    exStack = 
-        (rf exp exls = if nullptr? (exp is ~Throwable) then 
-                    exls 
-                else 
-                    rf exp#getCause() (exp :: exls) 
-                fi;
-        reverse (rf ex []));
-    exStack |> map do ex:
-            stels = wrapArray (ex is ~Throwable)#getStackTrace()
-                    |> map do ste:
-                            arg = {
-                                var name = string 
-                                           (ste is ~java.lang.StackTraceElement)
-                                           #getFileName(), 
-                                fullpath = false
-                            };
-                            code = prov arg;
-                            {fileName = arg.name,
-                             code,
-                             lineNumber = ste#getLineNumber()
-                            } 
-                       done
-                    |> filter do {code}: code != undef_str done
-                    |> map do {fileName,code,lineNumber}:
-                            fromLineNumber = 
-                                (max 0 (lineNumber -linesSourround)) + 1;
-                            toLineNumber = lineNumber + linesSourround;
-                            lines = list (strSplit '\n' code)
-                                |> drop (fromLineNumber - 1)
-                                |> take (2 *linesSourround);
-                            {fileName,
-                            lines,
-                            lineNumber,
-                            fromLineNumber,
-                            toLineNumber};
-                        done;
-            {exception = ex, codeLines= stels}
-        done) ;
+    arg = {
+        var name = fileName, 
+        fullpath = false
+    };
+    code = prov arg;
+    if not defined? code then
+        none
+    else
+        fromLineNumber = 
+          (max 0 (lineNumber - linesSourround)) + 1;
+        toLineNumber = lineNumber + linesSourround;
+        lines = list (strSplit '\n' code)
+            |> drop (fromLineNumber - 1)
+            |> take (2 *linesSourround);
+        Some {fileName,
+        lines,
+        lineNumber,
+        fromLineNumber,
+        toLineNumber}
+    fi);
+        
+                        
 
 simpleTest testHash ()=
    (var bad = 0;
@@ -422,7 +406,7 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> =
     ),
 
 
-    findCodeForException,
+    findCodeAtLine,
 
     tableCreate = create,
     tableAddAll = addAll,

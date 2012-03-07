@@ -15,7 +15,7 @@ cf.webDynamicReload? := true;
 specificationsFor "org.yeb.mvc.filter" \(
 
     newConfig _ = (sc = new MockServletContext("webapps/general");
-                h.filterConfig sc ["yebWebDir":"testwebapps/filtertest/WEB-INF/yeti",
+                h.filterConfig sc ["yebWebSrcDir":"testwebapps/filtertest/WEB-INF/yeti",
                                    "yebMainModule":"org.yeb.mvc.filterSpecMainModule",
                                    "yebWebModule":"yebWebModule"]);
 
