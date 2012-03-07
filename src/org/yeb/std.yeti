@@ -141,7 +141,7 @@ withThreadLocal threadLocal newValue ac =
     yrt);
 
 
-defaultExecutor = 
+{exec = defaultExecutor, sexec = _defaultScheduledExecutor} = 
    (import java.util.concurrent:Executors, ThreadFactory, TimeUnit;
     import java.lang: Thread, Runnable, Runtime,InterruptedException;
 
@@ -152,24 +152,29 @@ defaultExecutor =
             th,
     end;
    
-    exec = Executors#newCachedThreadPool(new MyThF());
+    thF = new MyThF();
+    
+    exec = Executors#newCachedThreadPool(thF);
+    sexec = Executors#newSingleThreadScheduledExecutor(thF);
+    
     class ShutDR extends Runnable
         void run()
             try
                 exec#shutdown();
-                _ = exec#awaitTermination(2, TimeUnit#SECONDS);
+                _ = sexec#awaitTermination(1, TimeUnit#SECONDS);
+                _ = exec#awaitTermination(1, TimeUnit#SECONDS);
                 ()
             catch InterruptedException ex:
                 ()
             yrt,
     end;
     Runtime#getRuntime()#addShutdownHook(new Thread(new ShutDR()));
-    exec);
+    {exec, sexec});
 
+    
 async opts fn   =
-  (import java.lang.Runnable;
-   import java.util.concurrent:TimeUnit, Callable, ExecutorService;
-   var executor = defaultExecutor as ~ExecutorService;
+   (import java.util.concurrent:TimeUnit, Callable, ExecutorService;
+    var executor = defaultExecutor as ~ExecutorService;
     for opts do opt:
         case opt of
         Executor ex: executor := ex;
@@ -179,6 +184,33 @@ async opts fn   =
     runnable = toRunnable fn;
         
     executor#submit(runnable));
+
+schedule opts initialDelay fn =
+   (import java.util.concurrent:TimeUnit, Callable, ExecutorService;
+    executorOpts = array []; 
+    var schedular = _defaultScheduledExecutor;
+    var period = 0;
+    var delay = 0;
+    for opts do opt:
+        case opt of
+        Executor ex: push executorOpts (Executor ex);
+        Schedular sex: schedular := sex;
+        FixedRate p : period := p;
+        FixedDelay d: delay := d;
+        esac
+    done;
+    
+    runnable = toRunnable \(async executorOpts fn);
+    
+    if delay > 0 then
+        schedular#scheduleWithFixedDelay(runnable, initialDelay
+                ,delay,TimeUnit#MILLISECONDS);
+    elif period > 0 then
+        schedular#scheduleAtFixedRate(runnable, initialDelay 
+                    ,period,TimeUnit#MILLISECONDS);
+    else
+        schedular#schedule(runnable, initialDelay, TimeUnit#MILLISECONDS);
+    fi);
 	
     
 getLogger name is string -> ~Logger = LoggerFactory#getLogger(name);
@@ -372,6 +404,7 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> =
     
     defaultExecutor,
     async,
+    schedule,
     
     onDefined v = if defined? v then Some v else none fi,
     isString x = x ^ "",
