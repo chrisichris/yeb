@@ -51,55 +51,6 @@ typedef handlerType<a> = a -> handlerResult;
 typedef handlerAdapterType<a> = handlerType<a> -> handlerType<a>;
      
      
-asyncListener fn =
-   (import javax.servlet:AsyncListener, AsyncEvent;
-    class TAsyncListener extends AsyncListener
-        void onComplete(AsyncEvent ev)
-            fn (OnComplete ev),
-        void onError(AsyncEvent ev)
-            fn (OnError ev),
-        void onStartAsync(AsyncEvent ev)
-            fn (OnStartAsync ev),
-        void onTimeout(AsyncEvent ev)
-            fn (OnTimeout ev)
-    end;
-    new TAsyncListener());
-    
-         
-     
-
-
-flashKey = "org.yeb.session.flash";
-
-flashGetStruct ctx =
-   (ra = (request ctx)#getAttribute(flashKey);
-    if not defined? ra then
-        failWith "no FlashContext: flash acces must be wrapped in a flashHandler";
-    else
-        ra unsafely_as {var oldMap is hash<string,~Object>, 
-                        var newMap is hash<string, ~Object>}
-    fi);
-
-flashGet ctx key is 'b -> string -> (None () | Some 'a) = (
-    fc = flashGetStruct ctx;
-    if key in fc.newMap then
-        Some (fc.newMap.[key] unsafely_as 'a);
-    elif key in fc.oldMap then
-        Some (fc.oldMap.[key] unsafely_as 'a);
-    else
-        none
-    fi);
-
-flashPut ctx key value =
-   (flashGetStruct ctx).newMap.[key] := (value unsafely_as ~Object);
-    
-flashGetAndKeep ctx key =
-   (r = flashGet ctx key;
-    case r of
-        Some v: flashPut ctx key v;
-        None _: ();
-    esac;
-    r);
 
 rootCtxt pathInfo sctxt req res asyncContext = 
    (reqn = new YebHttpServletRequestWrapper(() as ~Locale, "",
@@ -632,13 +583,6 @@ serviceHandler params service =
     mockCtxt,
 	newMockHttpServletRequest,
 
-    asyncListener,
-    
-
-    flashKey, 
-    flashGet, 
-    flashPut,
-    flashGetAndKeep,
 
 
     urlPatternToRegex,
