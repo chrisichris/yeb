@@ -25,6 +25,7 @@ forkjoin = load org.yeb.forkjoin;
 oauthHandlers provider apiKey apiSecret callbackUrl serviceBuilderOpt =
    (import org.scribe.model:Verfifier;
     import org.scribe.oauth:OAuthService;
+    import org.scribe.exceptions: OAuthException;
     import org.scribe.model:Verifier,Token; 
     import org.scribe.builder:ServiceBuilder;
 
@@ -51,31 +52,44 @@ oauthHandlers provider apiKey apiSecret callbackUrl serviceBuilderOpt =
         esac;
     
     
-    initHandler ctxt = 
-       (confirmURL = forkjoin.async [] \(
-            token = service#getRequestToken();
-            (webutils.session ctxt)#setAttribute("oauth.request_token", token);
-            service#getAuthorizationUrl(token));
-        webutils.redirectView confirmURL ctxt);
+    initHandler exceptionHandler ctxt = 
+        try
+            confirmURL = forkjoin.async [] \(
+                token = service#getRequestToken();
+                (webutils.session ctxt)#setAttribute("oauth.request_token", 
+                                                    token);
+                service#getAuthorizationUrl(token));
+            webutils.redirectView confirmURL ctxt;
+        catch OAuthException ex:
+            exceptionHandler ex ctxt
+        yrt;
 
-    callbackHandler tokenHandler ctxt =
-       (oauth_token = webutils.param "oauth_token" ctxt;
-        oauth_verifier = webutils.param "oauth_verifier" ctxt;
+    handleCallback ctxt =
+        try
+            oauth_token = webutils.param "oauth_token" ctxt;
+            oauth_verifier = webutils.param "oauth_verifier" ctxt;
+            
+            verifier = new Verifier(oauth_verifier);
+            requestToken = 
+                (webutils.session ctxt)#getAttribute("oauth.request_token")
+                    unsafely_as ~Token;
+            
+            accessToken = 
+                service#getAccessToken(requestToken, verifier);
+            
+            user_key = string accessToken#getToken();
+            user_secret = string accessToken#getSecret();
         
-        verifier = new Verifier(oauth_verifier);
-        requestToken = 
-            (webutils.session ctxt)#getAttribute("oauth.request_token")
-                unsafely_as ~Token;
-        
-        accessToken = 
-            service#getAccessToken(requestToken, verifier);
-        
-        user_key = string accessToken#getToken();
-        user_secret = string accessToken#getSecret();
-        
-        tokenHandler {user_key, user_secret, api_key = apiKey, api_secret = apiSecret} ctxt);
+            OAuth {user_key, 
+                  user_secret, 
+                  api_key = apiKey, 
+                  api_secret = apiSecret} 
+                          
+        catch Exception ex:
+            Exception ex;
+        yrt;
     
-    {initHandler, callbackHandler, service, apiKey, apiSecret});
+    {initHandler, handleCallback, service, apiKey, apiSecret});
     
 
     
