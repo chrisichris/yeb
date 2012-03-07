@@ -317,6 +317,7 @@ ptag name params content is string -> hash<string,string> -> list<string> -> str
 
     request,
     response,
+    asyncContext,
     servletContext,
     locale,
     session ctxt = ((request ctxt)#getSession(true)) is ~HttpSession,

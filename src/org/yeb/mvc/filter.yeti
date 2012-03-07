@@ -153,6 +153,8 @@ printError exIn srcs resp =
 
 class YebFilter extends javax.servlet.Filter
 
+    unhandledPathes = ["favicon.ico":""],
+
     var mainModuleName = "yebMain",
     var mainWebModuleName = "yebWebMain",
     var yebWebSrcDir = "yebwebsrc",
@@ -211,6 +213,12 @@ class YebFilter extends javax.servlet.Filter
         configModule.filterConfig := fc;
         servletContext := fc#getServletContext();
         
+        if defined? fc#getInitParameter("unhandledPathes") then
+            pa = strSplit "," (string fc#getInitParameter("unhandledPathes"))
+                |> map strTrim;
+            for pa do s: unhandledPathes.[s] := "" done;
+        fi;
+            
         
         if defined? fc#getInitParameter("yebMainModule") then
             mainModuleName := strTrim (string fc#getInitParameter("yebMainModule"));
@@ -260,7 +268,8 @@ class YebFilter extends javax.servlet.Filter
 				if strStarts? p "/" then strRight p 1 else p fi
 			);
 			
-			if strStarts? pathInfo staticPathPrefix then
+			if (strStarts? pathInfo staticPathPrefix) 
+                or (pathInfo in unhandledPathes) then
 				filterChain#doFilter(req,res);				
 			else
                 development = (configModule.webDynamicReload?) and (strLength yebWebSrcDir > 0);
