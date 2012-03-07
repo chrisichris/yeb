@@ -188,6 +188,7 @@ async opts fn   =
 schedule opts initialDelay fn =
    (import java.util.concurrent:TimeUnit, Callable, ExecutorService;
     executorOpts = array []; 
+    var timeunit = TimeUnit#MILLISECONDS;
     var schedular = _defaultScheduledExecutor;
     var period = 0;
     var delay = 0;
@@ -197,6 +198,7 @@ schedule opts initialDelay fn =
         Schedular sex: schedular := sex;
         FixedRate p : period := p;
         FixedDelay d: delay := d;
+        Timeunit tu : timeunit := tu;
         esac
     done;
     
@@ -204,12 +206,12 @@ schedule opts initialDelay fn =
     
     if delay > 0 then
         schedular#scheduleWithFixedDelay(runnable, initialDelay
-                ,delay,TimeUnit#MILLISECONDS);
+                ,delay,timeunit);
     elif period > 0 then
         schedular#scheduleAtFixedRate(runnable, initialDelay 
-                    ,period,TimeUnit#MILLISECONDS);
+                    ,period,timeunit);
     else
-        schedular#schedule(runnable, initialDelay, TimeUnit#MILLISECONDS);
+        schedular#schedule(runnable, initialDelay,timeunit);
     fi);
 	
     
