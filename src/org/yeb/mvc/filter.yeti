@@ -153,12 +153,11 @@ printError exIn srcs resp =
 
 class YebFilter extends javax.servlet.Filter
 
-    unhandledPathes = ["favicon.ico":""],
+    unhandledPathes = array ["static/","favicon.ico"],
 
     var mainModuleName = "yebMain",
     var mainWebModuleName = "yebWebMain",
     var yebWebSrcDir = "yebwebsrc",
-	var staticPathPrefix = "/static/",
     
 
     pathHelper = new org.springframework.web.util.UrlPathHelper(),
@@ -216,7 +215,7 @@ class YebFilter extends javax.servlet.Filter
         if defined? fc#getInitParameter("unhandledPathes") then
             pa = strSplit "," (string fc#getInitParameter("unhandledPathes"))
                 |> map strTrim;
-            for pa do s: unhandledPathes.[s] := "" done;
+            for pa (push unhandledPathes);
         fi;
             
         
@@ -268,8 +267,8 @@ class YebFilter extends javax.servlet.Filter
 				if strStarts? p "/" then strRight p 1 else p fi
 			);
 			
-			if (strStarts? pathInfo staticPathPrefix) 
-                or (pathInfo in unhandledPathes) then
+			if any do n:strStarts? pathInfo n done unhandledPathes then
+                log#debug("Not handling \(pathInfo)");
 				filterChain#doFilter(req,res);				
 			else
                 development = (configModule.webDynamicReload?) and (strLength yebWebSrcDir > 0);
