@@ -54,7 +54,7 @@ oauthHandlers provider apiKey apiSecret callbackUrl serviceBuilderOpt =
     
     initHandler exceptionHandler ctxt = 
         try
-            confirmURL = forkjoin.async [] \(
+            confirmURL = forkjoin.async [] ctxt.monitor \(
                 token = service#getRequestToken();
                 (webutils.session ctxt)#setAttribute("oauth.request_token", 
                                                     token);
@@ -205,15 +205,15 @@ request httpClient opts url cb =
 	
 	builder#execute(new MyAsyncCompletitionHandler()));
 	
-requestTask httpClient mapFn opts url =
+requestTask httpClient mapFn opts monitor url=
 	forkjoin.map mapFn
-		(forkjoin.callbackTask (request  httpClient opts url));
+		(forkjoin.callbackTask monitor (request httpClient opts url));
 	
-invoke httpClient opts url = 
-    forkjoin.invoke (requestTask httpClient id opts url);
+invoke httpClient opts monitor url= 
+    forkjoin.invoke (requestTask httpClient id opts monitor url);
 
-getBody httpClient opts url =
-    string ((invoke httpClient opts url)#getResponseBody());
+getBody httpClient opts monitor url =
+    string ((invoke httpClient opts monitor url)#getResponseBody());
 {    
     oauthHandlers,
     client,
@@ -221,6 +221,4 @@ getBody httpClient opts url =
 	requestTask,
     invoke,
     getBody,
-    getJson httpClient opts url =
-        (load org.yeb.json).parseJSON (getBody httpClient opts url),
 }    

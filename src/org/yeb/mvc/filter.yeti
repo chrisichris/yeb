@@ -303,11 +303,12 @@ class YebFilter extends javax.servlet.Filter
                         asyncContext = req#startAsync(req,res);
                         ctxt = mvc.rootCtxt pathInfo servletContext req res asyncContext;
                         
-                        forkjoin.execute (forkjoin.recursiveTask do:
+                        forkjoin.execute (forkjoin.recursiveTask ctxt.monitor do:
                             log#debug("handling context for path: {}",pathInfo);
                             r = try
                                 handler ctxt;
                             catch Exception ex:
+                                ctxt.monitor.fire();
                                 if development then
                                     printError ex [yebWebSrcDir] res;
                                     //{status = 500};

@@ -24,6 +24,7 @@ import java.io: File;
 //import org.yeb.TMap;
 import org.slf4j: Logger, LoggerFactory;
 
+
 class Message(String key, String defaultFormat, Object[] params) 
     
     message = String#format(defaultFormat, params),
@@ -173,17 +174,71 @@ withThreadLocal threadLocal newValue ac =
 
     
 async opts fn   =
-   (import java.util.concurrent:TimeUnit, Callable, ExecutorService;
+   (import java.util.concurrent:TimeUnit, Callable, ExecutorService,Future;
     var executor = defaultExecutor as ~ExecutorService;
     for opts do opt:
         case opt of
+        Monitor mon: ();
         Executor ex: executor := ex;
         esac
     done;
     
-    runnable = toRunnable fn;
-        
-    executor#submit(runnable));
+    runnable = toRunnable fn;  
+    future = executor#submit(runnable);
+    for opts do opt:
+        case opt of
+        Monitor mon: mon.register \(_ = future#cancel(true));
+        _: ();
+        esac;
+    done;
+    future);
+
+    
+monitor () = 
+   (listeners = [:];
+    var fired = false;
+    
+    register ls = 
+       (fire = synchronized listeners \(
+            if fired then
+                true
+            else
+                listeners.[ls] := ();
+                false
+            fi);
+        if fire then
+            ls ();
+        fi);
+    unregister ls = 
+        synchronized listeners \(delete listeners ls);
+    fire () = 
+       (fire = synchronized listeners \(
+            if fired then
+                false
+            else
+                fired := true;
+                true
+            fi);
+        if fire then
+            forHash listeners do k v:
+                k ();
+            done;
+            clearHash listeners;
+        fi);
+    fired? = synchronized listeners \(fired);
+    {
+        unregister,
+        register,
+        fire,
+        fired?
+    });
+                
+nilMonitor = {
+    unregister fn is (() -> ()) -> ()= (),
+    register fn is (() -> ()) -> () = (),
+    fire () = (),
+    fired? = false
+};
 
 schedule opts initialDelay fn =
    (import java.util.concurrent:TimeUnit, Callable, ExecutorService;
@@ -194,6 +249,7 @@ schedule opts initialDelay fn =
     var delay = 0;
     for opts do opt:
         case opt of
+        Monitor ex: push executorOpts (Monitor ex);
         Executor ex: push executorOpts (Executor ex);
         Schedular sex: schedular := sex;
         FixedRate p : period := p;
@@ -204,7 +260,7 @@ schedule opts initialDelay fn =
     
     runnable = toRunnable \(async executorOpts fn);
     
-    if delay > 0 then
+    future = if delay > 0 then
         schedular#scheduleWithFixedDelay(runnable, initialDelay
                 ,delay,timeunit);
     elif period > 0 then
@@ -212,7 +268,13 @@ schedule opts initialDelay fn =
                     ,period,timeunit);
     else
         schedular#schedule(runnable, initialDelay,timeunit);
-    fi);
+    fi;
+    for opts do opt:
+        case opt of
+        Monitor mon: mon.register \(_ = future#cancel(true));
+        esac
+    done;
+    future);
 	
     
 getLogger name is string -> ~Logger = LoggerFactory#getLogger(name);
@@ -407,6 +469,8 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> =
     defaultExecutor,
     async,
     schedule,
+    monitor,
+    nilMonitor,
     
     onDefined v = if defined? v then Some v else none fi,
     isString x = x ^ "",

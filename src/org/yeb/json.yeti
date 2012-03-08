@@ -18,7 +18,6 @@ module org.yeb.json;
 
 import net.minidev.json: JSONValue, JSONStyle;
 import com.jayway.jsonpath:JsonPath;
-//import org.codehaus.jackson.map: ObjectMapper;
 import java.lang: StringBuilder,Number,Double,Float;
 import java.math: BigDecimal,BigInteger;
 import java.util: Iterator, Map;
@@ -39,9 +38,17 @@ jsonFactory = new org.codehaus.jackson.JsonFactory();
     jsonFactory#configure(JsonParser$Feature#ALLOW_BACKSLASH_ESCAPING_ANY_CHARACTER, true));
     
 
-parseJSON jsonStr = 
+parse opts jsonStr = 
    (import org.codehaus.jackson: JsonParser, JsonToken, JsonFactory, JsonGenerator,JsonEncoding;
-    jp = jsonFactory#createJsonParser((jsonStr) is string);
+
+   var jp = jsonFactory#createJsonParser((jsonStr) is string);
+    
+    for opts do opt:
+        case opt of
+        Parser parser: jp := parser;
+        esac
+    done;
+    
     readToken token =
         if nullptr? (token is ~JsonToken) then
             failWith "no json token either input is empty or not properyl formed";
@@ -89,7 +96,7 @@ parseJSON jsonStr =
     r = readToken (jp#nextToken());    
     r unsafely_as 'a);
 
-writeJSON opts stru = 
+write opts stru = 
    (import java.io:StringWriter;
     import org.codehaus.jackson.util:DefaultPrettyPrinter;
 
@@ -108,8 +115,8 @@ writeJSON opts stru =
     peekedWrite p = 
         if not defined? p then
             gen#writeNull();
-        //elif p instanceof ~byte[] then
-            //gen#writeBinary(p unsafely_as byte[]);
+        //elif (p unsafely_as ~Object)#getClass() == (new byte[])#getClass() then
+        //    gen#writeBinary(p unsafely_as byte[]);
         else
             case p of
             Number num: 
@@ -160,9 +167,6 @@ writeJSON opts stru =
 
 
 {
-
-    writeJSON,
-    parseJSON,
-
-
+    write,
+    parse,
 }

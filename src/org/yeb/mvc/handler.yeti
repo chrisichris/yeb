@@ -55,11 +55,20 @@ typedef handlerAdapterType<a> = handlerType<a> -> handlerType<a>;
 rootCtxt pathInfo sctxt req res asyncContext = 
    (reqn = new YebHttpServletRequestWrapper(() as ~Locale, "",
                                         pathInfo,() as ~java.util.Map, req);
+                                        
+    timeoutMonitor = monitor ();
+    (asyncContext is ~AsyncContext)#addListener(asyncListener do ev:
+        case ev of
+        OnTimeout ev: timeoutMonitor.fire ();
+        _ : ()
+        esac
+    done);
 	{
 		asyncContext is ~AsyncContext,
 		req = reqn as ~HttpServletRequest,
 		res is ~HttpServletResponse,
-		sctxt is ~ServletContext
+		sctxt is ~ServletContext,
+        monitor = timeoutMonitor,
 	});
 		
 
@@ -534,7 +543,7 @@ serviceHandler params service =
                 res = ((fun unsafely_as ~Object) unsafely_as 'a -> 'b) arg;
                 resstr = if res instanceof yeti.lang.Struct then
                     (response ctxt)#setContentType("text/json;utf-8");
-                    (load org.yeb.json).writeJSON [] res;
+                    (load org.yeb.json).write [] res;
                 else
                     (response ctxt)#setContentType("text/plain;utf-8");
                     string res;

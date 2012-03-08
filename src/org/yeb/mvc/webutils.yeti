@@ -172,7 +172,7 @@ writeView contentTypeStr text ctxt =
 
 writeJSON struct ctxt =
    (json = load org.yeb.json;
-	writeView "text/json" (json.writeJSON [] struct) ctxt); 
+	writeView "text/json" (json.write [] struct) ctxt); 
 
 headers hs ctx = 
    (res = response ctx;

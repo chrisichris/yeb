@@ -5,7 +5,7 @@ module org.yeb.jsonSpec;
 load org.yeb.yebspec;
 load org.yeb.std;
 
-load org.yeb.json;
+json = load org.yeb.json;
 
 specificationsFor "org.yeb.json"\(
 
@@ -20,8 +20,8 @@ specificationsFor "org.yeb.json"\(
                     father={name="Paul",age=40},
                     children= map do c : {name="child\(c)",age=c} done [1 .. 5],
                    };
-        str = writeJSON [] customer;
-        stru = parseJSON str;
+        str = json.write [] customer;
+        stru = json.parse [] str;
 
         should "make struct from string" \(
             assertEquals "John" stru.name;
