@@ -55,12 +55,12 @@ recursiveTask monitor fn is 'm -> (() -> 'a) -> taskStruct<'a> =
             (new StdRecursiveTask ()) 
 			do x: x unsafely_as 'a done);
 
-completableTask monitor execFn converter is 'mo -> 'efn -> converter<'a> -> taskStruct<'a> =
+completableTask monitor converter is 'mo -> converter<'a> -> taskStruct<'a> =
    (class StdAsyncForkJoinTask extends ForkJoinTask
 		var result = () unsafely_as ~Object,
 		
 		boolean exec()
-			(execFn this) is boolean,
+			false,
 		
 		void setRawResult(Object res)
 			result := res,
@@ -117,33 +117,31 @@ invokeAll taskStructs is list<taskStruct<'a>> -> list<'a>=
 	fi;	
 
 asyncTask opts monitor fn is 'o -> 'm -> (() -> 'a) -> taskStruct<'a>=
-    completableTask monitor
-        do task:
-			_ = std.async (opts ++ [Monitor monitor]) do: 
-				try
-					task#complete((fn ()) unsafely_as ~Object);
-				catch Throwable th:
-					task#completeExceptionally(th);
-				yrt;
-			done;
-			false;
-		done
-		do x: x unsafely_as 'a done;
+   (ct = completableTask 
+            monitor
+            do x: x unsafely_as 'a done;
+    _ = std.async (opts ++ [Monitor monitor]) do: 
+        try
+            ct.task#complete((fn ()) unsafely_as ~Object);
+        catch Throwable th:
+            ct.task#completeExceptionally(th);
+        yrt;
+    done;
+    ct);
 	
 callbackTask monitor cbfn is 'mo -> (((Value 'a | Exception 't) -> ()) -> 'r2) -> taskStruct<'a>=
-    completableTask monitor
-		do task:
-			_ = cbfn do ath:
-				case ath of
-					Value a: 
-						task#complete(a unsafely_as ~Object);
-					Exception t:
-						task#completeExceptionally(t is ~Throwable);
-				esac;
-			done;
-			false
-		done
-		do x:x unsafely_as 'a done;
+   (ct = completableTask 
+            monitor
+            do x:x unsafely_as 'a done;
+    cbfn do ath:
+            case ath of
+                Value a: 
+                    ct.task#complete(a unsafely_as ~Object);
+                Exception t:
+                    ct.task#completeExceptionally(t is ~Throwable);
+            esac;
+        done;
+    ct);
 		
 	
 
