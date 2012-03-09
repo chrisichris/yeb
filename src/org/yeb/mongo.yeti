@@ -2,13 +2,11 @@ module org.yeb.mongo;
 
 import java.lang:Number;
 import yeti.lang: AList, Struct, Tag, ByKey,GenericStruct;
-import com.mongodb: DB, DBCollection, 
+import com.mongodb: DBCollection, 
                     BasicDBObject, 
                     DBCursor, 
                     DBObject;
-import org.bson: BSONObject;
-import org.bson.types:ObjectId;
-import java.util: Arrays, Map, HashMap, List, Iterator,Pattern;
+import java.util: Map, HashMap, List, Iterator;
 
 
 load org.yeb.std;
