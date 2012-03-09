@@ -1,0 +1,15 @@
+module org.yeb.simpleSTest;
+
+import com.mongodb:Mongo;
+
+load org.yeb.std;
+mongo = load org.yeb.mongo;
+
+mongoDB = new Mongo();
+db = mongoDB#getDB("test");
+
+
+simpleTest [
+  "a first test": do: true done,
+  "a second test": do: 1 == 1 done
+];  

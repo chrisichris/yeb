@@ -42,6 +42,7 @@ dependency "org.springframework" "spring-test" "3.0.5.RELEASE" [];
 
 dependency "org.codehaus.jackson" "jackson-core-asl" "1.9.3" [];
 dependency "com.jayway.jsonpath" "json-path" "0.5.5" [];
+dependency "org.mongodb" "mongo-java-driver" "2.7.3" [];
 
 dependency "org.yeb" "yebspec" "1.0-SNAPSHOT" [TestScope ()];
 dependency "junit" "junit" "3.8.2" [TestScope ()];

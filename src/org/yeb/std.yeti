@@ -504,6 +504,9 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> =
         f();
     ),
 
+    regexPattern patstr =
+       (import java.util.regex.Pattern;
+        Pattern#compile(patstr)),
 
     findCodeAtLine,
 
