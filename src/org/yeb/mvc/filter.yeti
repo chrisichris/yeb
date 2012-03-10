@@ -159,6 +159,8 @@ class YebFilter extends javax.servlet.Filter
     var mainWebModuleName = "yebWebMain",
     var yebWebSrcDir = "yebwebsrc",
     
+    var dynamicReload = true;
+    
 
     pathHelper = new org.springframework.web.util.UrlPathHelper(),
 
@@ -181,11 +183,11 @@ class YebFilter extends javax.servlet.Filter
         mainWebModuleClassLoader := cl;
 
         withClassLoader oldCl mainWebModule.destroy;
-        log#info("yebWebMain module destroyed");
+        log#debug("yebWebMain module destroyed");
 
 
         withClassLoader cl \(
-            log#info("loading yebWebMain module [\(mainWebModuleName)] with classLoader [\(cl)]");
+            log#debug("loading yebWebMain module [\(mainWebModuleName)] with classLoader [\(cl)]");
             try
 				_ = cl#loadClass(mainWebModuleName);
 			catch ClassNotFoundException ex:
@@ -196,9 +198,8 @@ class YebFilter extends javax.servlet.Filter
 			
 			try
 				mainWebModule := (YebUtils#moduleLoad(cl, mainWebModuleName)) unsafely_as mainWebModuleType;
-				log#info("new \(mainWebModuleName) yebWebMain module initialized");
+				log#debug("new \(mainWebModuleName) yebWebMain module initialized");
 			catch ClassNotFoundException ex:
-				log#error("Error loading yebWebModule \(mainWebModuleName)",ex);
 				throw ex;
 			yrt;
 			mainWebHandler := mainWebModule.handler;
@@ -235,27 +236,30 @@ class YebFilter extends javax.servlet.Filter
         mainWebModuleClassLoader := Thread#currentThread()#getContextClassLoader();
 
         //load the mainmodule form the standard classpaht
-        try 
+        hasMainModule = try 
             _ = Thread#currentThread()#getContextClassLoader()#loadClass(mainModuleName); 
             mainModule := YebUtils#moduleLoad(Thread#currentThread()#getContextClassLoader(), mainModuleName) 
                 unsafely_as mainModuleType;
-            log#info("yebMain module [\(mainModuleName)] initialized");
+            log#debug("yebMain module [\(mainModuleName)] initialized");
+            true
         catch ClassNotFoundException: 
-            log#info("No yebMain module [\(mainModuleName)] found"); 
+            log#debug("No yebMain module [\(mainModuleName)] found");
+            false
         yrt;
         
         //load the webmodule if not development
-        if (not configModule.webDynamicReload?) or (strLength yebWebSrcDir == 0) then
-            log#info("loading webModule in init");
+        dynamicReload := configModule.webDynamicReload or strLength yebWebSrcDir == 0;
+        if dynamicReload then
+            log#debug("loading webModule in init");
             loadWebModule Thread#currentThread()#getContextClassLoader();
-        fi,
+        fi;
+        log#info("YebFilter started \(if hasMainModule then "with mainModule [\(mainModuleName)] " else " without mainModule " fi), dynamicReload: \(dynamicReload)"),
 
 
     void destroy()
         withClassLoader mainWebModuleClassLoader mainWebModule.destroy;
-        log#info("yebWebMain destroyed");
         mainModule.destroy ();
-        log#info("yebMain destroyed"),
+        log#info("YebFilter was shutdown"),
 
     void doFilter(ServletRequest sreq, ServletResponse sres, FilterChain filterChain)
         if (sreq instanceof HttpServletRequest) and (sres instanceof HttpServletResponse) then
@@ -304,7 +308,7 @@ class YebFilter extends javax.servlet.Filter
                         ctxt = mvc.rootCtxt pathInfo servletContext req res asyncContext;
                         
                         forkjoin.execute (forkjoin.recursiveTask ctxt.monitor do:
-                            log#debug("handling context for path: {}",pathInfo);
+                            log#trace("handling context for path: {}",pathInfo);
                             r = try
                                 handler ctxt;
                             catch Exception ex:
@@ -320,14 +324,14 @@ class YebFilter extends javax.servlet.Filter
                             ();
                             case r of
                                 NotHandled x: 
-                                   (log#debug("could not handle path {}",pathInfo);
+                                   (log#trace("could not handle path {}",pathInfo);
                                     res#setStatus(404);
                                     res#getWriter()#println("Resouce not found"));
                                 Completed x:
                                    (asyncContext#complete();
-                                    log#debug("completed context path: {}",pathInfo));
+                                    log#trace("completed context path: {}",pathInfo));
                                 Handling x:
-                                    log#debug("handling context path: {}", pathInfo);
+                                    log#trace("handling context path: {}", pathInfo);
                             esac;
                             
                         done);
