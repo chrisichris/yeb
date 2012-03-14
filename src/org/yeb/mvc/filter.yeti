@@ -159,7 +159,7 @@ class YebFilter extends javax.servlet.Filter
     var mainWebModuleName = "yebWebMain",
     var yebWebSrcDir = "yebwebsrc",
     
-    var dynamicReload = true;
+    var dynamicReload = true,
     
 
     pathHelper = new org.springframework.web.util.UrlPathHelper(),
@@ -248,8 +248,8 @@ class YebFilter extends javax.servlet.Filter
         yrt;
         
         //load the webmodule if not development
-        dynamicReload := configModule.webDynamicReload or strLength yebWebSrcDir == 0;
-        if dynamicReload then
+        dynamicReload = (configModule.webDynamicReload?) and (strLength yebWebSrcDir > 0);
+        if not dynamicReload then
             log#debug("loading webModule in init");
             loadWebModule Thread#currentThread()#getContextClassLoader();
         fi;
@@ -275,9 +275,8 @@ class YebFilter extends javax.servlet.Filter
                 log#debug("Not handling \(pathInfo)");
 				filterChain#doFilter(req,res);				
 			else
-                development = (configModule.webDynamicReload?) and (strLength yebWebSrcDir > 0);
                 try 
-                    if development then
+                    if dynamicReload then
                         //relaod the mainmodule if necessery (this method checks for last modified
                         synchronized loadMutex \(
                             //check the last modified.
@@ -293,7 +292,7 @@ class YebFilter extends javax.servlet.Filter
 
                     var cl = mainWebModuleClassLoader;
                     var handler = mainWebHandler;
-                    if development then
+                    if dynamicReload then
                         synchronized loadMutex \(
                             cl := mainWebModuleClassLoader;
                             handler := mainWebHandler;
@@ -313,7 +312,7 @@ class YebFilter extends javax.servlet.Filter
                                 handler ctxt;
                             catch Exception ex:
                                 ctxt.monitor.fire();
-                                if development then
+                                if dynamicReload then
                                     printError ex [yebWebSrcDir] res;
                                     //{status = 500};
                                     throw ex;
@@ -339,7 +338,7 @@ class YebFilter extends javax.servlet.Filter
                     );
                     ()
                 catch Exception ex:
-                    if development then
+                    if dynamicReload then
                         printError ex [yebWebSrcDir] res;
                         //{status = 500};
                         throw ex;
