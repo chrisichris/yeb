@@ -75,7 +75,12 @@ allParams ctxt =
     res);
 
 isAjax ctxt = 
-    (request ctxt)#getHeader("X-Requested-With") == "XMLHttpRequest";
+   (h = (request ctxt)#getHeader("X-Requested-With");
+    if defined? h and (strLower h) == "xmlhttprequest" then
+        true;
+    else
+        false
+    fi);
 
 escape text =
     (escapeT s =

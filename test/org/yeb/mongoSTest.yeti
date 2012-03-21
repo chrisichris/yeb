@@ -1,0 +1,10 @@
+module org.yeb.mongoSTest;
+
+load org.yeb.std;
+
+mongo = load org.yeb.mongo;
+
+
+simpleTest [
+  "toDBO": do: m = mongo.toDBO {test="test"}; true done,
+];  
