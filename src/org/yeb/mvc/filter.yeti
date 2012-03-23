@@ -270,8 +270,10 @@ class YebFilter extends javax.servlet.Filter
 				p = pathHelper#getPathWithinApplication(req);
 				if strStarts? p "/" then strRight p 1 else p fi
 			);
-			
-			if any do n:strStarts? pathInfo n done unhandledPathes then
+			if not nullptr? req#getAttribute("org.yeb.UnhandledDispatch") then
+                log#debug("Dispatched path \(pathInfo)");
+                filterChain#doFilter(req,res);
+			elif any do n:strStarts? pathInfo n done unhandledPathes then
                 log#debug("Not handling \(pathInfo)");
 				filterChain#doFilter(req,res);				
 			else
@@ -323,9 +325,9 @@ class YebFilter extends javax.servlet.Filter
                             ();
                             case r of
                                 NotHandled x: 
-                                   (log#trace("could not handle path {}",pathInfo);
-                                    res#setStatus(404);
-                                    res#getWriter()#println("Resouce not found"));
+                                   (log#trace("could not handle path {}: daspatching",pathInfo);
+                                    req#setAttribute("org.yeb.UnhandledDispatch", "dispatch");
+                                    asyncContext#dispatch());
                                 Completed x:
                                    (asyncContext#complete();
                                     log#trace("completed context path: {}",pathInfo));
