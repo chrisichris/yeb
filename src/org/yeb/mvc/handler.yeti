@@ -444,16 +444,6 @@ flashHandler handler ctxt is handlerAdapterType<'a> =
     done);
 
 
-///forces teh creation of a session and synchronizes on the session if
-///true on the frist argument
-sessionHandler synchOnSession handler ctxt = 
-   (session = (request ctxt)#getSession(true);
-    if synchOnSession then
-        mutex = WebUtils#getSessionMutex(session);
-        synchronized mutex \(handler ctxt);
-    else
-        (handler is handlerType<'a>) ctxt
-    fi);
 
 
 
@@ -568,7 +558,6 @@ serviceHandler service =
     urlPatternToRegex,
 
     regexHandler,
-    sessionHandler,
     newRouter,
     localHandler,
     flashHandler,
