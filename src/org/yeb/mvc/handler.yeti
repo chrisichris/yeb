@@ -408,44 +408,6 @@ localHandler locales handler is list<~Locale> -> handlerAdapterType<'a> =
 
 
 
-flashHandler handler ctxt is handlerAdapterType<'a> = 
-   (sess = (request ctxt)#getSession(true);
-    //synchronized on session lazly create the flash structure
-    flashStruct = synchronized sess do _:
-        f = sess#getAttribute(flashKey);
-        flashStruct = if not defined? f then
-            fr = {var oldMap = new java.util.HashMap(),
-                  var newMap = new java.util.HashMap()};
-            sess#setAttribute(flashKey, fr);
-            fr;
-        else
-            f unsafely_as {var oldMap is ~java.util.HashMap,
-                           var newMap is ~java.util.HashMap}
-        fi;
-        //store in the request
-        (request ctxt)#setAttribute(flashKey,flashStruct);
-        flashStruct;
-    done;
-    //synchronized on the flashstruct do the rest of the
-    //request handling
-    synchronized flashStruct do _:
-        try
-            handler ctxt
-        finally
-            //do the cleanup again synchronized on the session
-            synchronized sess do _:
-                flashStruct.oldMap#clear();
-                om = flashStruct.oldMap;
-                flashStruct.oldMap := flashStruct.newMap;
-                flashStruct.newMap := om;
-                sess#setAttribute(flashKey,flashStruct);
-            done;
-        yrt;
-    done);
-
-
-
-
 
 serviceHandlerSeperators = ["By": "", "From": "", "To": "", "At": ""];
 	
@@ -560,6 +522,5 @@ serviceHandler service =
     regexHandler,
     newRouter,
     localHandler,
-    flashHandler,
 }
 

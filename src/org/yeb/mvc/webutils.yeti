@@ -107,37 +107,6 @@ asyncListener fn =
      
 
 
-flashKey = "org.yeb.session.flash";
-
-flashGetStruct ctx =
-   (ra = (request ctx)#getAttribute(flashKey);
-    if not defined? ra then
-        failWith "no FlashContext: flash acces must be wrapped in a flashHandler";
-    else
-        ra unsafely_as {var oldMap is hash<string,~Object>, 
-                        var newMap is hash<string, ~Object>}
-    fi);
-
-flashGet ctx key is 'b -> string -> (None () | Some 'a) = (
-    fc = flashGetStruct ctx;
-    if key in fc.newMap then
-        Some (fc.newMap.[key] unsafely_as 'a);
-    elif key in fc.oldMap then
-        Some (fc.oldMap.[key] unsafely_as 'a);
-    else
-        none
-    fi);
-
-flashPut ctx key value =
-   (flashGetStruct ctx).newMap.[key] := (value unsafely_as ~Object);
-    
-flashGetAndKeep ctx key =
-   (r = flashGet ctx key;
-    case r of
-        Some v: flashPut ctx key v;
-        None _: ();
-    esac;
-    r);
 
     
 redirectView path ctx = 
@@ -348,10 +317,6 @@ ptag name params content is string -> hash<string,string> -> list<string> -> str
 	notHandled,
 
     asyncListener,
-    flashKey, 
-    flashGet, 
-    flashPut,
-    flashGetAndKeep,
 
     redirectView, 
     forwardView,

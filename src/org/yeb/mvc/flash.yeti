@@ -1,0 +1,79 @@
+module org.yeb.mvc.flash;
+
+load org.yeb.mvc.webutils;
+
+flashKey = "org.yeb.session.flash";
+
+flashHandler handler ctxt = 
+   (sess = (request ctxt)#getSession(true);
+    //synchronized on session lazly create the flash structure
+    flashStruct = synchronized sess do _:
+        f = sess#getAttribute(flashKey);
+        flashStruct = if not defined? f then
+            fr = {var oldMap = new java.util.HashMap(),
+                  var newMap = new java.util.HashMap()};
+            sess#setAttribute(flashKey, fr);
+            fr;
+        else
+            f unsafely_as {var oldMap is ~java.util.HashMap,
+                           var newMap is ~java.util.HashMap}
+        fi;
+        //store in the request
+        (request ctxt)#setAttribute(flashKey,flashStruct);
+        flashStruct;
+    done;
+    //synchronized on the flashstruct do the rest of the
+    //request handling
+    synchronized flashStruct do _:
+        try
+            handler ctxt
+        finally
+            //do the cleanup again synchronized on the session
+            synchronized sess do _:
+                flashStruct.oldMap#clear();
+                om = flashStruct.oldMap;
+                flashStruct.oldMap := flashStruct.newMap;
+                flashStruct.newMap := om;
+                sess#setAttribute(flashKey,flashStruct);
+            done;
+        yrt;
+    done);
+
+
+flashGetStruct ctx =
+   (ra = (request ctx)#getAttribute(flashKey);
+    if not defined? ra then
+        failWith "no FlashContext: flash acces must be wrapped in a flashHandler";
+    else
+        ra unsafely_as {var oldMap is hash<string,~Object>, 
+                        var newMap is hash<string, ~Object>}
+    fi);
+
+flashGet ctx key is 'b -> string -> (None () | Some 'a) = (
+    fc = flashGetStruct ctx;
+    if key in fc.newMap then
+        Some (fc.newMap.[key] unsafely_as 'a);
+    elif key in fc.oldMap then
+        Some (fc.oldMap.[key] unsafely_as 'a);
+    else
+        none
+    fi);
+
+flashPut ctx key value =
+   (flashGetStruct ctx).newMap.[key] := (value unsafely_as ~Object);
+    
+flashGetAndKeep ctx key =
+   (r = flashGet ctx key;
+    case r of
+        Some v: flashPut ctx key v;
+        None _: ();
+    esac;
+    r);
+
+{
+    flashHandler,
+    flashKey, 
+    flashGet, 
+    flashPut,
+    flashGetAndKeep,
+}
