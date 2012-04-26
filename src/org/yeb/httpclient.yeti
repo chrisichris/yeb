@@ -22,7 +22,7 @@ load org.yeb.std;
 forkjoin = load org.yeb.forkjoin;
 
 
-oauthHandlers provider apiKey apiSecret callbackUrl serviceBuilderOpt =
+oauthHandlers provider apiKey apiSecret callbackUrl callbackPattern opts =
    (import org.scribe.model:Verfifier;
     import org.scribe.oauth:OAuthService;
     import org.scribe.exceptions: OAuthException;
@@ -31,6 +31,13 @@ oauthHandlers provider apiKey apiSecret callbackUrl serviceBuilderOpt =
 
     webutils = load org.yeb.mvc.webutils;
     mvc = load org.yeb.mvc.handler;
+
+    var serviceBuilderOpt = none;
+    for opts do opt:
+        case opt of
+        ServiceBuilder fn: serviceBuilderOpt := Some fn;
+        esac;
+    done;
     
     providerCl = case provider of
         Twitter () : classOf org.scribe.builder.api.TwitterApi;
@@ -45,6 +52,7 @@ oauthHandlers provider apiKey apiSecret callbackUrl serviceBuilderOpt =
         #callback(callbackUrl)
         #apiKey(apiKey)
         #apiSecret(apiSecret);
+    
     
     service is ~OAuthService = case serviceBuilderOpt of
         None _ : builder#build();
@@ -63,7 +71,7 @@ oauthHandlers provider apiKey apiSecret callbackUrl serviceBuilderOpt =
         catch OAuthException ex:
             exceptionHandler ex ctxt
         yrt;
-
+    
     handleCallback ctxt =
         try
             oauth_token = webutils.param "oauth_token" ctxt;
@@ -88,7 +96,7 @@ oauthHandlers provider apiKey apiSecret callbackUrl serviceBuilderOpt =
         catch Exception ex:
             Exception ex;
         yrt;
-    
+
     {initHandler, handleCallback, service, apiKey, apiSecret});
     
 

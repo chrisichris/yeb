@@ -259,20 +259,10 @@ urlPatternToRegex pat =
     );
 
     
-regexHandler requestUrl handler = (
-    var checkMethod? = true;    
 
-    {fst = meth , snd = regexPattern} = case requestUrl of
-        Get us: pair "GET" us;
-        Post us: pair "POST" us;
-        Put us: pair "PUT" us;
-        Delete us: pair "DELETE" us;
-        Options us: pair "OPTIONS" us;
-        Head us: pair "HEAD" us;
-        All us: 
-            (checkMethod? := false;
-            pair "ALL" us);
-        esac;
+regexHandlerImpl method regexPattern handler = 
+   (meth = strUpper method;
+    var checkMethod? = meth == "ALL";
     
     {names, regex} = urlPatternToRegex regexPattern;
     pattern = Pattern#compile(regex);
@@ -320,7 +310,19 @@ regexHandler requestUrl handler = (
     done;
 );
 
-
+regexHandler requestUrl handler = 
+   ({fst = meth , snd = regexPattern} = 
+        case requestUrl of
+        Get us: pair "GET" us;
+        Post us: pair "POST" us;
+        Put us: pair "PUT" us;
+        Delete us: pair "DELETE" us;
+        Options us: pair "OPTIONS" us;
+        Head us: pair "HEAD" us;
+        All us: pair "ALL" us;
+        esac;
+    regexHandlerImpl meth regexPattern handler);
+    
 runHandlers handlers ctxt is list<handlerType<'a>> -> 'a -> handlerResult =
     if empty? handlers then
         notHandled
@@ -517,69 +519,103 @@ filterHandler sctxt filter params
     filter#init(cfg);
     initializedFilterHandler filter);
 
+
+serviceHandlerSeperators = ["By": "", "From": "", "To": "", "At": ""];
 	
-serviceHandler params service =
-    case peekObject (service is {}) of
+serviceHandler service =
+    case peekObject service of
     Struct {fields, value}:
        (serviceFuns = fields
-            |> concatMap do field: 
+            |> map do field: 
                 import yeti.lang.Fun;
                 fun = value field;
                 if fun instanceof Fun then
-                    if field =~ "(^any_.*)|(^get_.*)|(^post_.*)|(^put_.*)|(^delete_.*)" then
-                        []
+                    ma = (like "((^any)|(^get)|(^post)|(^put)|(^delete))(.*)" field) ();
+                    if not empty? ma then
+                        method = ma.[1];
+                        fun = value unsafely_as ~Fun;
+                        name = ma.[(length ma) - 1];
+                        var lastArg = false;
+                        names = matchAll "[A-Z][^A-Z]*" 
+                            do partA:
+                                part = partA.[0];
+                                if part in serviceHandlerSeperators then
+                                    lastArg := true;
+                                    none
+                                else
+                                    r = if lastArg then
+                                        Some (Param (strLower part));
+                                    else
+                                        Some (Part (strLower part));
+                                    fi;
+                                    lastArg := false;
+                                    r
+                                fi
+                            done (Some . Part . strLower) name
+                            |> catSome;
+                        
+                        pattern = names
+                            |> map do n:
+                                case n of
+                                Param na: ":\(na)";
+                                Part na: na;
+                                esac
+                            done
+                            |> strJoin "/";
+                            
+                        params = names 
+                            |> map do n:
+                                case n of
+                                Param na: Some na;
+                                Part : none;
+                                esac;
+                            done
+                            |> catSome;
+                        
+                        baseHandler = do ctxt:
+                            res = fold 
+                                do obj pa:
+                                    if (obj is ~Object) instanceof Fun then
+                                        fn = obj unsafely_as ~Fun;
+                                        maybeParam 
+                                            pa 
+                                            \(failWith "Excpeting param \(pa) but was not")
+                                            do v:
+                                                fn#apply(E v) 
+                                            done
+                                            ctxt;
+                                    else
+                                        failWith "Function [\(field)] has too few params missing [\(pa)]";
+                                    fi;
+                                done
+                                fun
+                                params;
+                            resstr = if res instanceof yeti.lang.Struct then
+                                (response ctxt)#setContentType("text/json;utf-8");
+                                (load org.yeb.json).write [] res;
+                            else
+                                (response ctxt)#setContentType("text/plain;utf-8");
+                                string res;
+                            fi;
+                            (response ctxt)#getWriter()#print(resstr);
+                            Completed "";
+                        done;
+                        
+                        handler = regexHandlerImpl method pattern baseHandler;
+                        
+                        Some handler
                     else
-                        [{field,
-                          fun = value unsafely_as ~Object }]
+                        none
                     fi
                 else
-                    []
+                    none
                 fi
-            done;
+            done
+            |> catSome;
         
-        services = [:];
-        for serviceFuns do {field, fun}:
-            fn = do ctxt arg:
-                res = ((fun unsafely_as ~Object) unsafely_as 'a -> 'b) arg;
-                resstr = if res instanceof yeti.lang.Struct then
-                    (response ctxt)#setContentType("text/json;utf-8");
-                    (load org.yeb.json).write [] res;
-                else
-                    (response ctxt)#setContentType("text/plain;utf-8");
-                    string res;
-                fi;
-                (response ctxt)#getWriter()#print(resstr);
-                Completed "";
-            done;
-            services.[field] := fn;
-        done;
-        
-        defaultFn = do x y: notHandled done;
-        setHashDefault services \defaultFn;
-        
-        do ctxt:
-            import java.util.HashMap;
-            import yeti.lang.GenericStruct;
-            
-            req = request ctxt;
-            path = (strLower req#getPathInfo());
-            fs = (strLower req#getMethod()) ^ '_' ^ path;
-            sfun = if fs in services then
-                    services.[fs];
-                else
-                    services.["any_"^path];
-                fi;
-            jm = new HashMap();
-            forJavaMap req#getParameterMap() do k v:
-                if defined? (v is ~Object) then
-                    value = array (v unsafely_as ~String[]);
-                    jm#put(k, E value)
-                fi;
-                ()
-            done;
-            arg = new GenericStruct(jm);
-            sfun ctxt arg;
-        done);    
+        router = newRouter id;
+        for serviceFuns router.add;
+        router.handler);
     _ : failWith "service must be a struct with service functions";
     esac;
 
