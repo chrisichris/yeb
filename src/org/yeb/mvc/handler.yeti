@@ -455,69 +455,6 @@ sessionHandler synchOnSession handler ctxt =
         (handler is handlerType<'a>) ctxt
     fi);
 
-initializedFilterHandler filter handler ctxt 
-        is ~Filter -> handlerAdapterType<'a> = 
-   (var res = notHandled;
-   
-    class MyChain extends FilterChain
-        void doFilter(ServletRequest sreq, ServletResponse sres)
-            res :=
-                if (sreq instanceof HttpServletRequest) and
-                   (sres instanceof HttpServletResponse)
-                then
-                    req = sreq unsafely_as ~HttpServletRequest;
-                    res = sres unsafely_as ~HttpServletResponse;
-                    if (same? req (request ctxt)) 
-                       and (same? res (response ctxt)) then
-                        handler ctxt
-                    else
-                        handler (ctxt with {req}) 
-                    fi
-                else
-                    failWith "Filter did not transfer HttpServletRequest or HttpServletResponse";
-                fi,
-    end;
-    filter#doFilter(request ctxt, response ctxt,new MyChain());
-    res);
-    
-filterConfig ctxt fparams is ~ServletContext -> hash<string,string> -> 'a = 
-   (import java.util:Enumeration, NoSuchElementException;
-    params is hash<~String,~String> = fparams:!!!;
-
-    class MyConfig extends FilterConfig
-        String getFilterName()
-            maybeAt \"filter: \(System#currentTimeMillis())" 
-                    id "filterName":!!! 
-                    params,
-
-        String getInitParameter(String name)
-            maybeAt \(() as ~String) id name:!!! params,
-
-        ServletContext getServletContext() ctxt,
-
-        Enumeration getInitParameterNames() (
-            var names = keys params;
-            class MyEnum extends Enumeration
-                boolean hasMoreElements() not (empty? names),
-                Object nextElement()
-                    if empty? names then
-                        throw new NoSuchElementException();
-                    else
-                        r = head names;
-                        names := tail names;
-                        r
-                    fi,
-            end;
-            new MyEnum();
-        ),
-    end;
-    new MyConfig());
-
-filterHandler sctxt filter params 
-        is 'b -> ~Filter -> hash<string,string> -> handlerAdapterType<'a> = 
-   (cfg = filterConfig sctxt params;
-    filter#init(cfg);
-    initializedFilterHandler filter);
 
 
 serviceHandlerSeperators = ["By": "", "From": "", "To": "", "At": ""];
@@ -639,11 +576,5 @@ serviceHandler service =
     newRouter,
     localHandler,
     flashHandler,
-    //fooServiceHandler = serviceHandler,
-
-    initializedFilterHandler,
-    filterConfig, 
-    filterHandler,
-	//serviceHandler,
 }
 
