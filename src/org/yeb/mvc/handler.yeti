@@ -567,7 +567,6 @@ serviceHandler service =
 
     urlPatternToRegex,
 
-    idHandler, 
     regexHandler,
     sessionHandler,
     newRouter,
