@@ -565,13 +565,10 @@ serviceHandler service =
     mockCtxt,
 	newMockHttpServletRequest,
 
-
-
     urlPatternToRegex,
 
     idHandler, 
     regexHandler,
-    runHandlers,
     sessionHandler,
     newRouter,
     localHandler,
