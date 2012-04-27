@@ -422,69 +422,109 @@ serviceHandler service =
                     ma = (like "((^any)|(^get)|(^post)|(^put)|(^delete))(.*)" field) ();
                     if not empty? ma then
                         method = ma.[1];
+                        pl = (length ma);
                         fun = value unsafely_as ~Fun;
-                        name = ma.[(length ma) - 1];
-                        var lastArg = false;
+                        
+                        name = ma.[pl - 1];
+                        
+                        var lastArg = 0;
                         names = matchAll "[A-Z][^A-Z]*" 
                             do partA:
                                 part = partA.[0];
-                                if part in serviceHandlerSeperators then
-                                    lastArg := true;
+                                if part == "Params" then
+                                    lastArg := 0;
+                                    Some (Params())
+                                elif part in serviceHandlerSeperators then
+                                    lastArg := 1;
                                     none
                                 else
-                                    r = if lastArg then
+                                    r = if lastArg == 1 then
                                         Some (Param (strLower part));
                                     else
                                         Some (Part (strLower part));
                                     fi;
-                                    lastArg := false;
+                                    lastArg := 0;
                                     r
                                 fi
                             done (Some . Part . strLower) name
                             |> catSome;
                         
+                        
+                        
+                        
+                        
                         pattern = names
+                            |> filter do v:
+                                case v of
+                                Part f: true;
+                                Param p: true;
+                                _ : false;
+                                esac
+                            done
                             |> map do n:
                                 case n of
                                 Param na: ":\(na)";
                                 Part na: na;
+                                _ : failWith "internal error must not be anything else";
                                 esac
                             done
                             |> strJoin "/";
-                            
+                        
                         params = names 
-                            |> map do n:
-                                case n of
-                                Param na: Some na;
-                                Part : none;
-                                esac;
-                            done
-                            |> catSome;
+                            |> filter do v:
+                                case v of
+                                Part _ : false;
+                                _ : true;
+                                esac
+                            done;
                         
                         baseHandler = do ctxt:
-                            res = fold 
+                            res1 = fold 
                                 do obj pa:
                                     if (obj is ~Object) instanceof Fun then
                                         fn = obj unsafely_as ~Fun;
-                                        maybeParam 
-                                            pa 
-                                            \(failWith "Excpeting param \(pa) but was not")
-                                            do v:
-                                                fn#apply(E v) 
-                                            done
-                                            ctxt;
+                                        case pa of
+                                        Param pn:
+                                            maybeParam 
+                                                pn 
+                                                \(failWith "Excpeting param \(pa) but was not")
+                                                do v:
+                                                    fn#apply(E v) 
+                                                done
+                                                ctxt;
+                                        Params _ :
+                                            fn#apply(E ctxt);
+                                        _ : fn;
+                                        esac;
                                     else
                                         failWith "Function [\(field)] has too few params missing [\(pa)]";
                                     fi;
                                 done
                                 fun
                                 params;
+                            
+                            
+                            res = if (method == "post") or (method == "put") then
+                                if res1 instanceof Fun then
+                                    fn = res1 unsafely_as ~Fun;
+                                    cont = getContents (readerHandle (request ctxt)#getReader());
+                                    fn#apply(E cont);
+                                else
+                                    failWith "No function \(res1), but want to give in body";
+                                fi
+                            else
+                                res1;
+                            fi;
+                                        
+                            
                             resstr = if res instanceof yeti.lang.Struct then
                                 (response ctxt)#setContentType("text/json;utf-8");
                                 (load org.yeb.json).write [] res;
-                            else
+                            elif res instanceof String then
                                 (response ctxt)#setContentType("text/plain;utf-8");
                                 string res;
+                            else
+                                failWith "response is no struct and no string \(res)";
                             fi;
                             (response ctxt)#getWriter()#print(resstr);
                             Completed "";
