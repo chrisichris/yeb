@@ -37,7 +37,22 @@ servletContext c = (c.ctxt) is ~ServletContext;
 locale c = (request c)#getLocale();
 
 
-
+paramStru ctxt is 'b -> 'a =
+   (import java.util:HashMap;
+    import yeti.lang.GenericStruct;
+    jmap = new HashMap();
+    req = (request ctxt);
+    enum = req#getParameterNames();
+    (enum#hasMoreElements()) loop
+       (name = string enum#nextElement();
+        value = req#getParameter(name);
+        if defined? value then
+            _ = jmap#put(name, value);
+        fi);
+    (new GenericStruct(jmap)) unsafely_as 'a);
+     
+  
+  
 params name ctx = 
  (ps = (request ctx)#getParameterValues(name);
   if defined? ps then
