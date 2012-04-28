@@ -512,7 +512,22 @@ _structHandler rs =
     done);        
         
     
-
+/**
+ * executes a query and and maps the resultset rows using the given 
+ * handlerfunction to a list.
+ * The argument to the handler function is a wrapper around the resultset with
+ * functions to translate the java values to yeti value (inkl null convesatino).
+ *
+ * ie:
+ * : users = sqlList "select * from users name=?" ["John":!] do rs:
+ * :    {name = rs.str "name",
+ * :     age = rs.num "age",
+ * :     active = rs.bool "age",
+ * :     friend = rs.maybeStr \none Some "friend", //use maybeStr, maybeNum, maybeBool for nullalbe values
+ * :     balance = rs.pNum 1; //use pstr, pnum, pbool to use posistion insteatd of column names
+ * :     }
+ * : done;
+ */
 sqlList sql setters rowHandler ds =
     baseQuery sql setters 
         do rs:
@@ -521,7 +536,11 @@ sqlList sql setters rowHandler ds =
             list ret;
         done
         ds;
-
+/**
+ * executes a query and returns a list of structs.
+ * NOTE: THIS FUNCTION IS NOT TYPESAFE AND TRICKS THE YETI COMPILER
+ * each colmnname is transfered in a struct name.
+ */
 listStruct sql setters ds =
     baseQuery sql setters do rs:
         strH = _structHandler rs.resultSet;
