@@ -220,6 +220,9 @@ _resultSetWrapper rs =
  * Takes a connection form the datasource starts a transaction,
  * executes the provided function and closes the connection and transaction.
  *
+ * Note from within a yeb applicaion most often the task method is used,
+ * because this spans an async task and does not block the thread.
+ *
  * The argument to the provided function is a structure conataing the connection
  * a rollbackOnly function and an operateStatement function which is 
  * used by the various sql functions in this module and can be replace ie for
@@ -549,6 +552,11 @@ listStruct sql setters ds =
         list ret;
     done ds;
 
+/**
+ * Executs the rowHandler on the first Result (only) from the query
+ * and if there is no result at all the noneHandler.
+ * For the argument to the rowHandler see list 
+ */
 sqlMaybe sql setters noneHandler rowHandler ds =
     baseQuery sql setters 
         do rs:
@@ -560,6 +568,11 @@ sqlMaybe sql setters noneHandler rowHandler ds =
         done
         ds;
 
+/**
+ * Executs the dataHandler on the first Result (only) from the query
+ * and if there is no result at all the noneHandler.
+ * For the argument to the rowHandler see listStruct 
+ */
 maybeStruct sql setters noneHandler dataHandler ds =
     sqlMaybe sql setters noneHandler do rs: 
         v = (_structHandler rs.resultSet) ();
@@ -568,7 +581,6 @@ maybeStruct sql setters noneHandler dataHandler ds =
 
 
 //Helpers for handling datasource exception etc
-
 exceptionString seq is ~SQLException -> string = (
     ib ex sb is ~SQLException -> ~StringBuilder -> () = (
         _ = sb#append("SQLState: [\(ex#getSQLState())] | Error Code: [\(ex#getErrorCode())] | Message: [\(ex#getMessage())]\n");
@@ -587,6 +599,7 @@ exceptionString seq is ~SQLException -> string = (
     ib seq stb;
     string (stb#toString());
 );
+
 
 task monitor mapFn db fn =
 	forkjoin.map mapFn (forkjoin.asyncTask [] monitor ( withConnection db fn));
