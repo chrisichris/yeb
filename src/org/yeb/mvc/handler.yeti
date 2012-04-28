@@ -51,7 +51,8 @@ typedef handlerType<a> = a -> handlerResult;
 typedef handlerAdapterType<a> = handlerType<a> -> handlerType<a>;
      
      
-
+///creates the context used in the handlers. This function is mainly used 
+///internally by the yebfilter. For testing use mockCtxt
 rootCtxt pathInfo sctxt req res asyncContext = 
    (reqn = new YebHttpServletRequestWrapper(() as ~Locale, "",
                                         pathInfo,() as ~java.util.Map, req);
@@ -128,8 +129,18 @@ end;
 	
 newMockHttpServletRequest method path =
 	new YebMockHttpServletRequest(new MockServletContext(), method is string, path is string, new MockHttpServletResponse());  
-		
 
+    
+/** creates a mockCtxt for testing handlers. 
+ *   Use Get Post Head etc to specifiy the path. 
+ *   :mockCtxt [Get "index.html"]
+ *   
+ *   Use Header hash<string,string>, Param hash<string,string>, to spcify param
+ *   :mockCtxt [Get "index.html", Header ["accepted":"..."], Param["foo","value"]]
+ *   
+ *   Use Params to specify many parameter arrays
+ *   :mockCtxt [Post "form", Params ["values":["1","2"]]]
+ */
 mockCtxt opts = 
    (var reqMethod = "GET";
     var reqPath = "/";
@@ -188,6 +199,21 @@ mockCtxt opts =
 
 idHandler handler is handlerAdapterType<'a> = handler;
 
+
+/**
+ * Transform an url pattern to a regex. Patterns are used in routers to 
+ * specify path pattern which should be handled.
+ *
+ * ie for the pattern:
+ * :/entry/:id/:date/*
+ * becomes the regex
+ * :/entry/([^/]+)/([^/]+)/(.*)
+ * and the matched parts are exposed as request-parameters
+ *
+ * to specify a custom regex put it between $ $ after the name of the part.
+ * ie to specify that id should only contain digits:
+ * :/entry/:id$d+$
+ */
 urlPatternToRegex pat = 
    (//:a-z is name
     //:a-z? is optional
@@ -262,7 +288,7 @@ urlPatternToRegex pat =
 
 regexHandlerImpl method regexPattern handler = 
    (meth = strUpper method;
-    var checkMethod? = meth == "ALL";
+    var checkMethod? = meth != "ALL";
     
     {names, regex} = urlPatternToRegex regexPattern;
     pattern = Pattern#compile(regex);
@@ -310,6 +336,14 @@ regexHandlerImpl method regexPattern handler =
     done;
 );
 
+/**
+ * Handleradapter which takes a request method and path pattern and executes on match
+ * the given handler. Normally this is not used directly but a router is used.
+ * The path pattern is the same as described in urlPatternToRegex.
+ *
+ * to handle the Get request for index:
+ * :regexHandler (Get "index") do ctxt: ....; Completed "" done;
+ */
 regexHandler requestUrl handler = 
    ({fst = meth , snd = regexPattern} = 
         case requestUrl of
@@ -384,7 +418,47 @@ handlersFact oldVhs adapter=
             handlersFact (vhs ++ oldVhs) adapter,
     });
     
-
+/**
+ * Creates a router. A router is used to handle different requests.
+ *
+ * ie to specify differen request handlings do:
+ * :router = newRouter id;
+ * :router.get "index" do ctxt: //handle get request done
+ * :router.post "someform" do ctxt: //handle post request done
+ * :router.add customHandler; //use to add a handler which is always executed
+ * :
+ * :handler = router.handler; //cunstructs an handler for all the routes
+ *
+ * The router will than try to match any route in the order given and execute
+ * the handlerfunction if it fits.
+ *
+ * Each handler function must return either 
+ * - Completed if the request was handled by this handler and the async Request
+ *   context can be closed 
+ * - NotHandled "" if the reuqest is not handled by this handler and the next 
+ *   routes/handlers should be tried to match
+ * - Handling "" means that the right handler was found but the async RequestContext
+ *   is kept open for further processing by the handler
+ *
+ * The router creates itself a handler with .handler. This handler can be used
+ * directly in yebWebMain.handler or can be given to another router (with .add)
+ * 
+ * The adapter parameter is a function whith transforms each given handler to 
+ * another handler. This adapter can be used to filter each request 
+ *
+ * ie to make sure each request is of a certain locale and has a logged in user:
+ * 
+ * :router = newRouter do handler ctxt:
+ *       userId = (session ctxt)#getAttribute("userid")
+ *       if defined? userId then
+ *          handler (ctxt with {user = loadUserFromDb userId})
+ *       else
+ *          redirectView "login" ctxt
+ *       fi
+ *    done;
+ * :router.get "members"
+ */
+ 
 newRouter adapter = handlersFact [] adapter;
 
 localHandler locales handler is list<~Locale> -> handlerAdapterType<'a> = 
