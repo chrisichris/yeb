@@ -2,9 +2,9 @@ module org.yeb.mvc.flash;
 
 load org.yeb.mvc.webutils;
 
-flashKey = "org.yeb.session.flash";
+key = "org.yeb.session.flash";
 
-flashHandler handler ctxt = 
+handler handler ctxt = 
    (sess = (request ctxt)#getSession(true);
     //synchronized on session lazly create the flash structure
     flashStruct = synchronized sess do _:
@@ -40,7 +40,7 @@ flashHandler handler ctxt =
     done);
 
 
-flashGetStruct ctx =
+getStruct ctx =
    (ra = (request ctx)#getAttribute(flashKey);
     if not defined? ra then
         failWith "no FlashContext: flash acces must be wrapped in a flashHandler";
@@ -49,7 +49,7 @@ flashGetStruct ctx =
                         var newMap is hash<string, ~Object>}
     fi);
 
-flashGet ctx key is 'b -> string -> (None () | Some 'a) = (
+read ctx key is 'b -> string -> (None () | Some 'a) = (
     fc = flashGetStruct ctx;
     if key in fc.newMap then
         Some (fc.newMap.[key] unsafely_as 'a);
@@ -59,10 +59,10 @@ flashGet ctx key is 'b -> string -> (None () | Some 'a) = (
         none
     fi);
 
-flashPut ctx key value =
+write ctx key value =
    (flashGetStruct ctx).newMap.[key] := (value unsafely_as ~Object);
     
-flashGetAndKeep ctx key =
+readAndKeep ctx key =
    (r = flashGet ctx key;
     case r of
         Some v: flashPut ctx key v;
@@ -71,9 +71,9 @@ flashGetAndKeep ctx key =
     r);
 
 {
-    flashHandler,
-    flashKey, 
-    flashGet, 
-    flashPut,
-    flashGetAndKeep,
+    handler,
+    key, 
+    read, 
+    write,
+    readAndKeep,
 }
