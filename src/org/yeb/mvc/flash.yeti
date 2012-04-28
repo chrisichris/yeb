@@ -4,6 +4,9 @@ load org.yeb.mvc.webutils;
 
 flashKey = "org.yeb.session.flash";
 
+/**
+ * request filter wich is used to prepare request for flash
+ */
 handler handler ctxt = 
    (sess = (request ctxt)#getSession(true);
     //synchronized on session lazly create the flash structure
@@ -49,6 +52,11 @@ getStruct ctx =
                         var newMap is hash<string, ~Object>}
     fi);
 
+/**
+ * takes the given value.
+ *
+ * After the value is taken it is not in the session anymore.
+ */ 
 take ctx key is 'b -> string -> (None () | Some 'a) = (
     fc = getStruct ctx;
     if key in fc.newMap then
@@ -59,9 +67,17 @@ take ctx key is 'b -> string -> (None () | Some 'a) = (
         none
     fi);
 
+/**
+ * puts the value in the flashsession.
+ * A value put in the flashsession remains in there only until the next request
+ */
 put ctx key value =
    (getStruct ctx).newMap.[key] := (value unsafely_as ~Object);
-    
+
+/**
+ * reads the value from the falshsession and makes sure that it reamains in there
+ * also for the next request.
+ */ 
 peek ctx key =
    (r = take ctx key;
     case r of
