@@ -606,14 +606,18 @@ serviceHandler service =
                             fi;
                                         
                             
-                            resstr = if res instanceof yeti.lang.Struct then
-                                (response ctxt)#setContentType("text/json;utf-8");
+                            resstr = 
+                            if res instanceof Fun then
+                                failWith "response is no struct and no string \(res)";
+                            elif res instanceof yeti.lang.Struct then
                                 (load org.yeb.json).write [] res;
-                            elif res instanceof String then
+                            elif res instanceof yeti.langColl then
+                                ls = (res unsafely_as ~yeti.lang.Coll)#asList();
+                                (response ctxt)#setContentType("text/json;utf-8");
+                                (load org.yeb.json).write[] ls;
+                            else then
                                 (response ctxt)#setContentType("text/plain;utf-8");
                                 string res;
-                            else
-                                failWith "response is no struct and no string \(res)";
                             fi;
                             (response ctxt)#getWriter()#print(resstr);
                             Completed "";
