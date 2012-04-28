@@ -34,6 +34,9 @@ end;
 
 logger = getLogger "sql";
 
+/**
+ * Convinience mehtod to construc a apache commons BasicDataSource
+ */
 dataSource driverClassName connectionUri opts =
    (import org.apache.commons.dbcp.BasicDataSource;
     ds = new BasicDataSource();
@@ -48,6 +51,9 @@ dataSource driverClassName connectionUri opts =
     done;
     ds);
 
+/**
+ * Transfers a SQLWarningn in an excpetion string
+ */ 
 warningExceptionString warning is ~SQLWarning -> string = (
     if defined? warning then
         stb = new StringBuilder();
@@ -63,7 +69,10 @@ warningExceptionString warning is ~SQLWarning -> string = (
     fi;
 );
 
-
+/**
+ * Stets yeti values on java PreparedStatements and takes care of right 
+ * translation of yeti to java values inclduing none to null etc
+ */
 _setStatementValue ps pos value is ~PreparedStatement -> number -> ~Object -> number = (
     import yeti.lang: Num,BigNum,RatNum,IntNum,FloatNum,AList, Tag;
     import java.lang: Number, String, CharSequence;
@@ -138,6 +147,11 @@ _setStatementValue ps pos value is ~PreparedStatement -> number -> ~Object -> nu
 );
 
 _expandPattern = Pattern#compile('\?');
+
+/**
+ * Transforms a sql pattern with ? to the right form for the input. Especially
+ * if the input is a list than the ? are muliplied by list length
+ */
 _expandSql sql params is string -> list<~Object> -> string = (
         import java.lang:StringBuffer,CharSequence;
         import yeti.lang:AList;
@@ -169,7 +183,10 @@ _expandSql sql params is string -> list<~Object> -> string = (
 
 
 
-
+/**
+ * Wrapps a resultset to have convinience mehtod to convert from java to yeti
+ * values. Incluing maybe for null values.
+ */
 _resultSetWrapper rs = 
    (maybePNum pos = objectMaybeNum (rs is ~ResultSet)#getObject(pos is number);
     maybeNum name = objectMaybeNum rs#getObject(name is string);
@@ -199,7 +216,26 @@ _resultSetWrapper rs =
     });
 
 
-        
+/**
+ * Takes a connection form the datasource starts a transaction,
+ * executes the provided function and closes the connection and transaction.
+ *
+ * The argument to the provided function is a structure conataing the connection
+ * a rollbackOnly function and an operateStatement function which is 
+ * used by the various sql functions in this module and can be replace ie for
+ * logging retrying etc.
+ * 
+ * ie:
+ *
+ * : ds = dataSource "driveclassName" "conncetionurl" [];
+ * : withConnection ds do con:
+ * :    sqlList "select * from customers" [] con;
+ * : done;
+ * 
+ * or shorter
+ *
+ * : withConnection ds \(sqlList "select * from customer" [])
+ */
 withConnection dataSource fn =
     (con = (dataSource is ~DataSource)#getConnection();
     try
@@ -256,12 +292,24 @@ withConnection dataSource fn =
         fi
     yrt);
 
+/**
+ * executes the given sql
+ * 
+ * The params have to be a list of objects. Use the :! operator to transfer any 
+ * value to an object
+ *
+ * ie to exeucte an update
+ * : update "update users set name=? where id=?" ["John":!, 1:!] con
+ */
 update sql params cp =
    (handler st is ~PreparedStatement -> ~Object =
         st#executeUpdate() unsafely_as ~Object;
     r is ~Object = cp.operateStatement sql params handler;
     r unsafely_as number);    
 
+/** basic query with a result set handler.
+ * exeuctes the sql as query and gives the result set to the handler
+*/ 
 baseQuery sql params resultSetHandler cp =
     (cp.operateStatement sql params  
         do st: 
@@ -272,7 +320,10 @@ baseQuery sql params resultSetHandler cp =
     
     
 _tlConnection = threadLocal none;
-    
+  
+/**
+ * like with Connction but also store the param in th ThreadLocal
+ */ 
 withTLConnection dataSource fn =    
     case _tlConnection.value of
     None _: 
@@ -296,6 +347,18 @@ withTLConnection dataSource fn =
 ///////////////////////////////////////////
 //update helpers
 
+/**
+ * inserts a struct as an entity into the given table
+ *
+ * For tabescolumen there must be an equaly named field name. 
+ * Camelcase field names are translated to underline field names.
+ * There must not be more fields in the struct than columns.
+ * 
+ * to insert a user in 
+ * a table "users" with columns id, name, creationdate use ie:
+ * : insertEntity "users" 
+ * :     {id = 1, name="chris", creationdate = new java.util.Date} con;
+ */
 insertEntity  tableName stru cP =
    (import yeti.lang: Struct;
 
@@ -323,6 +386,15 @@ insertEntity  tableName stru cP =
     update stb#toString() [(list values):!] cP;
 );
 
+/**
+ * updates the table witht the struct at the given whereClause
+ *
+ * The fieldnames of the struct must correspond to the columnnames of the table.
+ * Camelcase fieldnames are trasnlated to underscore field names.
+ *
+ * to update the name of user with id = 2 use ie:
+ * updateEntity "users" {name = "Johne"} "id = ?" [2:!] con;
+ */ 
 updateEntity tableName stru whereClause whereParams db = 
     (import yeti.lang: Struct;
 
@@ -350,7 +422,16 @@ updateEntity tableName stru whereClause whereParams db =
     params = values ++ whereParams;
     update stb#toString() params db);
 
-    
+
+/**
+ * updates the table with the struct at the id field of the struct
+ *
+ * like update Entity but the id of the entity must be given in the struct.
+ * the name of the id field must be either "id" or a field ending with "_id"
+ *
+ * to update the name of user with id = 2 use ie:
+ * updateEntity "users" {user_id=2, name = "john"} con;
+ */ 
 updateById tableName stru db = 
    (import yeti.lang: Struct;
 
