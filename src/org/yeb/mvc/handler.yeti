@@ -461,7 +461,18 @@ handlersFact oldVhs adapter=
  
 newRouter adapter = handlersFact [] adapter;
 
-localHandler locales handler is list<~Locale> -> handlerAdapterType<'a> = 
+/**
+ * handler apdapter (filter) wich makes use that the local is one of
+ * the specified locals.
+ *
+ * ie that each handler in the router only gets either an US or Italien locale
+ * use:
+ *
+ * :import java.util.Locale;
+ * :router = newRouter (localHandler [Locale#US, Locale#IT]);
+ *
+ * 
+localeHandler locales handler is list<~Locale> -> handlerAdapterType<'a> = 
    (if empty? locales then
        handler
     else
@@ -484,7 +495,11 @@ localHandler locales handler is list<~Locale> -> handlerAdapterType<'a> =
 
 
 serviceHandlerSeperators = ["By": "", "From": "", "To": "", "At": ""];
-	
+
+/**
+ * ServiceHandler takes a struct of functions and transform that functions
+ * depending on their names in handler and transforms the result in a json representation
+ */
 serviceHandler service =
     case peekObject service of
     Struct {fields, value}:
@@ -635,6 +650,6 @@ serviceHandler service =
 
     regexHandler,
     newRouter,
-    localHandler,
+    localeHandler,
 }
 
