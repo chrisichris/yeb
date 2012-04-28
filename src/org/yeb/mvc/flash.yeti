@@ -2,7 +2,7 @@ module org.yeb.mvc.flash;
 
 load org.yeb.mvc.webutils;
 
-key = "org.yeb.session.flash";
+flashKey = "org.yeb.session.flash";
 
 handler handler ctxt = 
    (sess = (request ctxt)#getSession(true);
@@ -49,8 +49,8 @@ getStruct ctx =
                         var newMap is hash<string, ~Object>}
     fi);
 
-read ctx key is 'b -> string -> (None () | Some 'a) = (
-    fc = flashGetStruct ctx;
+take ctx key is 'b -> string -> (None () | Some 'a) = (
+    fc = getStruct ctx;
     if key in fc.newMap then
         Some (fc.newMap.[key] unsafely_as 'a);
     elif key in fc.oldMap then
@@ -59,21 +59,21 @@ read ctx key is 'b -> string -> (None () | Some 'a) = (
         none
     fi);
 
-write ctx key value =
-   (flashGetStruct ctx).newMap.[key] := (value unsafely_as ~Object);
+put ctx key value =
+   (getStruct ctx).newMap.[key] := (value unsafely_as ~Object);
     
-readAndKeep ctx key =
-   (r = flashGet ctx key;
+peek ctx key =
+   (r = take ctx key;
     case r of
-        Some v: flashPut ctx key v;
+        Some v: put ctx key v;
         None _: ();
     esac;
     r);
 
 {
     handler,
-    key, 
-    read, 
-    write,
-    readAndKeep,
+    key = flashKey, 
+    take, 
+    put,
+    peek,
 }
