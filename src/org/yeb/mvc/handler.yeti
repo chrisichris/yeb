@@ -205,7 +205,7 @@ idHandler handler is handlerAdapterType<'a> = handler;
  * specify path pattern which should be handled.
  *
  * ie for the pattern:
- * :/entry/:id/:date/*
+ * :/entry/:id/:date
  * becomes the regex
  * :/entry/([^/]+)/([^/]+)/(.*)
  * and the matched parts are exposed as request-parameters
@@ -471,7 +471,7 @@ newRouter adapter = handlersFact [] adapter;
  * :import java.util.Locale;
  * :router = newRouter (localHandler [Locale#US, Locale#IT]);
  *
- * 
+ */ 
 localeHandler locales handler is list<~Locale> -> handlerAdapterType<'a> = 
    (if empty? locales then
        handler
@@ -611,11 +611,11 @@ serviceHandler service =
                                 failWith "response is no struct and no string \(res)";
                             elif res instanceof yeti.lang.Struct then
                                 (load org.yeb.json).write [] res;
-                            elif res instanceof yeti.langColl then
+                            elif res instanceof yeti.lang.Coll then
                                 ls = (res unsafely_as ~yeti.lang.Coll)#asList();
                                 (response ctxt)#setContentType("text/json;utf-8");
                                 (load org.yeb.json).write[] ls;
-                            else then
+                            else 
                                 (response ctxt)#setContentType("text/plain;utf-8");
                                 string res;
                             fi;
