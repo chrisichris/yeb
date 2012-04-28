@@ -22,7 +22,7 @@ load org.yeb.std;
 forkjoin = load org.yeb.forkjoin;
 
 
-oauthHandlers provider apiKey apiSecret callbackUrl callbackPattern opts =
+oauthHandlers provider apiKey apiSecret callbackUrl opts =
    (import org.scribe.model:Verfifier;
     import org.scribe.oauth:OAuthService;
     import org.scribe.exceptions: OAuthException;
