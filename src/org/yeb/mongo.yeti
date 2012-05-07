@@ -198,8 +198,8 @@ save value col =
 
 
      
-task con monitor mapFn fn =
-	forkjoin.map mapFn (forkjoin.asyncTask [] monitor \(fn con));
+task con mapFn fn =
+	forkjoin.map mapFn (forkjoin.asyncTask [] \(fn con));
      
 {
     toDBO,
@@ -222,6 +222,6 @@ task con monitor mapFn fn =
     save,
 
 	task,
-	invoke con monitor fn = forkjoin.invoke (task con monitor id fn),
+	invoke con fn = forkjoin.invoke (task con id fn),
     
 }

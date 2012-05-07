@@ -308,7 +308,8 @@ class YebFilter extends javax.servlet.Filter
                         asyncContext = req#startAsync(req,res);
                         ctxt = mvc.rootCtxt pathInfo servletContext req res asyncContext;
                         
-                        forkjoin.execute (forkjoin.recursiveTask ctxt.monitor do:
+                        withMonitor ctxt.monitor \(
+                        forkjoin.execute (forkjoin.recursiveTask do:
                             log#debug("handling context for path: {}",pathInfo);
                             r = try
                                 handler ctxt;
@@ -335,7 +336,7 @@ class YebFilter extends javax.servlet.Filter
                                     log#debug("handling context path: {}", pathInfo);
                             esac;
                             
-                        done);
+                        done));
                         ()
                     );
                     ()

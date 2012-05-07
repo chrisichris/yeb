@@ -159,7 +159,7 @@ client opts =
     esac);
 
 
-request httpClient opts monitor url cb =
+request httpClient opts url cb =
    (import com.ning.http.client:AsyncHttpClient, Response,
                 AsyncCompletionHandler, SignatureCalculator;
     import com.ning.http.client.oauth:ConsumerKey, RequestToken,
@@ -212,17 +212,17 @@ request httpClient opts monitor url cb =
 	end;
 	
 	future = builder#execute(new MyAsyncCompletitionHandler());
-    monitor.register \(_ = future#cancel(true)));
+    currentMonitor.register \(_ = future#cancel(true)));
 	
-requestTask httpClient mapFn opts monitor url =
+requestTask httpClient mapFn opts url =
 	forkjoin.map mapFn
-		(forkjoin.callbackTask monitor (request httpClient opts monitor url));
+		(forkjoin.callbackTask (request httpClient opts url));
 	
-invoke httpClient opts monitor url = 
-    forkjoin.invoke (requestTask httpClient id opts monitor url);
+invoke httpClient opts url = 
+    forkjoin.invoke (requestTask httpClient id opts url);
 
-getBody httpClient opts monitor url =
-    string ((invoke httpClient opts monitor url)#getResponseBody());
+getBody httpClient opts url =
+    string ((invoke httpClient opts url)#getResponseBody());
 {    
     oauthHandlers,
     client,

@@ -16,7 +16,8 @@
 
 module org.yeb.std;
 
-import java.lang: String, Thread, ClassLoader, StringBuilder, Throwable;
+import java.lang: String, Thread, ThreadLocal, 
+                  	ClassLoader, StringBuilder, Throwable;
 import java.util: Locale, Iterator,List,ListIterator;
 
 import yeti.lang.Struct;
@@ -125,13 +126,6 @@ boolean x is 'a -> boolean =
             fi;
     esac);
 
-toRunnable fn =
-   (import java.lang.Runnable;
-    class StdRunnable extends Runnable
-        void run () 
-            _ = fn (),
-    end;
-    new StdRunnable() as ~Runnable);
 withThreadLocal threadLocal newValue ac = 
    (oldV = threadLocal.value;
     threadLocal.value := newValue;
@@ -173,28 +167,9 @@ withThreadLocal threadLocal newValue ac =
     {exec, sexec});
 
     
-async opts fn   =
-   (import java.util.concurrent:TimeUnit, Callable, ExecutorService,Future;
-    var executor = defaultExecutor as ~ExecutorService;
-    for opts do opt:
-        case opt of
-        Monitor mon: ();
-        Executor ex: executor := ex;
-        esac
-    done;
-    
-    runnable = toRunnable fn;  
-    future = executor#submit(runnable);
-    for opts do opt:
-        case opt of
-        Monitor mon: mon.register \(_ = future#cancel(true));
-        _: ();
-        esac;
-    done;
-    future);
 
     
-monitor () = 
+newMonitor () = 
    (listeners = [:];
     var fired = false;
     
@@ -240,6 +215,43 @@ nilMonitor = {
     fired? = false
 };
 
+_monitorTH = threadLocal nilMonitor;
+
+_currentMonitor () = _monitorTH.value;
+
+withMonitor moni fn = 
+   (oldMoni = _currentMonitor ();
+    _monitorTH.value := moni;
+    try 
+        fn ();
+    finally
+        _monitorTH.value := oldMoni;
+    yrt);    
+
+toRunnable fn =
+   (import java.lang.Runnable;
+    moni = _currentMonitor();
+    class StdRunnable extends Runnable
+        void run () 
+            withMonitor moni fn,
+    end;
+    new StdRunnable() as ~Runnable);
+    
+
+async opts fn   =
+   (import java.util.concurrent:TimeUnit, Callable, ExecutorService,Future;
+    var executor = defaultExecutor as ~ExecutorService;
+    for opts do opt:
+        case opt of
+        Executor ex: executor := ex;
+        esac
+    done;
+    
+    runnable = toRunnable fn;  
+    future = executor#submit(runnable);
+    (_currentMonitor ()).register \(_ = future#cancel(true));
+    future);
+
 schedule opts initialDelay fn =
    (import java.util.concurrent:TimeUnit, Callable, ExecutorService;
     executorOpts = array []; 
@@ -249,7 +261,6 @@ schedule opts initialDelay fn =
     var delay = 0;
     for opts do opt:
         case opt of
-        Monitor ex: push executorOpts (Monitor ex);
         Executor ex: push executorOpts (Executor ex);
         Schedular sex: schedular := sex;
         FixedRate p : period := p;
@@ -258,7 +269,7 @@ schedule opts initialDelay fn =
         esac
     done;
     
-    runnable = toRunnable \(async executorOpts fn);
+    runnable = toRunnable \(_ = async executorOpts fn);
     
     future = if delay > 0 then
         schedular#scheduleWithFixedDelay(runnable, initialDelay
@@ -269,11 +280,8 @@ schedule opts initialDelay fn =
     else
         schedular#schedule(runnable, initialDelay,timeunit);
     fi;
-    for opts do opt:
-        case opt of
-        Monitor mon: mon.register \(_ = future#cancel(true));
-        esac
-    done;
+
+    (_currentMonitor ()).register \( _ = future#cancel(true));
     future);
 	
     
@@ -469,8 +477,10 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> =
     defaultExecutor,
     async,
     schedule,
-    monitor,
+    newMonitor,
     nilMonitor,
+    get currentMonitor () = _currentMonitor (),
+    withMonitor,
     
     onDefined v = if defined? v then Some v else none fi,
     isString x = x ^ "",

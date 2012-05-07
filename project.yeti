@@ -19,9 +19,13 @@ project.description := "some apis for yeti";
 
 remoteRepository "sonatype-nexus-releases" 
     "https://oss.sonatype.org/content/repositories/snapshots";
+remoteRepository "typesafe" 
+    "http://repo.typesafe.com/typesafe/releases/";
+
 deployRepository.url :="file:///${basedir}/../../chrisis-maven-repo/snapshots/";
 
 dependency "org.yeti" "yeti" "0.9.5" [];
+//dependency "com.typesafe.akka" "akka-actor" "2.1-SNAPSHOT" [];
 dependency "javax.servlet" "javax.servlet-api" "3.0.1" [ProvidedScope ()];
 dependency "jline" "jline" "0.9.94" [ProvidedScope()];
 dependency "org.owasp.esapi" "esapi" "2.0GA" [exclusion "javax.servlet" "servlet-api"];

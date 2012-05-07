@@ -601,8 +601,8 @@ exceptionString seq is ~SQLException -> string = (
 );
 
 
-task monitor mapFn db fn =
-	forkjoin.map mapFn (forkjoin.asyncTask [] monitor ( withConnection db fn));
+task mapFn db fn =
+	forkjoin.map mapFn (forkjoin.asyncTask [] ( withConnection db fn));
 
 {
 
@@ -629,7 +629,7 @@ task monitor mapFn db fn =
     maybeStruct,
     exceptionString,
 	task,
-	invoke monitor db fn = forkjoin.invoke (task monitor id db fn),
+	invoke db fn = forkjoin.invoke (task id db fn),
 
 
     nullString = new DBValue((),Types#VARCHAR),

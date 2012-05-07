@@ -57,7 +57,7 @@ rootCtxt pathInfo sctxt req res asyncContext =
    (reqn = new YebHttpServletRequestWrapper(() as ~Locale, "",
                                         pathInfo,() as ~java.util.Map, req);
                                         
-    timeoutMonitor = monitor ();
+    timeoutMonitor = newMonitor ();
     (asyncContext is ~AsyncContext)#addListener(asyncListener do ev:
         case ev of
         OnTimeout ev: timeoutMonitor.fire ();
