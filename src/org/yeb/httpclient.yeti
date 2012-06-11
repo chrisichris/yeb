@@ -62,7 +62,7 @@ oauthHandlers provider apiKey apiSecret callbackUrl opts =
     
     initHandler exceptionHandler ctxt = 
         try
-            confirmURL = forkjoin.async [] ctxt.monitor \(
+            confirmURL = forkjoin.blocking \(
                 token = service#getRequestToken();
                 (webutils.session ctxt)#setAttribute("oauth.request_token", 
                                                     token);
@@ -159,7 +159,7 @@ client opts =
     esac);
 
 
-request httpClient opts url cb =
+asyncRequest httpClient opts url cb =
    (import com.ning.http.client:AsyncHttpClient, Response,
                 AsyncCompletionHandler, SignatureCalculator;
     import com.ning.http.client.oauth:ConsumerKey, RequestToken,
@@ -216,18 +216,17 @@ request httpClient opts url cb =
 	
 requestTask httpClient mapFn opts url =
 	forkjoin.map mapFn
-		(forkjoin.callbackTask (request httpClient opts url));
+		(forkjoin.callbackTask (asyncRequest httpClient opts url));
 	
-invoke httpClient opts url = 
+doRequest httpClient opts url = 
     forkjoin.invoke (requestTask httpClient id opts url);
 
 getBody httpClient opts url =
-    string ((invoke httpClient opts url)#getResponseBody());
+    string ((doRequest httpClient opts url)#getResponseBody());
 {    
     oauthHandlers,
     client,
-    request,
+    doRequest,
 	requestTask,
-    invoke,
     getBody,
 }    

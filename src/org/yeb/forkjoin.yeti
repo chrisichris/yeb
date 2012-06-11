@@ -34,6 +34,39 @@ typedef taskStruct<a> = {
 
 pool = new ForkJoinPool();
 
+blocking fn = 
+   (import java.util.concurrent:ForkJoinPool,ForkJoinPool$ManagedBlocker;
+    var v = none;
+    mutex = new Object();
+    class MyBlocker extends ForkJoinPool$ManagedBlocker 
+        boolean block()
+            synchronized mutex \(
+                case v of
+                None _ : 
+                    try
+                        v := Some (fn());
+                    catch Throwable th:
+                        v := Exception th;
+                    yrt;
+                _: ()
+                esac);
+            true,
+        boolean isReleasable()
+            synchronized mutex \(
+                case v of
+                None _ : false;
+                _ : true;
+                esac)
+    end;
+    ForkJoinPool#managedBlock(new MyBlocker());
+    synchronized mutex \(
+        case v of
+        Some va: va; 
+        Exception th: throw (th is ~Throwable);
+        None _: failWith "Must not happen";
+        esac));
+
+
 newTaskStruct task converter = 
 	   (import java.util.concurrent.ForkJoinTask;
         monitor = std.currentMonitor;
@@ -54,11 +87,25 @@ recursiveTask fn is (() -> 'a) -> taskStruct<'a> =
             (new StdRecursiveTask ()) 
 			do x: x unsafely_as 'a done);
 
-completableTask converter is converter<'a> -> taskStruct<'a> =
-   (class StdAsyncForkJoinTask extends ForkJoinTask
+blockingTask fn =
+   recursiveTask \(blocking fn);
+            
+
+callbackTask cbfn is (((Value 'a | Exception 't) -> ()) -> 'r2) -> taskStruct<'a>=
+   (monitor = std.currentMonitor;
+    class StdAsyncForkJoinTask extends ForkJoinTask
 		var result = () unsafely_as ~Object,
 		
 		boolean exec()
+            cbfn do ath:
+                    std.withMonitor monitor 
+                        \case ath of
+                        Value a: 
+                            this#complete(a unsafely_as ~Object);
+                        Exception t:
+                            this#completeExceptionally(t is ~Throwable);
+                        esac;
+                done;
 			false,
 		
 		void setRawResult(Object res)
@@ -66,12 +113,11 @@ completableTask converter is converter<'a> -> taskStruct<'a> =
 		Object getRawResult()
 			result
 	end;
-	task = new StdAsyncForkJoinTask();
-    
+	task = new StdAsyncForkJoinTask();  
 	newTaskStruct 
         (task unsafely_as ~ForkJoinTask)
-		converter);
-
+		do x:x unsafely_as 'a done);
+    
 
 _map fn task is ('a -> 'b) -> taskStruct<'a> -> taskStruct<'b> =
 	task with {
@@ -114,46 +160,20 @@ invokeAll taskStructs is list<taskStruct<'a>> -> list<'a>=
 			done;
 	fi;	
 
-asyncTask opts fn is 'o -> (() -> 'a) -> taskStruct<'a>=
-   (ct = completableTask 
-            do x: x unsafely_as 'a done;
-    _ = std.async opts  do: 
-        try
-            ct.task#complete((fn ()) unsafely_as ~Object);
-        catch Throwable th:
-            ct.task#completeExceptionally(th);
-        yrt;
-    done;
-    ct);
 	
-callbackTask cbfn is (((Value 'a | Exception 't) -> ()) -> 'r2) -> taskStruct<'a>=
-   (ct = completableTask 
-            do x:x unsafely_as 'a done;
-    moni = std.currentMonitor;
-    cbfn do ath:
-            std.withMonitor moni 
-                \case ath of
-                Value a: 
-                    ct.task#complete(a unsafely_as ~Object);
-                Exception t:
-                    ct.task#completeExceptionally(t is ~Throwable);
-                esac;
-        done;
-    ct);
 		
-	
+    
+        
+    
 
-async opts fn =
-	invoke (asyncTask opts fn);
 
 {
 	pool,
 	map fn task = _map fn task,
 	recursiveTask, 
-	//completableTask, 
-	callbackTask,
-	asyncTask,
-	async,
+	blockingTask,
+    callbackTask,
+    blocking,
 	execute, 
 	invoke, 
 	invokeAll,

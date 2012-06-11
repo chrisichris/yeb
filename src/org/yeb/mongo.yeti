@@ -199,7 +199,7 @@ save value col =
 
      
 task con mapFn fn =
-	forkjoin.map mapFn (forkjoin.asyncTask [] \(fn con));
+	forkjoin.map mapFn (forkjoin.blockingTask \(fn con));
      
 {
     toDBO,
@@ -222,6 +222,5 @@ task con mapFn fn =
     save,
 
 	task,
-	invoke con fn = forkjoin.invoke (task con id fn),
     
 }

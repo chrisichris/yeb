@@ -239,7 +239,7 @@ _resultSetWrapper rs =
  *
  * : withConnection ds \(sqlList "select * from customer" [])
  */
-withConnection dataSource fn =
+_withConnection dataSource fn =
     (con = (dataSource is ~DataSource)#getConnection();
     try
         oldAutoCommit = con#getAutoCommit();
@@ -295,6 +295,12 @@ withConnection dataSource fn =
         fi
     yrt);
 
+task mapFn db fn =
+	forkjoin.map mapFn (forkjoin.blockingTask \(_withConnection db fn));
+
+withConnection db fn = 
+    forkjoin.blocking \(_withConnection db fn);
+    
 /**
  * executes the given sql
  * 
@@ -322,26 +328,7 @@ baseQuery sql params resultSetHandler cp =
         done) unsafely_as 'b;
     
     
-_tlConnection = threadLocal none;
   
-/**
- * like with Connction but also store the param in th ThreadLocal
- */ 
-withTLConnection dataSource fn =    
-    case _tlConnection.value of
-    None _: 
-        withConnection dataSource 
-            do prov: 
-                oP = _tlConnection.value;
-                try 
-                    _tlConnection.value := Some prov;
-                    fn prov
-                finally
-                    _tlConnection.value := oP;
-                yrt
-            done;
-    Some prov: fn prov;
-    esac;
 
      
 
@@ -601,23 +588,14 @@ exceptionString seq is ~SQLException -> string = (
 );
 
 
-task mapFn db fn =
-	forkjoin.map mapFn (forkjoin.asyncTask [] ( withConnection db fn));
 
 {
 
-
-    cDB () = 
-        case _tlConnection.value of
-        None _ : failWith "No current connection";
-        Some v : v;
-        esac,
 
     dataSource,
     
     
     withConnection,
-    withTLConnection,
     update,
     baseQuery,
     insertEntity,
@@ -629,8 +607,7 @@ task mapFn db fn =
     maybeStruct,
     exceptionString,
 	task,
-	invoke db fn = forkjoin.invoke (task id db fn),
-
+    
 
     nullString = new DBValue((),Types#VARCHAR),
     nullInt = new DBValue((),Types#BIGINT),
