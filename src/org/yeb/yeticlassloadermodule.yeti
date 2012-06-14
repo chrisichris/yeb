@@ -26,41 +26,6 @@ import yeti.lang.compiler.CodeWriter;
 eval = load yeti.lang.compiler.eval;
 
 
-parseTetiTest src =
-    (tokens = matchAll '(<%)'
-        (avoid ((not) . defined?) . (++ ['']) . tail)
-        id
-        src;
-    println "tokens: \n \(tokens)";
-    compile inStart inCode endToken tokens result =
-        case tokens of
-        "<%" :: rest :
-            if inCode then
-                compile false true endToken rest ("<%" :: result)
-            else
-                println "begincode: <%";
-                compile false true "" rest (endToken :: result);
-            fi;
-        
-        x :: rest :
-            if inStart then
-                println "instart: \(x)";
-                compile true inCode endToken rest result; 
-            elif inCode then
-                compile inStart inCode endToken rest (x :: result);
-            else
-                rx = strReplace "'" "'^\"'\"^'" x;
-                compile inStart inCode endToken rest (rx :: result);
-            fi;
-            
-        _ : if inCode then
-                result = endToken :: result;
-                strJoin "" (reverse result);
-            else 
-                undef_str;
-            fi;
-        esac;
-    compile true false "" tokens []);
 
 
 parseTeti src fileName =
@@ -285,7 +250,6 @@ new YetiClassLoader(() as ~ClassLoader ,() as ~String[],false);
 {
     sourceReader,
     parseTeti,
-    parseTetiTest,
 
 }
     

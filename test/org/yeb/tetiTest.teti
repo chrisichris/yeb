@@ -1,1 +1,8 @@
-Hier kommt Kurt <%= ctxt.foo %> <% if true then println ctxt.foo else println "" fi; %>
+
+<html>
+    <%= ctxt.foo%> 
+    <% 
+        if true then println ctxt.foo else println "" fi; 
+    %>
+    
+</html>
