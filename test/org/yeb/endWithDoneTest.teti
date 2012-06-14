@@ -1,17 +1,1 @@
-<%module org.yeb.endWithDoneTest;
-
-import java.lang.StringBuffer;
-
-do stBi:
-
-    stB is ~StringBuffer = stBi;
-
-    write str = (stB#append("\(str)"); ());
-    
-    writer = {
-        escaped = write,
-        unescaped = write
-    };
-    
-    %>Does end with done?<%
-done
+Doese end with done

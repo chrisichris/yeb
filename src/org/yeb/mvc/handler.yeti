@@ -130,6 +130,33 @@ end;
 newMockHttpServletRequest method path =
 	new YebMockHttpServletRequest(new MockServletContext(), method is string, path is string, new MockHttpServletResponse());  
 
+
+filterConfig servletContext params = 
+   (class YebMockFilterConfig extends javax.servlet.FilterConfig
+        String getFilterName () "mockfilter",
+        String getInitParameter(String name)
+            if (string name) in params then
+                (params.[name] is string) unsafely_as ~String;
+            else
+                () unsafely_as ~String
+            fi,
+        java.util.Enumeration getInitParameterNames()
+            var ks = keys params;
+            class MyEnum extends java.util.Enumeration
+                boolean hasMoreElements()
+                    not empty? ks,
+                Object nextElement()
+                    n = head ks;
+                    ks := tail ks;
+                    n unsafely_as ~Object,
+            end;
+            new MyEnum (),
+        ServletContext getServletContext ()
+            servletContext is ~ServletContext,
+    end;
+    new YebMockFilterConfig());
+            
+
     
 /** creates a mockCtxt for testing handlers. 
  *   Use Get Post Head etc to specifiy the path. 
@@ -646,6 +673,7 @@ serviceHandler service =
 
 
     //makeNewCtxt,
+    filterConfig,
     rootCtxt,
     mockCtxt,
 	newMockHttpServletRequest,

@@ -1,11 +1,1 @@
-<%module org.yeb.footeti;
-
-do y:
-    write x = println x;
-    writer = {
-        escaped = write,
-        unescaped = write
-    };
-
-%>Write something here<%
-done
+Write something here

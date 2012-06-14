@@ -28,6 +28,14 @@ import org.owasp.esapi:ESAPI,HTTPUtilitiess;
 load org.yeb.std;
 load org.yeb.validation;
 
+typedef contextType = 	{
+		asyncContext is ~AsyncContext,
+		req is ~HttpServletRequest,
+		res is ~HttpServletResponse,
+		sctxt is ~ServletContext,
+        monitor is monitorType
+	}
+
 notHandled = NotHandled "";
 
 asyncContext c = (c.asyncContext) is ~AsyncContext;
@@ -143,10 +151,10 @@ errorView errorCode ctx =
     Completed "");
 
 responseWriter ctx = 
-   (resW = (response ctx)#getWriter();
-    {
-        escaped st = resW#print(escape st),
-        unescaped st = resW#print(st)
+   (resW = (response (ctx is contextType))#getWriter();
+    ctx with {
+        print st = resW#print(escape st),
+        printUnescaped st = resW#print(st)
     });
 
 contentType cT ctx = (
@@ -155,13 +163,15 @@ contentType cT ctx = (
     responseWriter ctx;
 );
 
-writeView contentTypeStr text ctxt =
-	((contentType contentTypeStr ctxt).unescaped text;
+htmlView ctxt = contentType "text/html" (ctxt is contextType);
+
+printView contentTypeStr text ctxt =
+	((contentType contentTypeStr ctxt).printUnescaped text;
 	 Completed "");
 
-writeJSON struct ctxt =
+printJSON struct ctxt =
    (json = load org.yeb.json;
-	writeView "application/json" (json.write [] struct) ctxt); 
+	printView "application/json" (json.write [] struct) ctxt); 
 
 headers hs ctx = 
    (res = response ctx;
@@ -187,7 +197,7 @@ cacheForSeconds seconds mustRevalidate ctx = (
 );
 
 
-htmlViewHelper () = {
+htmlViewHelper ctxt = (htmlView ctxt) with {
     headers = array [],
     keywords = array [],
     addU arr text = (
@@ -337,12 +347,13 @@ ptag name params content is string -> hash<string,string> -> list<string> -> str
     forwardView,
     statusView, 
     errorView, 
-	writeView,
-	writeJSON,
+	printView,
+	printJSON,
 
     contentType, 
     headers, 
-    responseWriter, 
+    responseWriter,
+    htmlView,    
     htmlViewHelper,
 
     cacheForSeconds,

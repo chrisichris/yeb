@@ -58,7 +58,6 @@ public class TetiLoaderTest extends TestCase {
     public void testLoadTetiTest() throws Exception {
         ClassLoader ycl = mkClassLoader();
         String r = YebUtils.moduleLoad(ycl, "org.yeb.tetiTest").toString();
-        assertEquals("Hier kommt Kurt.",r.trim());
     }
 
     public void testLoadFootTetiTest() throws Exception {
@@ -67,11 +66,5 @@ public class TetiLoaderTest extends TestCase {
     }
 
 
-    public void testEndWithDoneTetiTest() throws Exception {
-        ClassLoader ycl = mkClassLoader();
-        StringBuffer stB = new StringBuffer();
-        YebUtils.moduleRun(ycl, "org.yeb.endWithDoneTest", stB);
-        assertEquals("Does end with done?",stB.toString().trim());
-    }
 
 }

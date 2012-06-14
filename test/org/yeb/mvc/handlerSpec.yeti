@@ -26,33 +26,7 @@ specificationsFor "org.yeb.mvc.handler" \(
 
 
     specification "of smale handleradapters" \(
-        describe "id handler should return same handerl" \(
-			hd = do x: Completed "" done;
-            assertSame hd (idHandler hd);
-        );
 
-        describe "runHandler" \(
-            var c = array [false,false,false,false];
-            resetC _ = c := array [false,false,false,false];
-            handlers = array [ \( c.[0] := true; notHandled),
-                            \( c.[1] := true; notHandled),
-                            \( c.[2] := true; notHandled),
-                            \( c.[3] := true; notHandled)];
-
-            should "continues run if goon" \(
-                r = runHandlers (list handlers) (mockCtxt []);
-                assertEquals notHandled r;
-                assertEquals [true,true,true,true] (list c);
-            );
-            should "continue until handled" \(
-                resetC ();
-                handlers.[2] := \(c.[2] := true; Completed "");
-                r = runHandlers (list handlers) (mockCtxt []);
-                assertEquals (Completed "") r;
-                assertEquals [true,true,true,false] (list c);
-            );
-
-        );
 
 
 

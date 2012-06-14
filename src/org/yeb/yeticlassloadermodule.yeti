@@ -63,19 +63,21 @@ parseTetiTest src =
     compile true false "" tokens []);
 
 
-parseTeti src =
-    (tokens = matchAll '(<%=)|(<%)|(%>)'
+parseTeti src fileName =
+   (moduleName = strReplace "/" "." (strLeft fileName (strLength fileName - 5));
+    
+    tokens = matchAll '(<%=)|(<%)|(%>)'
         (avoid ((not) . defined?) . (++ ['']) . tail)
         id
         src;
-    tokens = find do x: (x == "<%=" or x == "<%") done tokens;
+    
     compile inCode endToken tokens result =
         case tokens of
         "<%=" :: rest : 
             if inCode then
                 compile true endToken rest ("<%=" :: result)
             else
-                result = "writer.escaped (" :: endToken :: result;
+                result = "ctxt.print (" :: endToken :: result;
                 compile true ");" rest result;
             fi;
         "<%" :: rest :
@@ -86,7 +88,7 @@ parseTeti src =
             fi;
         "%>" :: rest :
             if inCode then
-                result = "writer.unescaped ('" :: endToken :: result; 
+                result = "ctxt.printUnescaped ('" :: endToken :: result; 
                 compile false "');" rest result
             else
                 compile false endToken rest ("%>" :: result);
@@ -101,14 +103,15 @@ parseTeti src =
                 compile inCode endToken rest (rx :: result);
             fi;
             
-        _ : if inCode then
-                result = endToken :: result;
-                strJoin "" (reverse result);
-            else 
-                undef_str;
-            fi;
+        _ : 
+           (result = endToken :: result;
+            strJoin "" (reverse result));
         esac;
-    compile false "" tokens []);
+    ret = "module \(moduleName); do ctxt: ctxt.printUnescaped ('" 
+        ^ (compile false "');" tokens []) 
+        ^ "; Completed ''; done;";
+    //println ret;
+    ret);
 
 fileSourceReader baseDirs {name,fullpath}  =
     if fullpath or (empty? (baseDirs is list<string>)) then
@@ -179,11 +182,11 @@ tetiSourceReader reader arg =
             arg.name := oldN;
             undef_str
         else
-            parseTeti r2;
+            parseTeti r2 arg.name;
             //TetiParser#parseTeti(arg.name, r2)
         fi;
     elif strEnds? arg.name ".teti" then
-        parseTeti r;
+        parseTeti r arg.name;
         //TetiParser#parseTeti(arg.name,r);
     else
         r

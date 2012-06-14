@@ -167,9 +167,9 @@ withThreadLocal threadLocal newValue ac =
     {exec, sexec});
 
     
-
+typedef shared monitorType = 'a;
     
-newMonitor () = 
+newMonitor () is () -> monitorType = 
    (listeners = [:];
     var fired = false;
     
@@ -208,12 +208,13 @@ newMonitor () =
         fired?
     });
                 
-nilMonitor = {
+nilMonitor is monitorType = {
     unregister fn is (() -> ()) -> ()= (),
     register fn is (() -> ()) -> () = (),
     fire () = (),
     fired? = false
 };
+
 
 _monitorTH = threadLocal nilMonitor;
 
@@ -233,7 +234,7 @@ toRunnable fn =
     moni = _currentMonitor();
     class StdRunnable extends Runnable
         void run () 
-            withMonitor moni fn,
+            _ = withMonitor moni fn,
     end;
     new StdRunnable() as ~Runnable);
     
