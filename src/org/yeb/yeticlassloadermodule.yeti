@@ -53,7 +53,7 @@ parseTeti src fileName =
             fi;
         "?>" :: rest :
             if inCode then
-                result = "ctxt.printUnescaped ('" :: endToken :: result; 
+                result = "ctxt.echo ('" :: endToken :: result; 
                 compile false "');" rest result
             else
                 compile false endToken rest ("?>" :: result);
@@ -72,7 +72,7 @@ parseTeti src fileName =
            (result = endToken :: result;
             strJoin "" (reverse result));
         esac;
-    ret = "module \(moduleName); do ctxt: ctxt.printUnescaped ('" 
+    ret = "module \(moduleName); do ctxt: ctxt.echo ('" 
         ^ (compile false "');" tokens []) 
         ^ "; Completed ''; done;";
     //println ret;

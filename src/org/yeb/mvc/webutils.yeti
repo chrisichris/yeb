@@ -154,7 +154,7 @@ responseWriter ctx =
    (resW = (response (ctx is contextType))#getWriter();
     ctx with {
         print st = resW#print(escape st),
-        printUnescaped st = resW#print(st)
+        echo st = resW#print(st)
     });
 
 contentType cT ctx = (
@@ -166,7 +166,7 @@ contentType cT ctx = (
 htmlView ctxt = contentType "text/html" (ctxt is contextType);
 
 printView contentTypeStr text ctxt =
-	((contentType contentTypeStr ctxt).printUnescaped text;
+	((contentType contentTypeStr ctxt).echo text;
 	 Completed "");
 
 printJSON struct ctxt =
