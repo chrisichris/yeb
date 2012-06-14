@@ -197,7 +197,7 @@ cacheForSeconds seconds mustRevalidate ctx = (
 );
 
 
-htmlViewHelper ctxt = (htmlView ctxt) with {
+htmlViewHelper ctxt = (htmlView ctxt) with {htmlHelper = {
     headers = array [],
     keywords = array [],
     addU arr text = (
@@ -238,7 +238,7 @@ htmlViewHelper ctxt = (htmlView ctxt) with {
         '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">',
         
     escape
-};
+}};
 
 //+++++++++++++++++++++++Utils ++++++++++++++++++++++++++++
 
