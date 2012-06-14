@@ -1,1 +1,1 @@
-Hier kommt Kurts
+Hier kommt Kurt <%= ctxt.foo %> <% if true then println ctxt.foo else println "" fi; %>
