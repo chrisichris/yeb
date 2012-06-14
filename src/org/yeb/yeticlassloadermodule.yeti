@@ -31,32 +31,32 @@ eval = load yeti.lang.compiler.eval;
 parseTeti src fileName =
    (moduleName = strReplace "/" "." (strLeft fileName (strLength fileName - 5));
     
-    tokens = matchAll '(<%=)|(<%)|(%>)'
+    tokens = matchAll '(<?=)|(<?)|(?>)'
         (avoid ((not) . defined?) . (++ ['']) . tail)
         id
         src;
     
     compile inCode endToken tokens result =
         case tokens of
-        "<%=" :: rest : 
+        "<?=" :: rest : 
             if inCode then
-                compile true endToken rest ("<%=" :: result)
+                compile true endToken rest ("<?=" :: result)
             else
                 result = "ctxt.print (" :: endToken :: result;
                 compile true ");" rest result;
             fi;
-        "<%" :: rest :
+        "<?" :: rest :
             if inCode then
-                compile true endToken rest ("<%" :: result)
+                compile true endToken rest ("<?" :: result)
             else
                 compile true "" rest (endToken :: result);
             fi;
-        "%>" :: rest :
+        "?>" :: rest :
             if inCode then
                 result = "ctxt.printUnescaped ('" :: endToken :: result; 
                 compile false "');" rest result
             else
-                compile false endToken rest ("%>" :: result);
+                compile false endToken rest ("?>" :: result);
             fi;
         '' :: rest : compile inCode endToken rest result;
         

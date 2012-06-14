@@ -1,8 +1,10 @@
 
 <html>
-    <%= ctxt.foo%> 
-    <% 
+    <?= ctxt.foo ?> 
+    
+    <? 
         if true then println ctxt.foo else println "" fi; 
-    %>
+    ?>
+    
     
 </html>
