@@ -72,7 +72,7 @@ parseTeti src fileName =
            (result = endToken :: result;
             strJoin "" (reverse result));
         esac;
-    ret = "module \(moduleName); do ctxt: ctxt.echo ('" 
+    ret = "module \(moduleName); load org.yeb.mvc.viewutils; do ctxt: ctxt.echo ('" 
         ^ (compile false "');" tokens []) 
         ^ "; Completed ''; done;";
     //println ret;
