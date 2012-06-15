@@ -1,0 +1,38 @@
+module org.yeb.mvc.viewutils;
+webutils = load org.yeb.mvc.webutils;
+
+(webutils) with {
+    styleLink url media =
+        '<link rel="stylesheet" type="text/css" ' ^ (if (strLength media) < 1 then "" else 'media="'^media^'"' fi) ^ 'href="'^url^'"/>',
+
+    scriptLink url =
+        '<script type="text/javascript" src="'^url^'"></script>',
+
+    script src =
+        '<script type="text/javascript">'^src^'</script>',
+
+    style styles =
+        ('<style type="text/css">/*<![CDATA[*/"'^styles^'/*]]>*/</style>'),
+
+
+    ifIE ieMarker content =
+        ('<!--[if '^ieMarker^']>'^content^'<![endif]-->'),
+    ifIE7 content = ifIE 'lt IE 7' content,
+
+    contentType ctt = (
+        ct = if strEnds? ctt ';utf-8' then ctt else ctt ^ ";utf-8" fi;
+        '<meta http-equiv="Content-Type" content="' ^ ct ^ '"/>';),
+    title ti =
+        '<title>'^webutils.escape(ti)^'<title>',
+    shortcut sc =
+        '<link rel="shortcut icon" href="'^sc^'"/>',
+    writeKeywords kws =
+        '<meta name="keywords" content="'^ (strJoin ", " kws)^'"/>',
+    xhtmlDocType=
+        '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">',
+
+    withTemplate template ctxt mainContent = 
+        template (ctxt with {mainContent}); 
+
+        
+}
