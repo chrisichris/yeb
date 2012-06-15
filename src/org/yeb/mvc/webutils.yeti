@@ -163,15 +163,14 @@ contentType cT ctx = (
     responseWriter ctx;
 );
 
-htmlView ctxt = contentType "text/html" (ctxt is contextType);
 
-printView contentTypeStr text ctxt =
+echoView contentTypeStr text ctxt =
 	((contentType contentTypeStr ctxt).echo text;
 	 Completed "");
 
-printJSON struct ctxt =
+echoJSON struct ctxt =
    (json = load org.yeb.json;
-	printView "application/json" (json.write [] struct) ctxt); 
+	echoView "application/json" (json.write [] struct) ctxt); 
 
 headers hs ctx = 
    (res = response ctx;
@@ -196,8 +195,10 @@ cacheForSeconds seconds mustRevalidate ctx = (
     fi;
 );
 
+withTemplate ctxt template mainContent = 
+    template (ctxt with {mainContent}); 
 
-htmlViewHelper ctxt = (htmlView ctxt) with {htmlHelper = {
+htmlView ctxt = (contentType "text/html" (ctxt is contextType)) with {htmlHelper = {
     headers = array [],
     keywords = array [],
     addU arr text = (
@@ -347,14 +348,14 @@ ptag name params content is string -> hash<string,string> -> list<string> -> str
     forwardView,
     statusView, 
     errorView, 
-	printView,
-	printJSON,
+	echoView,
+	echoJSON,
 
     contentType, 
     headers, 
     responseWriter,
-    htmlView,    
-    htmlViewHelper,
+    htmlView,
+    withTemplate,    
 
     cacheForSeconds,
 
