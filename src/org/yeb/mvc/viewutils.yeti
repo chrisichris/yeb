@@ -31,8 +31,5 @@ webutils = load org.yeb.mvc.webutils;
     xhtmlDocType=
         '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">',
 
-    withTemplate template ctxt mainContent = 
-        template (ctxt with {mainContent}); 
-
         
 }
