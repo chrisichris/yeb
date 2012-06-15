@@ -150,6 +150,9 @@ errorView errorCode ctx =
    ((response ctx)#sendError(errorCode);
     Completed "");
 
+echo str ctxt =
+    (response ctxt)#getWriter()#print(str); 
+    
 responseWriter ctx = 
    (resW = (response (ctx is contextType))#getWriter();
     ctx with {
@@ -320,6 +323,7 @@ ptag name params content is string -> hash<string,string> -> list<string> -> str
     errorView, 
 	echoView,
 	echoJSON,
+    echo,
 
     contentType, 
     headers, 
