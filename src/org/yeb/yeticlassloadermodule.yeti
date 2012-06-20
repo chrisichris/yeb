@@ -31,7 +31,7 @@ eval = load yeti.lang.compiler.eval;
 parseTeti src fileName =
    (moduleName = strReplace "/" "." (strLeft fileName (strLength fileName - 5));
     
-    tokens = matchAll '(<?=)|(<?)|(?>)'
+    tokens = matchAll '(<\?=)|(<\?)|(\?>)'
         (avoid ((not) . defined?) . (++ ['']) . tail)
         id
         src;

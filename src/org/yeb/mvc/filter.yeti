@@ -16,13 +16,16 @@
 
 module org.yeb.mvc.filter;
 
-import javax.servlet: ServletContext, Filter, FilterConfig, FilterChain, ServletRequest, ServletResponse, ServletException;
-import javax.servlet.http: HttpServletRequest, HttpServletResponse;
-import yeti.lang: Fun, Struct;
+import java.lang: Thread, System,ClassLoader,ClassNotFoundException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.io.File;
 
-import java.lang: Thread, System,ClassLoader,ClassNotFoundException;
+import javax.servlet: ServletContext, Filter, FilterConfig, FilterChain, ServletRequest, ServletResponse, ServletException;
+import javax.servlet.http: HttpServletRequest, HttpServletResponse;
+
+import yeti.lang: Fun, Struct;
+import yeti.lang.compiler: CompileException;
+
 import org.yeb: YetiClassLoader;
 import org.yeb.YebUtils;
 
@@ -291,7 +294,8 @@ class YebFilter extends javax.servlet.Filter
             else 
                 pathInfo = (
                     p = pathHelper#getPathWithinApplication(req);
-                    if strStarts? p "/" then strRight p 1 else p fi
+                    p = if strStarts? p "/" then strRight p 1 else p fi;
+                    if strEnds? p "/" then strLeft p ((strLength p) - 1) else p fi;
                 );
             
                 if any do n:strStarts? pathInfo n done unhandledPathes then
@@ -370,7 +374,11 @@ class YebFilter extends javax.servlet.Filter
                         if dynamicReload then
                             printError ex [yebWebSrcDir] res;
                             //{status = 500};
-                            throw ex;
+                            if ex instanceof CompileException then
+                                log#error("Comile Error:" ^ ex#getMessage());
+                            else
+                                throw ex;
+                            fi;
                         else
                             throw ex;
                         fi;

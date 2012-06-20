@@ -150,7 +150,7 @@ errorView errorCode ctx =
    ((response ctx)#sendError(errorCode);
     Completed "");
 
-echo str ctxt =
+echo ctxt str =
     (response ctxt)#getWriter()#print(str); 
     
 responseWriter ctx = 
