@@ -440,6 +440,7 @@ create hash is hash<'k, 'v> -> tableType<'k,'v> =
 
 {       
 
+    emptyStruct = {´_´ = ()},
     enviroment = 
        (var v is Production string 
                   | Development string
