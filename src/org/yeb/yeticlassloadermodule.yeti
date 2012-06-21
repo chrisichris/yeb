@@ -42,8 +42,8 @@ parseTeti src fileName =
             if inCode then
                 compile true endToken rest ("<?=" :: result)
             else
-                result = "ctxt.print (string(" :: endToken :: result;
-                compile true "));" rest result;
+                result = " ctxt.print (string(" :: endToken :: result;
+                compile true ")); " rest result;
             fi;
         "<?" :: rest :
             if inCode then
@@ -53,8 +53,8 @@ parseTeti src fileName =
             fi;
         "?>" :: rest :
             if inCode then
-                result = "ctxt.echo ('" :: endToken :: result; 
-                compile false "');" rest result
+                result = " ctxt.echo ('" :: endToken :: result; 
+                compile false "'); " rest result
             else
                 compile false endToken rest ("?>" :: result);
             fi;
