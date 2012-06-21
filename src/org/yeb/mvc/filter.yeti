@@ -154,6 +154,7 @@ class YebFilter extends javax.servlet.Filter
     var fileWatcher = () unsafely_as ~java.nio.file.WatchService,
     
     var dynamicReload = true,
+    var forceReload = true,
     
     pathHelper = new org.springframework.web.util.UrlPathHelper(),
 
@@ -245,7 +246,6 @@ class YebFilter extends javax.servlet.Filter
         
         //load the webmodule if not development
         dynamicReload := (configModule.webDynamicReload?) and (strLength yebWebSrcDir > 0);
-        dynamicReload := true;
         if dynamicReload then
             import java.nio.file:FileSystems, 
                                 StandardWatchEventKinds;
@@ -262,10 +262,6 @@ class YebFilter extends javax.servlet.Filter
                 fi;
             registerDirs new File(yebWebSrcDir);
             
-            //load the initial
-            ycl = new YetiClassLoader(Thread#currentThread()#getContextClassLoader(), 
-                array [string yebWebSrcDir], false);
-            loadWebModule ycl;
         else
             log#info("auto web realoding is off");
             ycl = if (new File(string yebWebSrcDir)#exists()) then
@@ -311,19 +307,15 @@ class YebFilter extends javax.servlet.Filter
                             
                             synchronized loadMutex \(
                                 var watchKey = fileWatcher#poll(); 
-                                println "dynamic reload \(watchKey)";
                                 if defined? watchKey then
-                                    log#debug("Code was modified. Reloading yeti-code in directory: \(yebWebSrcDir)");
+                                    forceReload := true;
                                     _ = watchKey#pollEvents();
                                     _ = watchKey#reset();
+                                fi;
+                                if forceReload then
+                                    forceReload := false;
+                                    log#debug("Code was modified. Reloading yeti-code in directory: \(yebWebSrcDir)");
                                     
-                                    //remove all keys until null
-                                    /*
-                                    (defined? watchKey) loop 
-                                        (watchKey := fileWatcher#poll();
-                                         _ = watchKey#reset()
-                                         );
-                                    */ 
                                     ycl = new YetiClassLoader(Thread#currentThread()#getContextClassLoader(), 
                                         array [string yebWebSrcDir], false);
                                     loadWebModule ycl;
