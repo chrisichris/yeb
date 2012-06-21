@@ -233,7 +233,7 @@ specificationsFor "org.yeb.db"\(
         should "insert one db value" \(
             withDSCon do ds:
                 u = {userId = 4, userName="chrisi", password="foo"};
-                _ = sql.insertEntity "users" u ds;
+                _ = sql.insertStruct "users" u ds;
                 r = sql.maybe 
                         "select USER_ID , USER_NAME, PASSWORD from users WHERE USER_ID = ? "
                         [4:!] 
@@ -250,7 +250,7 @@ specificationsFor "org.yeb.db"\(
         should "update one db value where" \(
             withDSCon do ds:
                 u = {password="foo"};
-                _ = sql.updateEntity "users" u "WHERE USER_ID=?" [1:!] ds;
+                _ = sql.updateStruct "users" u "WHERE USER_ID=?" [1:!] ds;
                 r = sql.maybe 
                         "select PASSWORD from users WHERE USER_ID = ? "
                         [1:!] 

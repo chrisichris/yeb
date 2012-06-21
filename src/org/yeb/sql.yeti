@@ -216,29 +216,6 @@ _resultSetWrapper rs =
     });
 
 
-/**
- * Takes a connection form the datasource starts a transaction,
- * executes the provided function and closes the connection and transaction.
- *
- * Note from within a yeb applicaion most often the task method is used,
- * because this spans an async task and does not block the thread.
- *
- * The argument to the provided function is a structure conataing the connection
- * a rollbackOnly function and an operateStatement function which is 
- * used by the various sql functions in this module and can be replace ie for
- * logging retrying etc.
- * 
- * ie:
- *
- * : ds = dataSource "driveclassName" "conncetionurl" [];
- * : withConnection ds do con:
- * :    sqlList "select * from customers" [] con;
- * : done;
- * 
- * or shorter
- *
- * : withConnection ds \(sqlList "select * from customer" [])
- */
 _withConnection dataSource fn =
     (con = (dataSource is ~DataSource)#getConnection();
     try
@@ -298,6 +275,30 @@ _withConnection dataSource fn =
 task mapFn db fn =
 	forkjoin.map mapFn (forkjoin.blockingTask \(_withConnection db fn));
 
+/**
+ * Takes a connection form the datasource starts a transaction,
+ * executes the provided function and closes the connection and transaction.
+ *
+ * Note from within a yeb applicaion most often the task method is used,
+ * because this spans an async task and does not block the thread.
+ *
+ * The argument to the provided function is a structure conataing the connection
+ * a rollbackOnly function and an operateStatement function which is 
+ * used by the various sql functions in this module and can be replace ie for
+ * logging retrying etc.
+ * 
+ * ie:
+ *
+ * : ds = dataSource "driveclassName" "conncetionurl" [];
+ * : withConnection ds do con:
+ * :    sqlList "select * from customers" [] con;
+ * : done;
+ * 
+ * or shorter
+ *
+ * : withConnection ds \(sqlList "select * from customer" [])
+ */
+    
 withConnection db fn = 
     forkjoin.blocking \(_withConnection db fn);
     
@@ -338,7 +339,7 @@ baseQuery sql params resultSetHandler cp =
 //update helpers
 
 /**
- * inserts a struct as an entity into the given table
+ * inserts a struct into the given table
  *
  * For tabescolumen there must be an equaly named field name. 
  * Camelcase field names are translated to underline field names.
@@ -346,10 +347,10 @@ baseQuery sql params resultSetHandler cp =
  * 
  * to insert a user in 
  * a table "users" with columns id, name, creationdate use ie:
- * : insertEntity "users" 
+ * : insertStruct "users" 
  * :     {id = 1, name="chris", creationdate = new java.util.Date} con;
  */
-insertEntity  tableName stru cP =
+insertStruct  tableName stru cP =
    (import yeti.lang: Struct;
 
     ist = (stru:!) unsafely_as ~Struct;
@@ -383,9 +384,9 @@ insertEntity  tableName stru cP =
  * Camelcase fieldnames are trasnlated to underscore field names.
  *
  * to update the name of user with id = 2 use ie:
- * updateEntity "users" {name = "Johne"} "id = ?" [2:!] con;
+ * :updateStruct "users" {name = "Johne"} "id = ?" [2:!] con;
  */ 
-updateEntity tableName stru whereClause whereParams db = 
+updateStruct tableName stru whereClause whereParams db = 
     (import yeti.lang: Struct;
 
     ist = (stru:!) unsafely_as ~Struct;
@@ -416,11 +417,11 @@ updateEntity tableName stru whereClause whereParams db =
 /**
  * updates the table with the struct at the id field of the struct
  *
- * like update Entity but the id of the entity must be given in the struct.
+ * like updateStruct but the id of the entity must be given in the struct.
  * the name of the id field must be either "id" or a field ending with "_id"
  *
  * to update the name of user with id = 2 use ie:
- * updateEntity "users" {user_id=2, name = "john"} con;
+ * updateStruct "users" {user_id=2, name = "john"} con;
  */ 
 updateById tableName stru db = 
    (import yeti.lang: Struct;
@@ -509,7 +510,7 @@ _structHandler rs =
  * functions to translate the java values to yeti value (inkl null convesatino).
  *
  * ie:
- * : users = sqlList "select * from users name=?" ["John":!] do rs:
+ * : users = sqlList "select * from users where name=?" ["John":!] do rs:
  * :    {name = rs.str "name",
  * :     age = rs.num "age",
  * :     active = rs.bool "age",
@@ -598,8 +599,8 @@ exceptionString seq is ~SQLException -> string = (
     withConnection,
     update,
     baseQuery,
-    insertEntity,
-    updateEntity,
+    insertStruct,
+    updateStruct,
     updateById,
     list = sqlList,
     maybe =sqlMaybe,
