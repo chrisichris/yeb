@@ -107,7 +107,7 @@ isAjax ctxt =
 
 escape text =
     (escapeT s =
-         "&\(Character#codePointAt(s.[0] is string, 0));";
+         "&#\(Character#codePointAt(s.[0] is string, 0));";
      strJoin '' (matchAll '[<>&"]' escapeT id "\(text)"));
 
 //"     
