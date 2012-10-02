@@ -159,30 +159,16 @@ client opts =
     esac);
 
 
-asyncRequest httpClient opts url cb =
+asyncRequest httpClient opts url handler =
    (import com.ning.http.client:AsyncHttpClient, Response,
-                AsyncCompletionHandler, SignatureCalculator;
+                AsnycHandler,
+                AsyncCompletionHandler, SignatureCalculator,
+                PerRequestConfig,
+                AsyncHttpClient$BoundRequestBuilder;
     import com.ning.http.client.oauth:ConsumerKey, RequestToken,
                                       OAuthSignatureCalculator;
     import java.util.concurrent:TimeUnit;
     import java.lang.Throwable;   
-    
-    var configFn = \();
-    var signature = none;
-    var handlerOpt = none;
-    
-    for opts do opt:
-        case opt of
-        Config fn : configFn := fn;
-        Handler fn: handlerOpt := Some fn;
-        OAuth {api_key, api_secret, user_key, user_secret} :
-           (consumer = new ConsumerKey(api_key is string, api_secret is string);
-            user = new RequestToken(user_key is string, user_secret is string);
-            calc = new OAuthSignatureCalculator(consumer,user);
-            
-            signature := Some (calc as ~SignatureCalculator));
-        esac
-    done;
     
     builder = case url of
     Get us: (httpClient is ~AsyncHttpClient)#prepareGet(us);
@@ -195,31 +181,69 @@ asyncRequest httpClient opts url cb =
     Request us: httpClient#prepareRequest(us);
     esac;
     
-    _ = case signature of
-    Some s: builder#setSignatureCalculator(s);
-    None _: builder;
+    
+    for opts do opt:
+        case opt of
+        Config fn : fn builder;
+        Handler fn: handlerOpt := Some fn;
+        OAuth {api_key, api_secret, user_key, user_secret} :
+           (consumer = new ConsumerKey(api_key is string, api_secret is string);
+            user = new RequestToken(user_key is string, user_secret is string);
+            calc = new OAuthSignatureCalculator(consumer,user);
+            builder#setSignatureCalculator(calc);
+        esac;
+        BodyBytes by: builder#setBody(by is ~byte[]);
+        BodyString bod: builder#setBoday(bod is string);
+        Headers hs: 
+            forHash hs do k v: 
+                builder#addHeader(k is string, v is string);
+            done;
+        Parameters hs:
+            forHash hs do k v:
+                builder#addParameter(k is string, v is string);
+            done;
+        FollowRedirects bo:
+            builder#setFollowRedirects(bo is boolean);
+        Timeout ms:
+           (cf = new PerRequestConfig();
+            cf#setTimeoutInMs(ms is number);
+            builder#setPerRequestConfig(cf));
+        AsyncHandler h:
+            handler := Some (h is ~AsyncHandler);
+        Callback cb:
+            
+    done;
+    
+	future = case handler of
+        AsyncHandler h: builder#execute(h is ~AsyncHandler);
+        Some cb: 
+           (class MyAsyncCompletitionHandler extends AsyncCompletionHandler 
+                    Object onCompleted(Response resp)
+                        cb (Value resp);
+                        resp,
+                    void onThrowable(Throwable ta)
+                        cb (Exception ta),
+            end;
+            builder#execute(new MyAsyncCompletionHandler()));
+        None _: builder#execute();
     esac;
-    
-    _ = configFn builder;
-    
-	
- 	class MyAsyncCompletitionHandler extends AsyncCompletionHandler 
-			Object onCompleted(Response resp)
-				cb (Value resp);
-				resp,
-			void onThrowable(Throwable ta)
-				cb (Exception ta),
-	end;
 	
 	future = builder#execute(new MyAsyncCompletitionHandler());
-    currentMonitor.register \(_ = future#cancel(true)));
+    currentMonitor.register \(_ = future#cancel(true))
+    future);
 	
 requestTask httpClient mapFn opts url =
 	forkjoin.map mapFn
-		(forkjoin.callbackTask (asyncRequest httpClient opts url));
+	   (forkjoin.callbackTask 
+            ((asyncRequest httpClient opts url) . Some ));
 	
 doRequest httpClient opts url = 
-    forkjoin.invoke (requestTask httpClient id opts url);
+   (import java.util.concurrent.ForkJoinPool;
+    if ForkJoinTask#inForkJoinPool() then
+        forkjoin.invoke (requestTask httpClient id opts url);
+    else
+        asyncRequest httpClient opt url none;
+    fi);
 
 getBody httpClient opts url =
     string ((doRequest httpClient opts url)#getResponseBody());
@@ -229,4 +253,5 @@ getBody httpClient opts url =
     doRequest,
 	requestTask,
     getBody,
+    asyncRequest
 }    
