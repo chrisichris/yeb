@@ -15,7 +15,7 @@
  */
 
 
-package org.yeb.mvc;
+package org.yeb.mvc.servlet;
 
 import java.util.Collections;
 import java.util.Enumeration;

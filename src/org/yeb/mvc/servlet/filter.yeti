@@ -14,7 +14,7 @@
  * and limitations under the License.
  */
 
-module org.yeb.mvc.filter;
+module org.yeb.mvc.servlert.filter;
 
 import java.lang: Thread, System,ClassLoader,ClassNotFoundException;
 import java.util.concurrent.ConcurrentHashMap;
