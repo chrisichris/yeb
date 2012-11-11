@@ -19,8 +19,6 @@ module org.yeb.mvc.form;
 //+++++++++++++++++++++Form+++++++++++++++++++++++++++++
 
 import org.yeb.Message;
-import javax.servlet:AsyncContext;
-import javax.servlet.http:HttpServletRequest;
 
 load org.yeb.std;
 load org.yeb.mvc.webutils;
@@ -33,15 +31,7 @@ handlerModule = load org.yeb.mvc.handler;
 
 //++++++++++++++++++++++++view things +++++++++++++++++
 
-typedef optionType<a> = None () | Some a;
-
-
-typedef valiType<a, b> = a -> b;
-
-typedef ctxtType = {asyncContext is ~AsyncContext,
-					req is ~HttpServletRequest};
-
-typedef fieldType<a> = {
+typedef field<a> = {
     name is string,
     unprefixedName is string,
     converter is valiType<string,a>,
@@ -52,31 +42,31 @@ typedef fieldType<a> = {
     minValues is number,
     maxValues is number,
     clear is () -> (),
-    read is ctxtType -> (),
+    read is request -> (),
 };
 
-typedef formFieldType = {
-    read is ctxtType -> (),
+typedef formField = {
+    read is request -> (),
     errors is list<~Message>,
 }
 
-typedef formType = {
+typedef form = {
     fieldPrefix is string,
-    var fields is array<formFieldType>,
+    var fields is array<formField>,
     var errors is array<~Message>,
-    read is ctxtType -> (),
+    read is request -> (),
     formErrors is  list<~Message>,
     formErrors? is boolean,
 
 }
 
 
-createForm fieldPrefix is string -> formType = {
+createForm fieldPrefix is string -> form = {
     fieldPrefix,
     var fields is array<formFieldType> = array [],
     var errors = array [],
-    read ctxt =
-        for fields do f: f.read ctxt;done,
+    read req =
+        for fields do f: f.read req;done,
     get formErrors ()  =
         errors ++ (concatMap do f: f.errors done fields),
     get formErrors? () =
@@ -90,8 +80,9 @@ createForm fieldPrefix is string -> formType = {
 };
 
 createField minValues maxValues form unprefixedName converter toString
-    is number -> number -> formType -> string -> (string -> 'a) ->('a -> string) -> fieldType<'a>=(
-    var _values is list<'a> = [];
+        is number -> number -> form -> string -> (string -> 'a) -> 
+            ('a -> string) -> field<'a> =
+    (var _values is list<'a> = [];
     f = {
         name = form.fieldPrefix ^ unprefixedName,
         unprefixedName,
@@ -116,18 +107,21 @@ createField minValues maxValues form unprefixedName converter toString
             displayStrings := [];
             errors := [];
         ),
-        read ctxt = (
+        read req = (
             clear();
-            jar = (handlerModule.request ctxt)#getParameterValues(name);
-            if (not (nullptr? jar)) and (not empty? (wrapArray jar))then
-                params = map' do v: if nullptr? v then "" else string v fi done (wrapArray jar);
+            ps = (handlerModule.params name req);
+            if not empty? ps then
                 //remember the stringValues
-                displayStrings := params;
+                displayStrings := ps;
 
                 //convert the string values
-                for params (validateFn do ex: errors := ex#getMessageObject() :: errors done
-                                          do r: _values := r :: _values done
-                                          converter);
+                for ps (validateFn do ex: 
+                            errors := ex#getMessageObject() :: errors 
+                        done
+                        do r: 
+                            _values := r :: _values 
+                        done
+                        converter);
 
                 //if there are errors forget the values
                 errors := reverse errors;
@@ -155,7 +149,7 @@ createField minValues maxValues form unprefixedName converter toString
     };
 
     ff = {
-        read ctxt = f.read ctxt,
+        read req = f.read req,
         get errors () = f.errors
     };
     push form.fields ff;
@@ -169,14 +163,14 @@ listField min max form unprefixedName converter toString
     f with {
               eitherValue _ is 'b -> (Left list<~Message> | Right list<'a>) =
                 if empty? f.errors then
-                    Right f.values
+                    Some f.values
                 else
-                    Left f.errors;
+                    Errors f.errors;
                 fi,
               get value () =
                     case eitherValue () of
-                        Left ma: throw new org.yeb.MessageException(head ma);
-                        Right v: v;
+                        Errors ma: throw new org.yeb.MessageException(head ma);
+                        Some v: v;
                     esac,
               set value values = f.values := values
            }
@@ -186,13 +180,13 @@ optionalField form unprefixedName converter toString= (
     f = listField 0 (-1) form unprefixedName converter toString;
     f with {
               eitherValue _ = case f.eitherValue () of
-                        Left m: Left m;
-                        Right li: Right (maybeHead None Some li);
+                        Errors m: Errors m;
+                        Some li: Some (maybeHead None Some li);
                     esac,
               get value () =
                     case eitherValue () of
-                        Left ma: throw new org.yeb.MessageException(head ma);
-                        Right v: v;
+                        Erorrs ma: throw new org.yeb.MessageException(head ma);
+                        Some v: v;
                     esac,
               set value opt = f.values := catSome [opt],
               set displayString str = f.displayStrings := [str],
@@ -205,15 +199,15 @@ requiredField form unprefixedName converter toString= (
     f with {
               eitherValue _ =
                    if not empty? f.errors then
-                      Left (array [(message "novalue" "no value in field %1$s" [obj f.unprefixedName])])
+                      Errors (array [(message "novalue" "no value in field %1$s" [obj f.unprefixedName])])
                    else
-                      Right (head f.values)
+                      Some (head f.values)
                    fi,
 
               get value () =
                     case eitherValue () of
-                        Left ma: throw new org.yeb.MessageException(head ma);
-                        Right v : v;
+                        Errors ma: throw new org.yeb.MessageException(head ma);
+                        Some v : v;
                     esac,
               set value value = f.values := [value],
               set displayString str = f.displayStrings := [str],

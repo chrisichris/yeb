@@ -28,74 +28,122 @@ import org.owasp.esapi:ESAPI,HTTPUtilitiess;
 load org.yeb.std;
 load org.yeb.validation;
 
-typedef contextType = 	{
-		asyncContext is ~AsyncContext,
-		req is ~HttpServletRequest,
-		res is ~HttpServletResponse,
-		sctxt is ~ServletContext,
-        monitor is monitorType
-	}
-
-notHandled = NotHandled "";
-
-asyncContext c = (c.asyncContext) is ~AsyncContext;
-request c = c.req is ~HttpServletRequest;
-response c = c.res is ~HttpServletResponse;
-servletContext c = (c.ctxt) is ~ServletContext;
-locale c = (request c)#getLocale();
+typedef cookie = {
+    comment is string,
+    domain is string,
+    maxage is number,
+    path is string,
+    secure is string,
+    value is string,
+    version is number,
+    delete is boolean,
+};
 
 
-paramStru ctxt is 'b -> 'a =
-   (import java.util:HashMap;
-    import yeti.lang.GenericStruct;
-    jmap = new HashMap();
-    req = (request ctxt);
-    enum = req#getParameterNames();
-    (enum#hasMoreElements()) loop
-       (name = string enum#nextElement();
-        value = req#getParameter(name);
-        if defined? value then
-            _ = jmap#put(name, value);
-        fi);
-    (new GenericStruct(jmap)) unsafely_as 'a);
-     
-  
-  
-params name ctx = 
- (ps = (request ctx)#getParameterValues(name);
-  if defined? ps then
-    map' string (wrapArray ps);
-  else
-    []
-  fi);
+typedef response = {
+    var statusCode is number,
+    headers is hash<string,list<string>>,
+    var body is File string | Bytes ~byte[] | String string | None (),
+    session is hash<string,~Object>,
+    cookies is array<cookie>
+};
 
+typedef request = {
+    serverPort is number,
+    serverName is string,
+    remoteAddr is string,
+    headers is hash<string, list<string>>,
+    uri is string,
+    path is string,
+    pathInfo is string,
+    queryString is string,
+    scheme is string,
+    method is string,
+    locale is ~Locale,
+    sslClientCertificate is None () | Some string,
+    body is Bytes ~byte[] | None () | Parts list<File string | Bytes ~byte[]>,
+    params is hash<string,list<string>>,
+    bodyParams is hash<string, list<string>>,
+    session is hash<string, ~Object>,
+    cookies is list<cookie>,
+    res is response,
+    respond is response -> (),
+};
+
+
+typedef handler = request -> boolean;
+
+typedef handlerAdapter = handler -> handler;
+
+request {serverPort, serverName, method,uri,path, queryString, headers} =
+    {serverPort,
+    serverName,
+    remoteAddr,
+    headers,
+    uri,
+    path,
+    pathInfo = path,
+    queryString,
+    scheme = "http",
+    method,
+    locale = ~Locale#getDefault(),
+    sslClientCertificate = none,
+    body = none,
+    params = [:],
+    session = [:],
+    res = {
+        var statusCode = 200,
+        headers = [:],
+        var body = none,
+        sessionValues = [:],
+        cookies = array []},
+    cookies = [],
+    respond res = ()} is request;
+        
+cookie name value = 
+    {comment = undef_str,
+    domain = undef_str,
+    maxage = ~Long#maxValue,
+    path = undef_str,
+    secure = false,
+    value,
+    version = 0,
+    delete = false} is cookie;
+
+response req statusCode headers body =
+    {statusCode, headers, body, sessionValues = req.sessionValues} is response,
+    
+
+params name req =
+    (ps = if name in (req.params) then
+        req.params.[name];
+    else
+        [] is list<string>
+    fi
+    bps = if name in (req.bodyParams) then
+        req.bodyParams.[name];
+    else
+        []
+    fi;
+    ps ++ bps);
+
+maybeParam name falseFn valiFn ctxt =
+    (ls = params name ctxt;
+    if empty? ls then
+        valiFn (head ls);
+    else
+        falseFn ();
+    fi);
 
 param name ctx = 
-   (par = (request ctx)#getParameter(name);
-    if defined? par then
-        string par;
+   (ls = params name ctx;
+   if not empty? params then
+       head params;
     else
         failWithValidation 
             (message "noparam" "No request-parameter for name %1$s" [obj name]) 
             "";
     fi);
-
-
-maybeParam name falseFn valiFn ctxt =
-    (par = (request ctxt)#getParameter(name);
-    if defined? par then
-        valiFn (string par);
-    else
-        falseFn ()
-    fi);
-
-allParams ctxt =
-   (jmap = (request ctxt)#getParameterMap();
-    res = [:];
-    forJavaMap jmap do k v:
-        res.[string k] := map string (wrapArray (v unsafely_as ~String[]))
-    done;
-    res);
 
 isAjax ctxt = 
    (h = (request ctxt)#getHeader("X-Requested-With");
@@ -111,108 +159,53 @@ escape text =
      strJoin '' (matchAll '[<>&"]' escapeT id "\(text)"));
 
 //"     
-
-asyncListener fn =
-   (import javax.servlet:AsyncListener, AsyncEvent;
-    class TAsyncListener extends AsyncListener
-        void onComplete(AsyncEvent ev)
-            fn (OnComplete ev),
-        void onError(AsyncEvent ev)
-            fn (OnError ev),
-        void onStartAsync(AsyncEvent ev)
-            fn (OnStartAsync ev),
-        void onTimeout(AsyncEvent ev)
-            fn (OnTimeout ev)
-    end;
-    new TAsyncListener());
     
-         
-     
+redirectView path req = 
+   (response req 301 ["Location":[path]] none);
+
+statusView status req = 
+    response req status [:] none;
 
 
+okView req =
+    statusView 200 req;
 
-    
-redirectView path ctx = 
-   ((response ctx)#sendRedirect(path);
-    Completed "");
+write req contentType content =
+    response req 200 [Content-Type:[contentType^"; charset=utf-8"]
+        (String content);
 
-
-forwardView path ctx = 
-   (req = request ctx;
-    (req#getRequestDispatcher(path))#forward(req,response ctx);
-    Completed "");
-
-statusView status ctx = 
-   ((response ctx)#setStatus(status);
-    Completed "");
-
-errorView errorCode ctx = 
-   ((response ctx)#sendError(errorCode);
-    Completed "");
-
-echo ctxt str =
-    (response ctxt)#getWriter()#print(str); 
-    
-responseWriter ctx = 
-   (resW = (response (ctx is contextType))#getWriter();
-    ctx with {
-        print st = resW#print(escape st),
-        echo st = resW#print(st)
+newWriter () =
+    (import java.lang.StringBuilder;
+    stb = new StringBuilder();
+    {
+        write str = stb#append(escape str),
+        echo str = stb#append(str is string),
+        stringBuilder = stb,
+        get value () = stb#toString() as string
     });
 
-contentType cT ctx = (
-    c = if strEnds? cT ';utf-8' then cT else cT ^ ";utf-8" fi;
-    (response ctx)#setContentType(c);
-    responseWriter ctx;
-);
+writeHtml req content =
+    write req "text/html" content;
 
+writeJson req json =
+    write req "application/json" ((load org.yeb.json).write [] json);
 
-echoView contentTypeStr text ctxt =
-	((contentType contentTypeStr ctxt).echo text;
-	 Completed "");
-
-echoJSON struct ctxt =
-   (json = load org.yeb.json;
-	echoView "application/json" (json.write [] struct) ctxt); 
-
-headers hs ctx = 
-   (res = response ctx;
-    forHash hs do k v:
-        res#setHeader(k,v);
-    done;
-    ());
-
-cacheForSeconds seconds mustRevalidate ctx = (
+cacheForSeconds res = (
+    headers = res.headers;
     res = response ctx;
     if seconds > 0 then
         //HTTP1.0 header
-        res#setDateHeader("Expires", System#currentTimeMillis() + (seconds * 1000));
+        headers.["Expires"]:= 
+            [string (System#currentTimeMillis() + (seconds * 1000))];
         //HTTP1.1 header
         hv = "max-age=\(seconds)\(if mustRevalidate then ", must revalidate" else ""fi)";
-        res#setHeader("Cache-Control",hv);
+        headers.["Cache-Control"] := hv;
     else
-        res#setHeader("Pragma","no-cache");
-        res#setDateHeader("Expires",1);
-        res#setHeader("Cache-Control","no-cache");
-        res#setHeader("Cache-Control","no-store");
+        headers.["Pragma"] := ["no-cache"];
+        headers.["Expires"] := ["1"];
+        headers.["Cache-Control"]:= ["no-cache","no-store"];
     fi;
 );
-
-
-htmlView ctxt = (contentType "text/html" (ctxt is contextType)) with {htmlHelper = {
-    headers = array [],
-    keywords = array [],
-    addU arr text = (
-        if ((strLength text) > 0) and (not (contains text arr)) then push arr text fi;
-        text
-    ),
-    addKeyword kw = addU keywords kw,
-    addUniqueHeader hd = addU headers hd,
-    addHeader hd =( push headers hd; hd),
-
-        
-    escape
-}};
 
 //+++++++++++++++++++++++Utils ++++++++++++++++++++++++++++
 
@@ -306,6 +299,26 @@ ptag name params content is string -> hash<string,string> -> list<string> -> str
     strb#toString();
 );
     
+flashKey = "org.yeb.session.flash";
+
+getFlash name req =
+    (if flashKey in req.res.session then
+        s = req.res.session.[flashKey];
+        if name in s then
+            Some s.[name];
+        else
+            none
+        fi
+    elif flashKey in req.session then
+        s = req.session.[flashKey];
+        if name in s then
+            Some s.[name];
+        else
+            none
+        fi
+    else
+        none;
+    fi);
 
 {
 
@@ -313,10 +326,8 @@ ptag name params content is string -> hash<string,string> -> list<string> -> str
     HEADER_EXPIRES = "Expires",
     HEADER_CACHE_CONTROL = "Cache-Control",
 	
-	notHandled,
-
-    asyncListener,
-
+    flashKey,
+    getFlash,
     redirectView, 
     forwardView,
     statusView, 
@@ -388,9 +399,6 @@ ptag name params content is string -> hash<string,string> -> list<string> -> str
             fi
         fi),
     
-    addHeader name value ctxt = ESAPI#httpUtilities()#addHeader(response ctxt, name is string, value is string),
-    assertSecureChannel ctxt = ESAPI#httpUtilities()#assertSecureChannel(request ctxt),
-    changeSessionIdentifier ctxt = ESAPI#httpUtilities()#changeSessionIdentifier(request ctxt),
     decryptHiddenField encrypted = string (ESAPI#httpUtilities()#decryptHiddenField(encrypted is string)),
     decryptQueryString encrypted = 
        (ret = [:];
@@ -398,45 +406,11 @@ ptag name params content is string -> hash<string,string> -> list<string> -> str
               ret.[string k] := string v;
         done;
         ret),
-    decryptStateFromCookie ctxt =
-       (ret = [:];
-        forJavaMap (ESAPI#httpUtilities()#decryptStateFromCookie(request ctxt)) 
-        do k v:
-              ret.[string k] := string v;
-        done;
-        ret),
     encryptHiddenField value = 
         string (ESAPI#httpUtilities()#encryptHiddenField(value is string)),
     encryptQueryString value = 
         string (ESAPI#httpUtilities()#encryptQueryString(value is string)),
-    encryptStateInCookie values ctxt =
-        ESAPI#httpUtilities()
-            #encryptStateInCookie(response ctxt, values is hash<string,string>),
 
-    getCookie name ctxt = (
-        str = ESAPI#httpUtilities()#getCookie(request ctxt,name);
-        if defined? str then Some (string str) else none fi),
-
-    getFileUploads destDir extensions ctxt =
-        mapJavaList do fl: (fl unsafely_as ~java.io.File) done
-                ESAPI#httpUtilities()#getFileUploads(request ctxt, 
-                        new java.io.File(destDir is string), 
-                        extensions is list<string>),
-    
-    getHeader name ctxt =
-        (str = ESAPI#httpUtilities()#getHeader(request ctxt,name is string);
-        if defined? str then Some (string str) else none fi),
-
-    killAllCookies ctxt = 
-        ESAPI#httpUtilities()#killAllCookies(request ctxt,response ctxt),
-    killCookie name ctxt = 
-        ESAPI#httpUtilities()
-            #killCookie(request ctxt,response ctxt,name is string),
-    setHeader name value ctxt = 
-        ESAPI#httpUtilities()
-            #setHeader(response ctxt,name is string, value is string),
-    setNoCacheHeaders ctxt = 
-        ESAPI#httpUtilities()#setNoCacheHeaders(response ctxt),
 
     encodeForBase64 bytes wrap = 
         string ESAPI#encoder()

@@ -28,17 +28,6 @@ import java.text:NumberFormat, DecimalFormat, DateFormat, SimpleDateFormat;
 import java.net: URLEncoder, URLDecoder;
 import java.io:File;
 
-import javax.servlet: ServletContext, FilterChain,ServletException,
-                      AsyncContext, ServletRequest, AsyncListener;
-import javax.servlet: Filter,FilterConfig,ServletRequest,ServletResponse,
-					  DispatcherType;
-import javax.servlet.http: HttpServletRequest, HttpServletResponse,HttpSession,
-							Part;
-
-import org.springframework.mock.web: MockFilterConfig, MockServletContext, 
-    MockHttpServletRequest, MockHttpServletResponse,MockFilterChain;
-import org.springframework.web.util.WebUtils;
-
 import yeti.lang: Fun, Struct;
 import org.yeb:ValidationException, YebUtils;
 
@@ -46,185 +35,11 @@ load org.yeb.std;
 load org.yeb.mvc.webutils;
 load org.yeb.validation;
 
-typedef handlerResult = Completed string | NotHandled string | Handling string;
-typedef handlerType<a> = a -> handlerResult;
-typedef handlerAdapterType<a> = handlerType<a> -> handlerType<a>;
-     
-     
-///creates the context used in the handlers. This function is mainly used 
-///internally by the yebfilter. For testing use mockCtxt
-rootCtxt pathInfo sctxt req res asyncContext = 
-   (reqn = new YebHttpServletRequestWrapper(() as ~Locale, "",
-                                        pathInfo,() as ~java.util.Map, req);
-                                        
-    timeoutMonitor = newMonitor ();
-    (asyncContext is ~AsyncContext)#addListener(asyncListener do ev:
-        case ev of
-        OnTimeout ev: timeoutMonitor.fire ();
-        _ : ()
-        esac
-    done);
-	{
-		asyncContext is ~AsyncContext,
-		req = reqn as ~HttpServletRequest,
-		res is ~HttpServletResponse,
-		sctxt is ~ServletContext,
-        monitor = timeoutMonitor,
-	});
-		
-
-
-class YebMockAsyncContext(ServletRequest req, ServletResponse res) extends AsyncContext
-	
-	var timeout = 1000,
-	var request = req,
-	void addListener(AsyncListener lis)
-		(),
-	void addListener(AsyncListener lis, ServletRequest req, ServletResponse res)
-		(),
-	
-	void complete() (),
-	
-	AsyncListener createListener(Class cl)
-		failWith "Not supported",
-	
-	void dispatch() (),
-	
-	void dispatch(ServletContext ctxt, String path) (),
-	void dispatch(String path) (),
-	ServletRequest getRequest() request,
-	void setRequest(ServletRequest req) request := req,
-	ServletResponse getResponse() res,
-	long getTimeout() timeout,
-	void setTimeout(long t) timeout := t,
-	boolean hasOriginalRequestAndResponse() true,
-	void start(Runnable ra) failWith "Not supported"
-end;
-
-class YebMockHttpServletRequest(MockServletContext ctxt, String reqMethod, String reqPath, MockHttpServletResponse resp) extends MockHttpServletRequest(ctxt,reqMethod, reqPath)
-	var asyncContext = new YebMockAsyncContext((),resp),
-	
-	//void init() asyncContext#setRequest(this),
-	
-	AsyncContext getAsyncContext() asyncContext,
-	boolean isAsyncStarted() true,
-	boolean isAsyncSupported() true,
-	AsyncContext startAsync() 
-		asyncContext := new YebMockAsyncContext(this, resp);
-		asyncContext,
-		
-	AsyncContext startAsync(ServletRequest req, ServletResponse res)
-		asyncContext := new YebMockAsyncContext(req,res);
-		asyncContext,
-		
-	Collection getParts () failWith "Not implemented",
-	Part getPart(String name) failWith "Not implemented",
-	boolean authenticate(HttpServletResponse resp) failWith "Not implemented",
-	void logout() (),
-	DispatcherType getDispatcherType() failWith "Not implemented",
-	void login(String name, String pwd) failWith "Not implemented"
-	
-	
-end;
-	
-newMockHttpServletRequest method path =
-	new YebMockHttpServletRequest(new MockServletContext(), method is string, path is string, new MockHttpServletResponse());  
-
-
-filterConfig servletContext params = 
-   (class YebMockFilterConfig extends javax.servlet.FilterConfig
-        String getFilterName () "mockfilter",
-        String getInitParameter(String name)
-            if (string name) in params then
-                (params.[name] is string) unsafely_as ~String;
-            else
-                () unsafely_as ~String
-            fi,
-        java.util.Enumeration getInitParameterNames()
-            var ks = keys params;
-            class MyEnum extends java.util.Enumeration
-                boolean hasMoreElements()
-                    not empty? ks,
-                Object nextElement()
-                    n = head ks;
-                    ks := tail ks;
-                    n unsafely_as ~Object,
-            end;
-            new MyEnum (),
-        ServletContext getServletContext ()
-            servletContext is ~ServletContext,
-    end;
-    new YebMockFilterConfig());
-            
-
-    
-/** creates a mockCtxt for testing handlers. 
- *   Use Get Post Head etc to specifiy the path. 
- *   :mockCtxt [Get "index.html"]
- *   
- *   Use Header hash<string,string>, Param hash<string,string>, to spcify param
- *   :mockCtxt [Get "index.html", Header ["accepted":"..."], Param["foo","value"]]
- *   
- *   Use Params to specify many parameter arrays
- *   :mockCtxt [Post "form", Params ["values":["1","2"]]]
- */
-mockCtxt opts = 
-   (var reqMethod = "GET";
-    var reqPath = "/";
-    var resourcePath = "test/resources/webapp";
-    var headers = [:];
-    var params = [:];
-    for opts do opt:
-        case opt of
-        Get ruri : (reqMethod := "GET";reqPath := ruri);
-        Head ruri : (reqMethod := "HEAD";reqPath := ruri);
-        Post ruri : (reqMethod := "POST";reqPath := ruri);
-        Put ruri : (reqMethod := "PUT";reqPath := ruri);
-        Delete ruri : (reqMethod := "DELETE";reqPath := ruri);
-        Trace ruri : (reqMethod := "TRACE";reqPath := ruri);
-        Connect ruri : (reqMethod := "CONNET";reqPath := ruri);
-        ResourcePath str: resourcePath := str;
-        Header ha: forHash ha do k v: headers.[string k] := string v done;
-        Param ha: forHash ha do k v: 
-                params.[string k] := array [(string v) unsafely_as ~String] 
-            done;
-        Params ha : forHash ha do k v:
-                params.[string k] := 
-                    array (map do ve: 
-                            (string ve) unsafely_as ~String 
-                           done v)
-            done;
-        esac;
-    done;
-
-
-    mockServletCtxt = new MockServletContext(resourcePath);
-    mockRes = new MockHttpServletResponse();
-    mockReq = new YebMockHttpServletRequest(mockServletCtxt,reqMethod, reqPath,mockRes);
-
-    forHash params do k v:
-        mockReq#addParameter(k,v);
-    done;
-    forHash headers do k v:
-        mockReq#addHeader(k,v);
-    done;
-
-    ctxt = rootCtxt reqPath mockServletCtxt mockReq mockRes mockReq#startAsync();
-	
-	
-    nc = ctxt with {
-        mockServletCtxt,
-        mockReq,
-        mockRes,
-    };
-    nc;
-);
-
 
 //HandlerAdapters
 
 
-idHandler handler is handlerAdapterType<'a> = handler;
+idHandler handler is handlerAdapter = handler;
 
 
 /**
@@ -314,58 +129,53 @@ urlPatternToRegex pat =
     
 
 regexHandlerImpl method regexPattern handler = 
-   (meth = strUpper method;
+   (import java.util.regex.Pattern;
+    meth = strUpper method;
     var checkMethod? = meth != "ALL";
     
     {names, regex} = urlPatternToRegex regexPattern;
     pattern = Pattern#compile(regex);
 
-    do octxt:
-        oreq = request octxt;
-        if checkMethod? and (meth != (strUpper oreq#getMethod())) then
-            notHandled
+    do req:
+        if checkMethod? and (meth != (strUpper req.method )) then
+            false
         else
-            matcher = pattern#matcher(oreq#getPathInfo() as ~java.lang.String);
+            matcher = pattern#matcher(req.pathInfo is string);
             if matcher#matches() then
-                nreq = new YebHttpServletRequestWrapper(true,oreq);
-
                 //add the paramters
+                params = copy req.params;
                 urlParams = array [];
                 for [0..matcher#groupCount()] do c:
                     push urlParams matcher#group(c);
                 done;
-                nreq#putParameters("urlParams", array urlParams);
+                params.["urlPrams"] := urlParams;
                 
                 //add the named parameters
                 for names do name:
-                    nreq#putParameter(name, matcher#group(name));
+                    params.[name] := string matcher#group(name);
                 done;
 
                 //set the new pathInfo and servletPath
-                if (contains? "rest" names) and (defined? matcher#group("rest")) then
-                    rest = matcher#group("rest");
-                    matched = strLeft oreq#getPathInfo() 
-                            ((strLength oreq#getPathInfo()) - (strLength rest)); 
-                    nreq#setServletPath((oreq#getServletPath()) ^ matched);
-                    nreq#setPathInfo(rest);
+                pathInfo = if (contains? "rest" names) 
+                    and (defined? matcher#group("rest")) then
+                    string matcher#group("rest");        
                 else
-                    nreq#setPathInfo("");
-                    newServletPath = 
-                        (oreq#getServletPath()) ^ (oreq#getPathInfo());
-                    nreq#setServletPath(newServletPath);
+                    ""
                 fi;
-                nctxt = octxt with {req = nreq as ~HttpServletRequest};
-                handler nctxt
+                nreq = req with { params, pathInfo};
+
+                handler nreq
             else
-                notHandled
+                false
             fi;
         fi;
     done;
 );
 
 /**
- * Handleradapter which takes a request method and path pattern and executes on match
- * the given handler. Normally this is not used directly but a router is used.
+ * Handleradapter which takes a request method and path pattern and 
+ * executes on match the given handler. 
+ * Normally this is not used directly but a router is used.
  * The path pattern is the same as described in urlPatternToRegex.
  *
  * to handle the Get request for index:
@@ -381,18 +191,19 @@ regexHandler requestUrl handler =
         Options us: pair "OPTIONS" us;
         Head us: pair "HEAD" us;
         All us: pair "ALL" us;
+        General {method, pattern} : pair method pattern;
         esac;
     regexHandlerImpl meth regexPattern handler);
     
-runHandlers handlers ctxt is list<handlerType<'a>> -> 'a -> handlerResult =
+runHandlers handlers req is list<handlerType> -> handler =
     if empty? handlers then
-        notHandled
+        false
     else
-        case (head handlers) ctxt of
-            NotHandled x :
-                runHandlers (tail handlers) ctxt;
-            x : x;
-        esac;
+        if (head handlers) req then
+            true
+        else
+            runHandlers (tail handlers) req;
+        fi
     fi;
 
 lazyHandler moduleName  is string -> handlerType<'b> =
@@ -499,174 +310,22 @@ newRouter adapter = handlersFact [] adapter;
  * :router = newRouter (localHandler [Locale#US, Locale#IT]);
  *
  */ 
-localeHandler locales handler is list<~Locale> -> handlerAdapterType<'a> = 
+localeHandler locales handler is list<~Locale> -> handlerAdapter = 
    (if empty? locales then
        handler
     else
         lh = hash locales;
         defaultL = head locales;
-        do ctxt:
+        do req:
             handler 
-                if (request ctxt)#getLocale() in lh then 
-                    ctxt
+                if req.locale in lh then 
+                    req
                 else
-                    nreq = 
-                        new YebHttpServletRequestWrapper(false, (request ctxt));
-                    nreq#setLocale(defaultL);
-                    ctxt with {req = nreq as ~HttpServletRequest};
-                fi;
+                    req with {locale = defaultL};
+                fi
         done;
     fi);
 
-
-
-
-serviceHandlerSeperators = ["By": "", "From": "", "To": "", "At": ""];
-
-/**
- * ServiceHandler takes a struct of functions and transform that functions
- * depending on their names in handler and transforms the result in a json representation
- */
-serviceHandler service =
-    case peekObject service of
-    Struct {fields, value}:
-       (serviceFuns = fields
-            |> map do field: 
-                import yeti.lang.Fun;
-                fun = value field;
-                if fun instanceof Fun then
-                    ma = (like "((^any)|(^get)|(^post)|(^put)|(^delete))(.*)" field) ();
-                    if not empty? ma then
-                        method = ma.[1];
-                        pl = (length ma);
-                        fun = value unsafely_as ~Fun;
-                        
-                        name = ma.[pl - 1];
-                        
-                        var lastArg = 0;
-                        names = matchAll "[A-Z][^A-Z]*" 
-                            do partA:
-                                part = partA.[0];
-                                if part == "Params" then
-                                    lastArg := 0;
-                                    Some (Params())
-                                elif part in serviceHandlerSeperators then
-                                    lastArg := 1;
-                                    none
-                                else
-                                    r = if lastArg == 1 then
-                                        Some (Param (strLower part));
-                                    else
-                                        Some (Part (strLower part));
-                                    fi;
-                                    lastArg := 0;
-                                    r
-                                fi
-                            done (Some . Part . strLower) name
-                            |> catSome;
-                        
-                        
-                        
-                        
-                        
-                        pattern = names
-                            |> filter do v:
-                                case v of
-                                Part f: true;
-                                Param p: true;
-                                _ : false;
-                                esac
-                            done
-                            |> map do n:
-                                case n of
-                                Param na: ":\(na)";
-                                Part na: na;
-                                _ : failWith "internal error must not be anything else";
-                                esac
-                            done
-                            |> strJoin "/";
-                        
-                        params = names 
-                            |> filter do v:
-                                case v of
-                                Part _ : false;
-                                _ : true;
-                                esac
-                            done;
-                        
-                        baseHandler = do ctxt:
-                            res1 = fold 
-                                do obj pa:
-                                    if (obj is ~Object) instanceof Fun then
-                                        fn = obj unsafely_as ~Fun;
-                                        case pa of
-                                        Param pn:
-                                            maybeParam 
-                                                pn 
-                                                \(failWith "Excpeting param \(pa) but was not")
-                                                do v:
-                                                    fn#apply(E v) 
-                                                done
-                                                ctxt;
-                                        Params _ :
-                                            fn#apply(E ctxt);
-                                        _ : fn;
-                                        esac;
-                                    else
-                                        failWith "Function [\(field)] has too few params missing [\(pa)]";
-                                    fi;
-                                done
-                                fun
-                                params;
-                            
-                            
-                            res = if (method == "post") or (method == "put") then
-                                if res1 instanceof Fun then
-                                    fn = res1 unsafely_as ~Fun;
-                                    cont = getContents (readerHandle (request ctxt)#getReader());
-                                    fn#apply(E cont);
-                                else
-                                    failWith "No function \(res1), but want to give in body";
-                                fi
-                            else
-                                res1;
-                            fi;
-                                        
-                            
-                            resstr = 
-                            if res instanceof Fun then
-                                failWith "response is no struct and no string \(res)";
-                            elif res instanceof yeti.lang.Struct then
-                                (load org.yeb.json).write [] res;
-                            elif res instanceof yeti.lang.Coll then
-                                ls = (res unsafely_as ~yeti.lang.Coll)#asList();
-                                (response ctxt)#setContentType("text/json;utf-8");
-                                (load org.yeb.json).write[] ls;
-                            else 
-                                (response ctxt)#setContentType("text/plain;utf-8");
-                                string res;
-                            fi;
-                            (response ctxt)#getWriter()#print(resstr);
-                            Completed "";
-                        done;
-                        
-                        handler = regexHandlerImpl method pattern baseHandler;
-                        
-                        Some handler
-                    else
-                        none
-                    fi
-                else
-                    none
-                fi
-            done
-            |> catSome;
-        
-        router = newRouter id;
-        for serviceFuns router.add;
-        router.handler);
-    _ : failWith "service must be a struct with service functions";
-    esac;
 
 
 (load org.yeb.mvc.webutils) with {
