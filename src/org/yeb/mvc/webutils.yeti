@@ -49,18 +49,12 @@ typedef response = {
 };
 
 typedef request = {
-    serverPort is number,
-    serverName is string,
     remoteAddr is string,
     headers is hash<string, list<string>>,
     uri is string,
-    path is string,
     pathInfo is string,
-    queryString is string,
-    scheme is string,
     method is string,
     locale is ~Locale,
-    sslClientCertificate is None () | Some string,
     body is Bytes ~byte[] | None () | Parts list<File string | Bytes ~byte[]>,
     params is hash<string,list<string>>,
     bodyParams is hash<string, list<string>>,
@@ -75,19 +69,13 @@ typedef handler = request -> boolean;
 
 typedef handlerAdapter = handler -> handler;
 
-request {serverPort, serverName, method,uri,path, queryString, headers} =
-    {serverPort,
-    serverName,
-    remoteAddr,
+request {remoteAddr, method,uri,pathInfo, headers} =
+    {remoteAddr,
     headers,
     uri,
-    path,
     pathInfo = path,
-    queryString,
-    scheme = "http",
     method,
     locale = ~Locale#getDefault(),
-    sslClientCertificate = none,
     body = none,
     params = [:],
     session = [:],
