@@ -18,12 +18,13 @@ module org.yeb.mvc.webutils;
 
 import java.lang:Character;
 import java.net:URLEncoder, URLDecoder;
-import javax.servlet.AsyncContext;
-import javax.servlet.http:HttpServletRequest, 
-                          HttpServletResponse, 
-						  Cookie, 
-						  HttpSession;
+
+
 import org.owasp.esapi:ESAPI,HTTPUtilitiess;
+
+
+
+    
 
 load org.yeb.std;
 load org.yeb.validation;
@@ -196,6 +197,57 @@ cacheForSeconds res = (
 );
 
 //+++++++++++++++++++++++Utils ++++++++++++++++++++++++++++
+_date_formatsTH = threadLocal none;
+_date_formats () = 
+    (import java.uitl:Locale,
+                     Calendar,
+                     TimeZone;
+    import java.text:SimpleDateFormat;
+    case _date_formatsTH.value of
+    None () : 
+        cal = Calender#getInstance();
+        cal#set(2000, Colendar#January, 1,0,0);
+        cal#getTime();
+        createFormat pattern =
+            (f = new SimpleDateFormat(pattern, Locale#US);
+            f#setTimeZone(TimeZone#getTimeZone("GMT"));
+            f#set2DigitYearStart(cal);
+            f);
+
+        formats = {
+            rfc1123 = createFormat "EEE, dd MMM yyy HH:mm:ss zzz",
+            rfc1036 = createFormat "EEEE, dd-MMM-yy HH:mm:ss zzz",
+            asctime = createFormat "EEE MMM d HH:mm:ss yyyy"
+        }
+        _date_formatsTH.value := Some formats;
+        formats;
+    Some formats: formats;
+    esac);
+
+
+parseHttpDate dateValue =
+    (dateValue = if strStarts? dateValue "'" and strEnds? dateValue "'" then
+            strSlice dateValue 1 ((strLength? dateValue) - 1);
+        else
+            dateValue;
+        fi;
+    formats = _date_formats ();
+    try
+        Some (formats.asctime#parse(dateValue));
+    catch ParseException ex:
+        try
+            Some (formats.rfc1036#parse(dateValue));
+        catch ParseException ex:
+            try
+                Some (formats.rfc1123#parse(dateValue));
+            catch ParseException ex:
+                none
+            yrt
+        yrt
+    yrt);
+
+formatHttpDate date =
+    (_date_formats ()).rfc1123#format(date) as string;
 
 
 urlEncode str = URLEncoder#encode(str,"UTF-8");
@@ -313,7 +365,9 @@ getFlash name req =
     HEADER_PRAGMA = "Pragma",
     HEADER_EXPIRES = "Expires",
     HEADER_CACHE_CONTROL = "Cache-Control",
-	
+
+    parseHttpDate,
+    formatHttpDate,
     flashKey,
     getFlash,
     redirectView, 
