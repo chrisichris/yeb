@@ -62,7 +62,7 @@ oauthHandlers provider apiKey apiSecret callbackUrl opts =
     initHandler exceptionHandler req = 
         try
             token = service#getRequestToken();
-            req.res.session.["oauth.request_token"] := token;
+            req.res.session.["oauth.request_token"] := (token as ~Object);
             confirmURL = service#getAuthorizationUrl(token);
             webutils.redirectView confirmURL req;
         catch OAuthException ex:
@@ -76,7 +76,7 @@ oauthHandlers provider apiKey apiSecret callbackUrl opts =
             
             verifier = new Verifier(oauth_verifier);
             requestToken = 
-                (req.session.["oauth.request_token"] is ~Object)
+                (req.res.session.["oauth.request_token"] is ~Object)
                     unsafely_as ~Token;
             
             accessToken = 
