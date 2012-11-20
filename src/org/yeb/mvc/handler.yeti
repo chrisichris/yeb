@@ -128,7 +128,8 @@ urlPatternToRegex pat =
 
     
 
-regexHandlerImpl method regexPattern handler = 
+regexHandlerImpl method regexPattern handler 
+    is string -> string -> handlerAdapter = 
    (import java.util.regex.Pattern;
     meth = strUpper method;
     var checkMethod? = meth != "ALL";
@@ -140,7 +141,7 @@ regexHandlerImpl method regexPattern handler =
         if checkMethod? and (meth != (strUpper req.method )) then
             false
         else
-            matcher = pattern#matcher(req.pathInfo is string);
+            matcher = pattern#matcher(req.path is string);
             if matcher#matches() then
                 //add the paramters
                 params = copy req.params;
@@ -148,21 +149,26 @@ regexHandlerImpl method regexPattern handler =
                 for [0..matcher#groupCount()] do c:
                     push urlParams matcher#group(c);
                 done;
-                params.["urlPrams"] := urlParams;
+                params.["urlPrams"] := list urlParams;
                 
                 //add the named parameters
                 for names do name:
-                    params.[name] := string matcher#group(name);
+                    ls = if name in params then
+                            params.[name];
+                         else
+                            []
+                         fi;
+                    params.[name] := (string matcher#group(name)) :: ls;
                 done;
 
                 //set the new pathInfo and servletPath
-                pathInfo = if (contains? "rest" names) 
+                path = if (contains? "rest" names) 
                     and (defined? matcher#group("rest")) then
                     string matcher#group("rest");        
                 else
                     ""
                 fi;
-                nreq = req with { params, pathInfo};
+                nreq = req with { params, path};
 
                 handler nreq
             else
@@ -195,7 +201,7 @@ regexHandler requestUrl handler =
         esac;
     regexHandlerImpl meth regexPattern handler);
     
-runHandlers handlers req is list<handlerType> -> handler =
+runHandlers handlers req is list<handler> -> handler =
     if empty? handlers then
         false
     else
@@ -206,13 +212,13 @@ runHandlers handlers req is list<handlerType> -> handler =
         fi
     fi;
 
-lazyHandler moduleName  is string -> handlerType<'b> =
-   (var myHandler is (Some handlerType<'b> | None () ) = none;
+lazyHandler moduleName  is string -> handler =
+   (var myHandler is (Some handler | None () ) = none;
     loadHandler () = (
         cl = Thread#currentThread()#getContextClassLoader()#loadClass(moduleName);
         mod = cl#getMethod(
             "eval",() as ~Class[])#invoke(() as ~Object, () as ~Object[]);
-        jmod = mod unsafely_as {handler is handlerType<'b>};
+        jmod = mod unsafely_as {handler is handler};
         h = jmod.handler;
         myHandler := Some h;
         h;
@@ -315,14 +321,16 @@ localeHandler locales handler is list<~Locale> -> handlerAdapter =
        handler
     else
         lh = hash locales;
-        defaultL = head locales;
+        defaultL = [head locales];
         do req:
-            handler 
-                if req.locale in lh then 
-                    req
+            nlocs = filter (in lh) req.locales;
+            nlocs = if empty? nlocs then
+                    defaultL
                 else
-                    req with {locale = defaultL};
-                fi
+                    nlocs
+                fi;
+
+            handler (req with {locales = nlocs}); 
         done;
     fi);
 
@@ -330,12 +338,7 @@ localeHandler locales handler is list<~Locale> -> handlerAdapter =
 
 (load org.yeb.mvc.webutils) with {
 
-
-    //makeNewCtxt,
-    filterConfig,
-    rootCtxt,
-    mockCtxt,
-	newMockHttpServletRequest,
+    idHandler,
 
     urlPatternToRegex,
 
