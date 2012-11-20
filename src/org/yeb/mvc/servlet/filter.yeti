@@ -14,12 +14,14 @@
  * and limitations under the License.
  */
 
-module org.yeb.mvc.servlert.filter;
+module org.yeb.mvc.servlet.filter;
 
 import java.lang: Thread, 
                   System,
                   ClassLoader,
-                  ClassNotFoundException;
+                  ClassNotFoundException,
+                  Runtime;
+import java.util:Locale;
 import java.util.concurrent:ConcurrentHashMap,
                             ForkJoinPool;
 import java.io.File;
@@ -34,7 +36,8 @@ import javax.servlet: ServletContext,
                       AsyncContext;
 import javax.servlet.http: HttpServletRequest, 
                            HttpServletResponse,
-                           HttpUtils;
+                           HttpUtils,
+                           Cookie;
 
 import yeti.lang: Fun, Struct;
 import yeti.lang.compiler: CompileException;
@@ -51,7 +54,6 @@ log = getLogger "org.yeb.filter";
 load org.yeb.mvc.webutils;
 mvc = load org.yeb.mvc.handler;
 configModule = load org.yeb.mvc.config;
-forkjoin = load org.yeb.forkjoin;
 
 
 //helper to invoke with classloader
@@ -80,84 +82,82 @@ asyncContextToReq ac pathInfo=
         else
             req#getQueryString()
         fi;
-    req = {
-    remoteAddr = req#getRemoteAddr(),
-    headers = 
-        (names = enumtToList req#getHeaderNames() string;
-        ret = [:];
-        for names do name:
-            ret.[name] := enumToList (req#getHeaders()) string;
-        done),
-    uri = HttpUtils#getRequestURL(req),
-    path = req#getRequestURI(),
-    method = strUpper req#getMethod(),
-    query,
-    locales = enumtToList req#getLocales() id,
-    params = parseQuery query,
-    session = 
-        (sess = req#getSession(false);
-        if not defined? session then
-            [:]
-        else
-            ret = sess#getAttribute(_http_session_key);
-            if not defined? ret then
-                [:]
+    
+    reqs = {
+        remoteAddr = req#getRemoteAddr(),
+        headers = 
+            (names = enumToList req#getHeaderNames() string;
+            ret = [:];
+            for names do name:
+                ret.[name] := enumToList (req#getHeaders(name)) string;
+            done;
+            ret),
+        uri = string HttpUtils#getRequestURL(req),
+        path = req#getRequestURI(),
+        method = strUpper req#getMethod(),
+        query,
+        locales = enumToList req#getLocales() (unsafely_as ~Locale),
+        params = parseQuery query,
+        sessionId =
+            (if defined? req#getSession(false) then
+                req#getSession()#getId();
             else
-                ret unsafely_as hash<string,~Object>
-            fi;
-        fi)
-    sessionId =
-        (if defined? req#getSession(false) then
-            req#getSession()#getId();
-        else
-            undef_str;
-        fi),
-    cookies = 
-        req#getCookies() |> map do cookie:
-            {comment = cookie#getComment(),
-            domain = cookie#getDomain(),
-            maxage = cookie#getMaxAge(),
-            path = cookie#getPath(),
-            name = cookie#getName(),
-            secure = cookie#getSecure(),
-            value = cookie#getValue(),
-            version = cookie#getVersion(),
-            delete = false} is cookie
-        done,
-    body = 
-        (cT = req#getContentType();
-        if cT == "application/x-www-form-urlencoded" then
-            con = (inputHandle req#getInputStream()).content ();
-            Params (parseQuery con);
-        //elif cT == "multipart/form-data" then
-        else    
-            bi = binInputHandle (req#getInputStream());
-            Bytes (binReadAll (50 * 1024) bi do bs n: bs done)
-        fi),
+                undef_str;
+            fi),
+        cookies = 
+            req#getCookies() |> map do cookie:
+                {comment = (cookie is ~Cookie)#getComment(),
+                domain = cookie#getDomain(),
+                maxage = cookie#getMaxAge(),
+                path = cookie#getPath(),
+                name = cookie#getName(),
+                secure = cookie#getSecure(),
+                value = cookie#getValue(),
+                version = cookie#getVersion(),
+                delete = false} is cookie
+            done,
+        body = 
+            (inS = req#getInputStream();
+            if not defined? inS then
+                none
+            else
+                bi = binInputHandle inS;
+                Bytes (binReadAll (50 * 1024) bi do bs n: bs done)
+            fi),
     };
     res = {
-        var statusCode = 200,
         headers = [:],
-        var body = none,
-        session = copy req.session,
-        cookies = array []
+        cookies = array [],
+        session = 
+            (sess = req#getSession(false);
+            if not defined? sess then
+                [:]
+            else
+                ret = sess#getAttribute(_http_session_key);
+                if not defined? ret then
+                    [:]
+                else
+                    ret unsafely_as hash<string,~Object>
+                fi;
+            fi),
     };
     //clear flash
+    res.session.[oldFlashKey] := res.session.[flashKey];
     res.session.[flashKey] := [:] as ~Object;
-    req = req with {
-        response = res,
+    reqs = reqs with {
+        res,
         respond response = 
             (res = ac#getResponse() unsafely_as ~HttpServletResponse;
             res#setStatus(response.statusCode);
-            forHash response.headers do n v:
-                res#setHeader(n,v);
+            forHash response.headers do n vs:
+                for vs do v: res#setHeader(n,v) done;
             done;
             if defined? req#getSession(false)
                 or not empty? response.session then
-                req#getSession()#put(_http_session_key, response.session);
+                req#getSession()#setAttribute(_http_session_key, 
+                                              response.session);
             fi;
-            for cookies do co:
-                import java.servlet.http.Cookie;
+            for response.cookies do co:
                 jco = new Cookie(co.name, co.value);
                 jco#setComment(co.comment);
                 jco#setDomain(co.domain);
@@ -174,18 +174,16 @@ asyncContextToReq ac pathInfo=
             case response.body of
             Bytes bytes:
                 res#getOutputStream()#write(bytes is ~byte[]);
-                flushBuffer();
             String str:
-                res#getWriter()#write(str);
-                flushBuffer();
+                res#getWriter()#write(str is string);
             None _:
                 ();
             File fl:
                 failWith "Can not serve file"
             esac;
-            ac#complete());
+            ac#complete()),
     };
-    req is request)
+    reqs is request);
 
 
 withClassLoader cl f is ~ClassLoader -> (() -> 'a) -> 'a= 
@@ -304,7 +302,7 @@ class YebFilter extends javax.servlet.Filter
                         handler = \false
                         },
     var mainWebModuleModified = -1,
-    var mainWebHandler is handlerType = \false,
+    var mainWebHandler is handler = \false,
     var mainWebModuleClassLoader = () as ~ClassLoader,
     var forkJoinPool = () as ~ForkJoinPool,
 
@@ -351,11 +349,12 @@ class YebFilter extends javax.servlet.Filter
         fi;
         
         forkJoinSize = if defined? fc#getInitParameter("poolSize") then
-            pa = int (number fc#getInitParameter("poolSize"));
+            int (number fc#getInitParameter("poolSize"));
         else
-            Runtime#availableProcessores * 3;
-        fi
-        forkJoinPool := new ForkJoinPool(forkJoinSize);
+            //Runtime#availableProcessors() * 3;
+            20;
+        fi;
+        forkJoinPool := new ForkJoinPool(forkJoinSize is number);
         
         if defined? fc#getInitParameter("yebMainModule") then
             mainModuleName := 
@@ -499,8 +498,8 @@ class YebFilter extends javax.servlet.Filter
                         log#debug("starting async context");
 
                         asyncContext = req#startAsync(req,res);
-                        creq = asyncContextToReq pathInfo asyncContext;
-                        forkJoinPool#execute (runnable \(withClassLoader cl do:
+                        creq = asyncContextToReq asyncContext pathInfo;
+                        forkJoinPool#execute(runnable \(withClassLoader cl do:
                             log#debug("handling path [{}]",pathInfo);
                             r = try
                                 handler creq;
