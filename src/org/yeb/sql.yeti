@@ -22,7 +22,6 @@ import javax.sql:DataSource;
 import java.util.regex.Pattern;
 
 load org.yeb.std;
-forkjoin = load org.yeb.forkjoin;
 
 
 
@@ -216,7 +215,30 @@ _resultSetWrapper rs =
     });
 
 
-_withConnection dataSource fn =
+/**
+ * Takes a connection form the datasource starts a transaction,
+ * executes the provided function and closes the connection and transaction.
+ *
+ * Note from within a yeb applicaion most often the task method is used,
+ * because this spans an async task and does not block the thread.
+ *
+ * The argument to the provided function is a structure conataing the connection
+ * a rollbackOnly function and an operateStatement function which is 
+ * used by the various sql functions in this module and can be replace ie for
+ * logging retrying etc.
+ * 
+ * ie:
+ *
+ * : ds = dataSource "driveclassName" "conncetionurl" [];
+ * : withConnection ds do con:
+ * :    sqlList "select * from customers" [] con;
+ * : done;
+ * 
+ * or shorter
+ *
+ * : withConnection ds \(sqlList "select * from customer" [])
+ */
+withConnection dataSource fn =
     (con = (dataSource is ~DataSource)#getConnection();
     try
         oldAutoCommit = con#getAutoCommit();
@@ -272,35 +294,7 @@ _withConnection dataSource fn =
         fi
     yrt);
 
-task mapFn db fn =
-	forkjoin.map mapFn (forkjoin.blockingTask \(_withConnection db fn));
 
-/**
- * Takes a connection form the datasource starts a transaction,
- * executes the provided function and closes the connection and transaction.
- *
- * Note from within a yeb applicaion most often the task method is used,
- * because this spans an async task and does not block the thread.
- *
- * The argument to the provided function is a structure conataing the connection
- * a rollbackOnly function and an operateStatement function which is 
- * used by the various sql functions in this module and can be replace ie for
- * logging retrying etc.
- * 
- * ie:
- *
- * : ds = dataSource "driveclassName" "conncetionurl" [];
- * : withConnection ds do con:
- * :    sqlList "select * from customers" [] con;
- * : done;
- * 
- * or shorter
- *
- * : withConnection ds \(sqlList "select * from customer" [])
- */
-    
-withConnection db fn = 
-    forkjoin.blocking \(_withConnection db fn);
     
 /**
  * executes the given sql
@@ -607,8 +601,6 @@ exceptionString seq is ~SQLException -> string = (
     listStruct,
     maybeStruct,
     exceptionString,
-	task,
-    
 
     nullString = new DBValue((),Types#VARCHAR),
     nullInt = new DBValue((),Types#BIGINT),

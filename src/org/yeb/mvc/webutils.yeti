@@ -62,7 +62,6 @@ typedef request = {
     query is string,
     locales is list<~Locale>,
     body is Bytes ~byte[] 
-            | Params hash<string, list<string>> 
             | None () 
             | Parts list<File string | Bytes ~byte[]>,
     params is hash<string,list<string>>,
@@ -510,6 +509,7 @@ killCookie name res is string -> request -> () =
     urlParam,
     ptag,
     flashKey,
+    oldFlashKey,
     getFlash,
     setFlash,
 

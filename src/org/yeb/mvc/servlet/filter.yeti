@@ -514,11 +514,15 @@ class YebFilter extends javax.servlet.Filter
                             yrt;
                             ();
                             if not r then
-                               (log#debug("could not handle path [{}]: daspatching",pathInfo);
-                                req#setAttribute("org.yeb.UnhandledDispatch", "dispatch");
+                               (log#debug(
+                               "could not handle path [{}]: daspatching",
+                               pathInfo);
+                                req#setAttribute("org.yeb.UnhandledDispatch", 
+                                    "dispatch");
                                 asyncContext#dispatch());
                             else
-                                log#debug("handling context path: {}", pathInfo);
+                                log#debug("handling context path: {}", 
+                                    pathInfo);
                             fi;
                         done));
                                 
