@@ -19,7 +19,6 @@ module org.yeb.httpclient;
 
 load org.yeb.std;
 
-forkjoin = load org.yeb.forkjoin;
 
 
 oauthHandlers provider apiKey apiSecret callbackUrl opts =
@@ -60,26 +59,24 @@ oauthHandlers provider apiKey apiSecret callbackUrl opts =
         esac;
     
     
-    initHandler exceptionHandler ctxt = 
+    initHandler exceptionHandler req = 
         try
-            confirmURL = forkjoin.blocking \(
-                token = service#getRequestToken();
-                (webutils.session ctxt)#setAttribute("oauth.request_token", 
-                                                    token);
-                service#getAuthorizationUrl(token));
-            webutils.redirectView confirmURL ctxt;
+            token = service#getRequestToken();
+            req.res.session.["oauth.request_token"] := token;
+            confirmURL = service#getAuthorizationUrl(token);
+            webutils.redirectView confirmURL req;
         catch OAuthException ex:
-            exceptionHandler ex ctxt
+            exceptionHandler ex req
         yrt;
     
-    handleCallback ctxt =
+    handleCallback req =
         try
-            oauth_token = webutils.param "oauth_token" ctxt;
-            oauth_verifier = webutils.param "oauth_verifier" ctxt;
+            oauth_token = webutils.param "oauth_token" req;
+            oauth_verifier = webutils.param "oauth_verifier" req;
             
             verifier = new Verifier(oauth_verifier);
             requestToken = 
-                (webutils.session ctxt)#getAttribute("oauth.request_token")
+                (req.session.["oauth.request_token"] is ~Object)
                     unsafely_as ~Token;
             
             accessToken = 
@@ -161,7 +158,7 @@ client opts =
 
 asyncRequest httpClient opts url handler =
    (import com.ning.http.client:AsyncHttpClient, Response,
-                AsnycHandler,
+                AsyncHandler,
                 AsyncCompletionHandler, SignatureCalculator,
                 PerRequestConfig,
                 AsyncHttpClient$BoundRequestBuilder;
@@ -185,73 +182,49 @@ asyncRequest httpClient opts url handler =
     for opts do opt:
         case opt of
         Config fn : fn builder;
-        Handler fn: handlerOpt := Some fn;
         OAuth {api_key, api_secret, user_key, user_secret} :
-           (consumer = new ConsumerKey(api_key is string, api_secret is string);
+            consumer = new ConsumerKey(api_key is string, api_secret is string);
             user = new RequestToken(user_key is string, user_secret is string);
             calc = new OAuthSignatureCalculator(consumer,user);
-            builder#setSignatureCalculator(calc);
-        esac;
-        BodyBytes by: builder#setBody(by is ~byte[]);
-        BodyString bod: builder#setBoday(bod is string);
+            _ = builder#setSignatureCalculator(calc);
+        BodyBytes by: _ = builder#setBody(by is ~byte[]);
+        BodyString bod: _ = builder#setBody(bod is string);
         Headers hs: 
             forHash hs do k v: 
-                builder#addHeader(k is string, v is string);
+                _ = builder#addHeader(k is string, v is string);
             done;
         Parameters hs:
             forHash hs do k v:
-                builder#addParameter(k is string, v is string);
+                _ = builder#addParameter(k is string, v is string);
             done;
         FollowRedirects bo:
-            builder#setFollowRedirects(bo is boolean);
+            _ = builder#setFollowRedirects(bo is boolean);
         Timeout ms:
            (cf = new PerRequestConfig();
-            cf#setTimeoutInMs(ms is number);
-            builder#setPerRequestConfig(cf));
-        AsyncHandler h:
-            handler := Some (h is ~AsyncHandler);
-        Callback cb:
-            
+            cf#setRequestTimeoutInMs(ms is number);
+            _ = builder#setPerRequestConfig(cf));
+        esac
     done;
     
-	future = case handler of
+    future = case handler of
         AsyncHandler h: builder#execute(h is ~AsyncHandler);
         Some cb: 
-           (class MyAsyncCompletitionHandler extends AsyncCompletionHandler 
+           (class MyAsyncCompletionHandler extends AsyncCompletionHandler 
                     Object onCompleted(Response resp)
-                        cb (Value resp);
+                        cb (Some resp);
                         resp,
                     void onThrowable(Throwable ta)
                         cb (Exception ta),
             end;
             builder#execute(new MyAsyncCompletionHandler()));
         None _: builder#execute();
-    esac;
+        esac;
 	
-	future = builder#execute(new MyAsyncCompletitionHandler());
-    currentMonitor.register \(_ = future#cancel(true))
     future);
 	
-requestTask httpClient mapFn opts url =
-	forkjoin.map mapFn
-	   (forkjoin.callbackTask 
-            ((asyncRequest httpClient opts url) . Some ));
-	
-doRequest httpClient opts url = 
-   (import java.util.concurrent.ForkJoinPool;
-    if ForkJoinTask#inForkJoinPool() then
-        forkjoin.invoke (requestTask httpClient id opts url);
-    else
-        asyncRequest httpClient opt url none;
-    fi);
 
-getBody httpClient opts url =
-    string ((doRequest httpClient opts url)#getResponseBody());
 {    
     oauthHandlers,
     client,
-    doRequest,
-	requestTask,
-    getBody,
     asyncRequest
 }    
