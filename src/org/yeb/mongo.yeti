@@ -10,7 +10,6 @@ import java.util: Map, HashMap, List, Iterator;
 
 
 load org.yeb.std;
-forkjoin = load org.yeb.forkjoin;
 
 
 _fromDBO object = 
@@ -198,8 +197,6 @@ save value col =
 
 
      
-task con mapFn fn =
-	forkjoin.map mapFn (forkjoin.blockingTask \(fn con));
      
 {
     toDBO,
@@ -221,6 +218,5 @@ task con mapFn fn =
     remove, 
     save,
 
-	task,
     
 }
