@@ -24,7 +24,7 @@ remoteRepository "typesafe"
 
 deployRepository.url :="file:///${basedir}/../../chrisis-maven-repo/snapshots/";
 
-//dependency "org.yeti" "yeti" "0.9.5+-SNAPSHOT" [];
+dependency "org.yeti" "yeti" "0.9.7-SNAPSHOT" [];
 //dependency "com.typesafe.akka" "akka-actor" "2.0.1" [];
 dependency "javax.servlet" "javax.servlet-api" "3.0.1" [ProvidedScope ()];
 dependency "jline" "jline" "0.9.94" [ProvidedScope()];
