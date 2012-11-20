@@ -160,7 +160,7 @@ logout ctxt = (clearUser(); for logoutFunctions do fn: fn ctxt done);
 
 accessDenied msg = throw new AccessDeniedException(msg);
 
-isAccessibleByUser role user = contains role user.roles;
+isAccessibleByUser role user = contains? role user.roles;
 isAccessible role = isAccessibleByUser role (_currentUser.value);
 checkAccess role =
     if not isAccessible role then
